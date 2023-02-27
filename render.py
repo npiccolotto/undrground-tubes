@@ -1,6 +1,34 @@
 import networkx as nx
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from collections import Counter
+
+
+def are_faces_adjacent(face1, face2):
+    # faces are a list of tuples (points)
+    # faces are adjacent obv iff they share an edge, ie, two consecutive points
+    # however, the way our grid is constructed, any two shared points must be a shared edge
+    # thus we count the occurrences of points in both faces and if there are 2 points appearing 2 times, that's an edge
+    c = Counter(face1 + face2)
+    counter = Counter(list(c.values()))
+    return counter[2] == 2
+
+
+def centroid(points, lattice_type="sqr"):
+    points = list(
+        map(lambda p: logical_coords_to_physical(p[0], p[1], lattice_type), points)
+    )
+    x, y = zip(*points)
+    n = len(x)
+    return (sum(x) / n, sum(y) / n)
+
+
+def logical_coords_to_physical(x, y, lattice_type="sqr"):
+    if lattice_type == "hex":
+        if y % 2 == 1:
+            return (x + 0.5, -y)
+    return (x, -y)
+
 
 DEFAULT_PARAMS = {
     "render_style": "kelpfusion",  # kelpfusion, line, envelope
@@ -36,31 +64,93 @@ def make_hex_graph(m, n):
 
         u["x"] = x
         u["y"] = y
+        u["node"] = "glyph"
 
-        # shift every odd row by 0.5 in X
-        if y % 2 != 0:
-            x += 0.5
+        u["pos"] = logical_coords_to_physical(x, y, "hex")
 
-        u["pos"] = (x, y)
+    for _1, _2, e in G.edges(data=True):
+        e["edge"] = "neighbor"
+
     return G
 
 
 def make_tri_graph(m, n):
     # TODO implement
-    pass
+    raise Exception("not implemented")
 
 
 def make_sqr_graph(m, n):
     G = nx.grid_2d_graph(m, n)
     for pos, u in G.nodes(data=True):
         x, y = pos
-        u["pos"] = (x, y)
+        u["x"] = x
+        u["y"] = y
+        u["node"] = "glyph"
+        u["pos"] = logical_coords_to_physical(x, y)
+    for _1, _2, e in G.edges(data=True):
+        e["edge"] = "neighbor"
     return G
 
 
-def convert_host_to_routing_graph(G):
+def convert_host_to_routing_graph(G: nx.Graph, lattice_type, lattice_size):
     """Given a bare-bones host graph (glyph nodes and neighbor edges), extend it by anchor nodes and edges."""
-    pass
+    # idea: we know where faces are based on grid position and grid type, so we just compute them
+    # hex and sqr have the same "base" grid, hex is just shifted and has a few more edges
+    # every 2x2 quad [A,B,C,D] cw in the sqr grid is a face
+    #   A - B
+    #   | . |
+    #   D - C
+    # hex faces are double - there is an additional edge in the quad to make it 2 triangles
+    # the edge is bottom left to top right (B-D) in even rows and bottom right to top left (A-C)
+    #   A - B   A - B
+    #   |.\.|   |./.|
+    #   D - C   D - C
+    m, n = lattice_size
+    for y in range(0, n - 1):
+        for x in range(0, m - 1):
+
+            quad = [(x, y), (x + 1, y), (x + 1, y + 1), (x, y + 1)]
+            if lattice_type == "sqr":
+                u, v = centroid(quad)
+                G.add_node((u, v), node="anchor", face=quad, pos=(u, v))
+
+            elif lattice_type == "hex":
+                a, b, c, d = quad
+                if y % 2 == 0:
+                    # ABD and CBD triangles
+                    u, v = centroid([a, b, d], "hex")
+                    G.add_node((u, v), node="anchor", face=[a, b, d], pos=(u, v))
+                    u, v = centroid([c, b, d], "hex")
+                    G.add_node((u, v), node="anchor", face=[c, b, d], pos=(u, v))
+                else:
+                    # ABC and ACD triangles
+                    u, v = centroid([a, b, c], "hex")
+                    G.add_node((u, v), node="anchor", face=[a, b, c], pos=(u, v))
+                    u, v = centroid([a, c, d], "hex")
+                    G.add_node((u, v), node="anchor", face=[a, c, d], pos=(u, v))
+
+    # this is now a bit inefficient but should be fine in practice i guess
+    # to add all anchor edges we have to insert all anchor nodes first, so we can't do it in the previous procedure
+    # here we loop quadratically over all anchor nodes (faces), connect it to its glyph nodes and adjacent anchor nodes (faces)
+    anchors = [(i, u) for i, u in G.nodes(data=True) if u["node"] == "anchor"]
+
+    for i, a in anchors:
+        face = a["face"]
+        for glyph_node in face:
+            G.add_edge(i, glyph_node, edge="anchor")
+
+    for i, a in enumerate(anchors):
+        for j, b in enumerate(anchors):
+            if j <= i:
+                continue
+            k, u = a
+            l, v = b
+            face_u = u["face"]
+            face_v = v["face"]
+            if are_faces_adjacent(face_u, face_v):
+                G.add_edge(k, l, edge="anchor")
+
+    return G
 
 
 def get_host_graph(lattice_type, lattice_size):
@@ -79,9 +169,9 @@ def get_host_graph(lattice_type, lattice_size):
         case "tri":
             G = make_tri_graph(m, n)
         case _:
-            raise f"unknown lattice type {lattice_type}"
+            raise Exception(f"unknown lattice type {lattice_type}")
 
-    H = convert_host_to_routing_graph(G)
+    H = convert_host_to_routing_graph(G, lattice_type, lattice_size)
     return H
 
 
@@ -137,12 +227,27 @@ def render(p):
         case "kelpfusion":
             return render_kelpfusion(p)
         case _:
-            raise f'unknown render style {p["render_style"]}'
+            raise Exception(f'unknown render style {p["render_style"]}')
 
 
 if __name__ == "__main__":
-    G = make_hex_graph(7, 4)
+    m = 4
+    n = 4
+    G = get_host_graph("hex", (m, n))
+
     pos = nx.get_node_attributes(G, "pos")
-    nx.draw_networkx_nodes(G, pos)
-    nx.draw_networkx_edges(G, pos)
+    node_color_map = {"glyph": "#882200", "anchor": "#123456"}
+    node_size_map = {"glyph": 300, "anchor": 50}
+    nx.draw_networkx_nodes(
+        G,
+        pos,
+        node_size=[node_size_map[node[1]["node"]] for node in G.nodes(data=True)],
+        node_color=[node_color_map[node[1]["node"]] for node in G.nodes(data=True)],
+    )
+    edge_color_map = {"neighbor": "#882200", "anchor": "#123456"}
+    nx.draw_networkx_edges(
+        G,
+        pos,
+        edge_color=[edge_color_map[e[2]["edge"]] for e in G.edges(data=True)],
+    )
     plt.show()
