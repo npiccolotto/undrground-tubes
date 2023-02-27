@@ -1,5 +1,6 @@
 import networkx as nx
-
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 
 DEFAULT_PARAMS = {
     "render_style": "kelpfusion",  # kelpfusion, line, envelope
@@ -20,8 +21,28 @@ def determine_lattice_size(glyph_positions):
 
 
 def make_hex_graph(m, n):
-    # TODO implement
-    pass
+    # start with square graph
+    G = nx.grid_2d_graph(m, n)
+    for pos, u in G.nodes(data=True):
+        x, y = pos
+
+        # add diagonal edges
+        if y % 2 != 0 and y > 0 and x < m - 1:
+            # tilting to right in odd rows
+            G.add_edge((x, y), (x + 1, y - 1))
+        if y % 2 == 0 and y > 0 and x > 0:
+            # tilting to left in even rows
+            G.add_edge((x, y), (x - 1, y - 1))
+
+        u["x"] = x
+        u["y"] = y
+
+        # shift every odd row by 0.5 in X
+        if y % 2 != 0:
+            x += 0.5
+
+        u["pos"] = (x, y)
+    return G
 
 
 def make_tri_graph(m, n):
@@ -30,7 +51,16 @@ def make_tri_graph(m, n):
 
 
 def make_sqr_graph(m, n):
-    return nx.grid_2d_graph(m, n)
+    G = nx.grid_2d_graph(m, n)
+    for pos, u in G.nodes(data=True):
+        x, y = pos
+        u["pos"] = (x, y)
+    return G
+
+
+def convert_host_to_routing_graph(G):
+    """Given a bare-bones host graph (glyph nodes and neighbor edges), extend it by anchor nodes and edges."""
+    pass
 
 
 def get_host_graph(lattice_type, lattice_size):
@@ -40,15 +70,19 @@ def get_host_graph(lattice_type, lattice_size):
     Edges can be 'neighbor' edges, which corresponds to direct neighbor relations of glyphs, e.g., in a sqr grid most nodes have 4 neighbors.
     Edges can also be 'anchor' edges. They connect both 'glyph' and 'anchor' nodes. In a hex lattice, faces (polygons between 'glyph' nodes) are triangles. So each 'anchor' node has 6 'anchor' edges incident: 3 for neighboring anchors and 3 for glyphs on the boundary of the face."""
     m, n = lattice_size
+    G = None
     match lattice_type:
         case "hex":
-            return make_hex_graph(m, n)
+            G = make_hex_graph(m, n)
         case "sqr":
-            return make_sqr_graph(m, n)
+            G = make_sqr_graph(m, n)
         case "tri":
-            return make_tri_graph(m, n)
+            G = make_tri_graph(m, n)
         case _:
             raise f"unknown lattice type {lattice_type}"
+
+    H = convert_host_to_routing_graph(G)
+    return H
 
 
 def embed_to_host_graph(G, p):
@@ -104,3 +138,11 @@ def render(p):
             return render_kelpfusion(p)
         case _:
             raise f'unknown render style {p["render_style"]}'
+
+
+if __name__ == "__main__":
+    G = make_hex_graph(7, 4)
+    pos = nx.get_node_attributes(G, "pos")
+    nx.draw_networkx_nodes(G, pos)
+    nx.draw_networkx_edges(G, pos)
+    plt.show()
