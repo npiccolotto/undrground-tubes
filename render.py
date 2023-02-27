@@ -2,15 +2,15 @@ import networkx as nx
 
 
 DEFAULT_PARAMS = {
-    render_style: "kelpfusion",  # kelpfusion, line, envelope
-    unit_size_in_px: 50,
-    margin_size: 0.5,  # % of glyph size (which is 1 unit)
-    lane_width: 0.1,  # width of lanes as % of glyph size (which is 1 unit)
-    lattice_type: "sqr",  # hex, tri, sqr
-    lattice_size: "auto",  # counts glyphs, makes square lattice that fits all. otherwise provide [widht,height] array
-    glyph_positions: None,  # i guess a numpy array?
-    set_hypergraph: None,  # a networkx hypergraph
-    set_ordering: None,  # a list of set ids that defines front to back ordering (index = 0 is most front)
+    "render_style": "kelpfusion",  # kelpfusion, line, envelope
+    "unit_size_in_px": 50,
+    "margin_size": 0.5,  # % of glyph size (which is 1 unit)
+    "lane_width": 0.1,  # width of lanes as % of glyph size (which is 1 unit)
+    "lattice_type": "sqr",  # hex, tri, sqr
+    "lattice_size": "auto",  # counts glyphs, makes square lattice that fits all. otherwise provide [widht,height] array
+    "glyph_positions": None,  # i guess a numpy array?
+    "set_hypergraph": None,  # a networkx hypergraph
+    "set_ordering": None,  # a list of set ids that defines front to back ordering (index = 0 is most front)
 }
 
 
@@ -38,7 +38,7 @@ def get_host_graph(lattice_type, lattice_size):
     Nodes can be 'glyph' nodes, which correspond to spots where glyphs will be placed.
     Nodes can also be 'anchor' nodes, which corresponds to anchor points in the margins of the layout along which we trace lines and anchor polygons. We place them in the center of 'glyph' node faces.
     Edges can be 'neighbor' edges, which corresponds to direct neighbor relations of glyphs, e.g., in a sqr grid most nodes have 4 neighbors.
-    Edges can also be 'anchor' edges. They connect both 'glyph' and 'anchor' nodes. Each 'anchor' glyph has 6 'anchor' edges incident: 3 for neighboring anchors and 3 for glyphs on the boundary of the face."""
+    Edges can also be 'anchor' edges. They connect both 'glyph' and 'anchor' nodes. In a hex lattice, faces (polygons between 'glyph' nodes) are triangles. So each 'anchor' node has 6 'anchor' edges incident: 3 for neighboring anchors and 3 for glyphs on the boundary of the face."""
     m, n = lattice_size
     match lattice_type:
         case "hex":
@@ -51,15 +51,23 @@ def get_host_graph(lattice_type, lattice_size):
             raise f"unknown lattice type {lattice_type}"
 
 
+def embed_to_host_graph(G, p):
+    """Host graph is a graph with positioned nodes. This function embeds glyph nodes and set relations into the host graph.
+    Specifically, it adds i) the glyph to their respective nodes as property and ii) additional edges that correspond to the sets."""
+    # TODO implement
+    pass
+
+
 def render_line(p):
     # sketch:
     # for each set S_i:
-    #   find nodes of lattice graph that are in S_i
+    #   find nodes of host graph that are in S_i
     #   if these are disconnected, connect them by finding shortest paths between components along 'anchor' edges.
-    #   compute MST
-    #   render 'anchor' edges in MST
-    #   render 'neighbor' edges in MST
-    # TODO: lanes, lane changes, bezier curves / rounded corners?
+    #   compute MST on that G' -> this is the 'routing graph' G~ in "Edge routing with ordered bundles" (Pupyrev et al., 2016 https://doi.org/10.1016/j.comgeo.2015.10.005)
+    #   proceed with path ordering step in aforementioned paper
+    #   for each segment:
+    #     render 'anchor' edges in MST
+    #     render 'neighbor' edges in MST
     pass
 
 
