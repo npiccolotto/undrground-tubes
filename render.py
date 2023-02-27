@@ -153,7 +153,7 @@ def convert_host_to_routing_graph(G: nx.Graph, lattice_type, lattice_size):
     return G
 
 
-def get_host_graph(lattice_type, lattice_size):
+def get_routing_graph(lattice_type, lattice_size):
     """Returns a networkx graph. It contains two types of nodes and two types of edges.
     Nodes can be 'glyph' nodes, which correspond to spots where glyphs will be placed.
     Nodes can also be 'anchor' nodes, which corresponds to anchor points in the margins of the layout along which we trace lines and anchor polygons. We place them in the center of 'glyph' node faces.
@@ -175,8 +175,8 @@ def get_host_graph(lattice_type, lattice_size):
     return H
 
 
-def embed_to_host_graph(G, p):
-    """Host graph is a graph with positioned nodes. This function embeds glyph nodes and set relations into the host graph.
+def embed_to_routing_graph(G, p):
+    """Routing graph is a graph with positioned nodes. This function embeds glyph nodes and set relations into the host graph.
     Specifically, it adds i) the glyph to their respective nodes as property and ii) additional edges that correspond to the sets."""
     # TODO implement
     pass
@@ -203,7 +203,7 @@ def render_kelpfusion(p):
     # sketch:
     # for each set S_i
     # acc to meulemans 2013
-    #   compute reachability graph R of S_i, where an edge (u,v) runs in the margins (along 'anchor' edges) if (u,v) is not in host_graph. use geometric length of e as weight. R contains an edge for each a,b in S_i a!=b
+    #   compute reachability graph R of S_i, where an edge (u,v) runs in the margins (along 'anchor' edges) if (u,v) is not in host graph. use geometric length of e as weight. R contains an edge for each a,b in S_i a!=b
     #   compute shortest path graph SPG of R
     #   find faces = cycles in SPG
     #   for each face: define if it gets filled according to paper
@@ -218,7 +218,7 @@ def render(p):
         if p["lattice_size"] == "auto"
         else p["lattice_size"]
     )
-    p["host_graph"] = get_host_graph(p["lattice_type"], lattice_size)
+    p["routing_graph"] = get_routing_graph(p["lattice_type"], lattice_size)
     match p["render_style"]:
         case "line":
             return render_line(p)
@@ -233,7 +233,7 @@ def render(p):
 if __name__ == "__main__":
     m = 4
     n = 4
-    G = get_host_graph("hex", (m, n))
+    G = get_routing_graph("hex", (m, n))
 
     pos = nx.get_node_attributes(G, "pos")
     node_color_map = {"glyph": "#882200", "anchor": "#123456"}
