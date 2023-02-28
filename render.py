@@ -1,7 +1,16 @@
 import networkx as nx
 import matplotlib as mpl
+import pandas as pd
 import matplotlib.pyplot as plt
 from collections import Counter
+from itertools import combinations, pairwise
+import math
+from enum import Enum
+
+
+class EdgeType(Enum):
+    NEIGHBOR = 0
+    ANCHOR = 1
 
 
 def are_faces_adjacent(face1, face2):
@@ -30,6 +39,25 @@ def logical_coords_to_physical(x, y, lattice_type="sqr"):
     return (x, -y)
 
 
+def dist_euclidean(p1, p2):
+    # p1,p2 are tuples
+    x1, y1 = p1
+    x2, y2 = p2
+    return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+
+
+def calculate_path_length(G, path):
+    # path is a list of edges
+    if len(path) == 0:
+        return float("inf")
+
+    length = 0
+    for e in path:
+        a, b = e
+        length += dist_euclidean(G.nodes[a]["pos"], G.nodes[b]["pos"])
+    return length
+
+
 DEFAULT_PARAMS = {
     "render_style": "kelpfusion",  # kelpfusion, line, envelope
     "unit_size_in_px": 50,
@@ -37,9 +65,6 @@ DEFAULT_PARAMS = {
     "lane_width": 0.1,  # width of lanes as % of glyph size (which is 1 unit)
     "lattice_type": "sqr",  # hex, tri, sqr
     "lattice_size": "auto",  # counts glyphs, makes square lattice that fits all. otherwise provide [widht,height] array
-    "glyph_positions": None,  # i guess a numpy array?
-    "set_hypergraph": None,  # a networkx hypergraph
-    "set_ordering": None,  # a list of set ids that defines front to back ordering (index = 0 is most front)
 }
 
 
@@ -51,21 +76,20 @@ def determine_lattice_size(glyph_positions):
 def make_hex_graph(m, n):
     # start with square graph
     G = nx.grid_2d_graph(m, n)
+    G = nx.MultiGraph(incoming_graph_data=G)
     for pos, u in G.nodes(data=True):
         x, y = pos
 
         # add diagonal edges
         if y % 2 != 0 and y > 0 and x < m - 1:
             # tilting to right in odd rows
-            G.add_edge((x, y), (x + 1, y - 1))
+            G.add_edge((x, y), (x + 1, y - 1), EdgeType.NEIGHBOR)
         if y % 2 == 0 and y > 0 and x > 0:
             # tilting to left in even rows
-            G.add_edge((x, y), (x - 1, y - 1))
+            G.add_edge((x, y), (x - 1, y - 1), EdgeType.NEIGHBOR)
 
-        u["x"] = x
-        u["y"] = y
         u["node"] = "glyph"
-
+        u["logpos"] = (x, y)
         u["pos"] = logical_coords_to_physical(x, y, "hex")
 
     for _1, _2, e in G.edges(data=True):
@@ -81,10 +105,10 @@ def make_tri_graph(m, n):
 
 def make_sqr_graph(m, n):
     G = nx.grid_2d_graph(m, n)
+    G = nx.MultiGraph(incoming_graph_data=G)
     for pos, u in G.nodes(data=True):
         x, y = pos
-        u["x"] = x
-        u["y"] = y
+        u["logpos"] = (x, y)
         u["node"] = "glyph"
         u["pos"] = logical_coords_to_physical(x, y)
     for _1, _2, e in G.edges(data=True):
@@ -137,18 +161,15 @@ def convert_host_to_routing_graph(G: nx.Graph, lattice_type, lattice_size):
     for i, a in anchors:
         face = a["face"]
         for glyph_node in face:
-            G.add_edge(i, glyph_node, edge="anchor")
+            G.add_edge(i, glyph_node, EdgeType.ANCHOR, edge="anchor")
 
-    for i, a in enumerate(anchors):
-        for j, b in enumerate(anchors):
-            if j <= i:
-                continue
-            k, u = a
-            l, v = b
-            face_u = u["face"]
-            face_v = v["face"]
-            if are_faces_adjacent(face_u, face_v):
-                G.add_edge(k, l, edge="anchor")
+    for a, b in combinations(anchors, 2):
+        k, u = a
+        l, v = b
+        face_u = u["face"]
+        face_v = v["face"]
+        if are_faces_adjacent(face_u, face_v):
+            G.add_edge(k, l, EdgeType.ANCHOR, edge="anchor")
 
     return G
 
@@ -175,14 +196,80 @@ def get_routing_graph(lattice_type, lattice_size):
     return H
 
 
-def embed_to_routing_graph(G, p):
+def filter_to_anchor_path(G, a, b):
+    def inner(u, v, k):
+        is_anchor_edge = k == EdgeType.ANCHOR
+        u_is_anchor = G.nodes[u]["node"] == "anchor"
+        v_is_anchor = G.nodes[v]["node"] == "anchor"
+        both_ends_are_anchors = u_is_anchor and v_is_anchor
+        one_end_is_anchor = u_is_anchor or v_is_anchor
+        u_is_ab = u in [a, b]
+        v_is_ab = v in [a, b]
+        either_end_is_ab = u_is_ab or v_is_ab
+        return is_anchor_edge and (
+            both_ends_are_anchors or (one_end_is_anchor and either_end_is_ab)
+        )
+
+    return inner
+
+
+def embed_to_routing_graph(instance, G):
     """Routing graph is a graph with positioned nodes. This function embeds glyph nodes and set relations into the host graph.
     Specifically, it adds i) the glyph to their respective nodes as property and ii) additional edges that correspond to the sets."""
-    # TODO implement
-    pass
+    # 1) distribute glyphs onto glyph nodes
+    for i, glyph in enumerate(instance["glyph_ids"]):
+        logpos = instance["glyph_positions"][i]
+        if G.nodes[logpos]["node"] != "glyph":
+            raise Exception("glyph node is somehow not a glyph node")
+        G.nodes[logpos]["occupied"] = True
+        G.nodes[logpos]["glyph"] = glyph
+
+    # 2) add logical set edges between all pairs of elements in a set - this is the reachability graph
+    for setid, elements in instance["set_system"].items():
+        # +1 because 0 are neighbor edges. this way we have -1 = anchor, 0 = neighbor, everything after: set in ftb order
+        set_ftb_order = instance["set_ordering"].index(setid) + 1
+        if set_ftb_order <= 0:
+            raise Exception(f"set {setid} unknown?")
+        for a, b in combinations(elements, 2):
+            ai = instance["glyph_ids"].index(a)
+            bi = instance["glyph_ids"].index(b)
+            logpos_a = instance["glyph_positions"][ai]
+            logpos_b = instance["glyph_positions"][bi]
+
+            phys_path = None
+            phys_length = float("inf")
+
+            if G.has_edge(logpos_a, logpos_b, EdgeType.NEIGHBOR):
+                phys_path = [(logpos_a, logpos_b)]
+                phys_length = calculate_path_length(G, phys_path)
+            else:
+                # no neighbor edge between these glyphse
+                # so make a subgraph of all anchor edges
+                # since anchors don't connect two glyph nodes, the shortest path will run just along anchor edges
+                G_path = nx.subgraph_view(
+                    G, filter_edge=filter_to_anchor_path(G, logpos_a, logpos_b)
+                )
+                if not nx.has_path(G_path, logpos_a, logpos_b):
+                    raise Exception("you dummy")
+                phys_path = nx.shortest_path(G_path, logpos_a, logpos_b)
+                # the path has to be longer than two nodes for it to i) run only along anchors ii) have a glyph node at source and target
+                phys_path = list(pairwise(phys_path))
+                phys_length = calculate_path_length(G, phys_path)
+
+            # add the set edge along with physical shortest path and length
+            G.add_edge(
+                logpos_a,
+                logpos_b,
+                set_ftb_order,
+                edge="set",
+                set_id=setid,
+                length=phys_length,
+                path=phys_path,
+            )
+    return G
 
 
-def render_line(p):
+def render_line(instance, G, p):
     # sketch:
     # for each set S_i:
     #   find nodes of host graph that are in S_i
@@ -195,11 +282,11 @@ def render_line(p):
     pass
 
 
-def render_envelope(p):
+def render_envelope(instance, G, p):
     pass
 
 
-def render_kelpfusion(p):
+def render_kelpfusion(instance, G, p):
     # sketch:
     # for each set S_i
     # acc to meulemans 2013
@@ -211,29 +298,73 @@ def render_kelpfusion(p):
     pass
 
 
-def render(p):
+def render(instance, p):
     p = DEFAULT_PARAMS | p
     lattice_size = (
         determine_lattice_size(glyph_positions)
         if p["lattice_size"] == "auto"
         else p["lattice_size"]
     )
-    p["routing_graph"] = get_routing_graph(p["lattice_type"], lattice_size)
+    G = get_routing_graph(p["lattice_type"], lattice_size)
+    G = embed_to_routing_graph(instance, G)
+
     match p["render_style"]:
         case "line":
-            return render_line(p)
+            return render_line(instance, G, p)
         case "envelope":
-            return render_envelope(p)
+            return render_envelope(instance, G, p)
         case "kelpfusion":
-            return render_kelpfusion(p)
+            return render_kelpfusion(instance, G, p)
         case _:
             raise Exception(f'unknown render style {p["render_style"]}')
 
 
+INSTANCE = {
+    "glyph_ids": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+    ],  # list of strings (could be file urls)
+    # A B C
+    # D E F
+    # G H I
+    "glyph_positions": [
+        (0, 0),
+        (1, 0),
+        (2, 0),
+        (0, 1),
+        (1, 1),
+        (2, 1),
+        (0, 2),
+        (1, 2),
+        (2, 2),
+    ],  # a panda df with two columns (x and y) corresponding to logical grid position
+    "set_system": {
+        "set0": ["A", "B", "D", "E"],
+        "set1": ["A", "B", "E"],
+        "set2": ["G", "C"],
+        "set3": ["G", "C"],
+    },
+    "set_ordering": [
+        "set3",
+        "set2",
+        "set1",
+        "set0",
+    ],  # a list of set ids that defines front to back ordering (index = 0 is most front)
+}
+
 if __name__ == "__main__":
-    m = 4
-    n = 4
-    G = get_routing_graph("hex", (m, n))
+    m = 3
+    n = 3
+    lattice_type = "hex"
+    G = get_routing_graph(lattice_type, (m, n))
+    G = embed_to_routing_graph(INSTANCE, G)
 
     pos = nx.get_node_attributes(G, "pos")
     node_color_map = {"glyph": "#882200", "anchor": "#123456"}
@@ -241,13 +372,22 @@ if __name__ == "__main__":
     nx.draw_networkx_nodes(
         G,
         pos,
+        node_shape="h" if lattice_type == "hex" else "s",
         node_size=[node_size_map[node[1]["node"]] for node in G.nodes(data=True)],
         node_color=[node_color_map[node[1]["node"]] for node in G.nodes(data=True)],
     )
-    edge_color_map = {"neighbor": "#882200", "anchor": "#123456"}
+    edge_color_map = {"set": "#1a6", "neighbor": "#882200", "anchor": "#123456"}
+    edge_alpha_map = {"set": 0, "neighbor": 1, "anchor": 1}
     nx.draw_networkx_edges(
         G,
         pos,
+        alpha=[edge_alpha_map[e[2]["edge"]] for e in G.edges(data=True)],
         edge_color=[edge_color_map[e[2]["edge"]] for e in G.edges(data=True)],
+    )
+    nx.draw_networkx_labels(
+        G,
+        pos,
+        dict(zip(INSTANCE["glyph_positions"], INSTANCE["glyph_ids"])),
+        font_color="w",
     )
     plt.show()
