@@ -2,7 +2,7 @@ import networkx as nx
 import matplotlib as mpl
 import pandas as pd
 import matplotlib.pyplot as plt
-from collections import Counter
+from collections import Counter, defaultdict
 from itertools import combinations, pairwise
 import math
 from enum import Enum
@@ -202,15 +202,39 @@ def filter_to_anchor_path(G, a, b):
         u_is_anchor = G.nodes[u]["node"] == "anchor"
         v_is_anchor = G.nodes[v]["node"] == "anchor"
         both_ends_are_anchors = u_is_anchor and v_is_anchor
-        one_end_is_anchor = u_is_anchor or v_is_anchor
         u_is_ab = u in [a, b]
         v_is_ab = v in [a, b]
         either_end_is_ab = u_is_ab or v_is_ab
-        return is_anchor_edge and (
-            both_ends_are_anchors or (one_end_is_anchor and either_end_is_ab)
-        )
+        return is_anchor_edge and (both_ends_are_anchors or either_end_is_ab)
 
     return inner
+
+
+def bundle_edges(G):
+    # several ideas how we could do this...
+
+    # greedy heuristic
+    # the idea would be roughly the following
+    # first, compute *all* shortest paths from a to b and store
+    # having done that for all set edges, we take the unprocessed edge with the longest shortest path p
+    # set p as processed and select any of the shortest paths (TODO selection of that path is actually quite influential for the drawing, in general we want to try it with all options)
+    # find all p' that share source or target node with p and sort by length
+    # for each p', compute alternatives p'', which are paths that use "one more" anchor of p
+    # for each p'', compute ratios of length and shared edges in relation to shortest path p'
+    # somehow parametrize this decision and choose an alternative that balances additional length with additional shared edges
+    # set p' as processed and start again
+
+    # winding roads
+    # basically the same but use a weighted graph where edge weight decreases the more paths use it
+    # obv processing order is important then? idk
+
+    # for now only pick one of the shortest graphs without actually bundling anything
+    for u, v, k in nx.edges(G):
+        e = G.edges[(u, v, k)]
+        if k == EdgeType.ANCHOR and e["edge"] == "set":
+            e["path"] = e["shortest_paths"][0]
+
+    return G
 
 
 def embed_to_routing_graph(instance, G):
@@ -227,7 +251,7 @@ def embed_to_routing_graph(instance, G):
     # 2) add logical set edges between all pairs of elements in a set - this is the reachability graph
     for setid, elements in instance["set_system"].items():
         # +1 because 0 are neighbor edges. this way we have -1 = anchor, 0 = neighbor, everything after: set in ftb order
-        set_ftb_order = instance["set_ordering"].index(setid) + 1
+        set_ftb_order = instance["set_ftb_order"].index(setid) + 1
         if set_ftb_order <= 0:
             raise Exception(f"set {setid} unknown?")
         for a, b in combinations(elements, 2):
@@ -236,12 +260,10 @@ def embed_to_routing_graph(instance, G):
             logpos_a = instance["glyph_positions"][ai]
             logpos_b = instance["glyph_positions"][bi]
 
-            phys_path = None
-            phys_length = float("inf")
+            phys_paths = []
 
             if G.has_edge(logpos_a, logpos_b, EdgeType.NEIGHBOR):
-                phys_path = [(logpos_a, logpos_b)]
-                phys_length = calculate_path_length(G, phys_path)
+                phys_paths = [[(logpos_a, logpos_b)]]
             else:
                 # no neighbor edge between these glyphse
                 # so make a subgraph of all anchor edges
@@ -251,10 +273,12 @@ def embed_to_routing_graph(instance, G):
                 )
                 if not nx.has_path(G_path, logpos_a, logpos_b):
                     raise Exception("you dummy")
-                phys_path = nx.shortest_path(G_path, logpos_a, logpos_b)
+                phys_paths = [
+                    p for p in nx.all_shortest_paths(G_path, logpos_a, logpos_b)
+                ]
                 # the path has to be longer than two nodes for it to i) run only along anchors ii) have a glyph node at source and target
-                phys_path = list(pairwise(phys_path))
-                phys_length = calculate_path_length(G, phys_path)
+                # thus safe to use `pairwise`
+                phys_paths = [list(pairwise(p)) for p in phys_paths]
 
             # add the set edge along with physical shortest path and length
             G.add_edge(
@@ -263,23 +287,93 @@ def embed_to_routing_graph(instance, G):
                 set_ftb_order,
                 edge="set",
                 set_id=setid,
-                length=phys_length,
-                path=phys_path,
+                shortest_paths=phys_paths,
             )
     return G
 
 
+def get_bundle_order(M, p):
+    """M is a nx MultiGraph with all edges to draw. Returned is an ordering of sets."""
+
+    # ok so here's the thing.
+    # you'd think that ordered bundles by Pupyrev et al. (2016) are a nice an simple option
+    # but no. our subgraphs, be it a spanner or TSP tour, 1) connect more than two nodes 2) path terminal property doesn't hold (some paths end at glyph nodes, others don't)
+    # one could try to do some splitting into proper paths, treat them separately, put them back together in the most favorable ordering... but requires fast crossing computation unless you obtain additional findings so that you don't have to compute...
+
+    # then okay so maybe let's treat these things as metro lines, i.e., as an MLCM problem, but it's generally NP-hard
+    # quite some algorithms were proposed, e.g., by nöllenburg, okamoto...
+    # most make some assumptions that are not super useful for me here. e.g., the host graph is a path (nope), lines terminate only at deg=1 nodes (nope), no two lines terminate at same node (nope), 2-sides model (lines enter left and exit right, nope), lines don't fork (could do that)
+
+    # now here's a stupid idea. i expect we generally have few sets, like 6 or so, which amounts to 720 permutations - not THAT many
+    # if counting crossings with a given order is fast, we could brute-force this thing and have provably optimal solution
+
+    # OR, and this is kind of funny, maybe don't do it at all? since the sets we're gonna use are ordered categories (e.g., quantiles), there could even be an upside to making this user-steerable. then otoh by definition an element can't be in two categories of the same, like, group (e.g., two quantiles of the same variable). so an ordering of the bundle by, e.g., quantile order of same variable, won't show a nice transition of colors on one node. idk.
+
+    # but if we would know a nice way to get a crossing-minimizing order, we could do it here
+
+    # OKAY I THINK I KNOW
+    # so basically, make the host graph more detailed and add the corners of the shape. have centers still connected bei neighbor edges so that we can do the logical routing easily (MST, spanner and such). the corners of the shape are fully connected by anchor shapes, the center connects to all corners but should probs have a different edge type so that we don't accidentally through the center? althouth it would be an additional hop and thus never the shortest path i guess. but the idea is that the glyph CENTER is the terminal node always, period. all other nodes are intermediate. then we can cut up the MST in simple paths and route them separately according to the algorithm.
+
+    return p["set_bundle_order"]
+
+
 def render_line(instance, G, p):
     # sketch:
-    # for each set S_i:
-    #   find nodes of host graph that are in S_i
-    #   if these are disconnected, connect them by finding shortest paths between components along 'anchor' edges.
-    #   compute MST on that G' -> this is the 'routing graph' G~ in "Edge routing with ordered bundles" (Pupyrev et al., 2016 https://doi.org/10.1016/j.comgeo.2015.10.005)
-    #   proceed with path ordering step in aforementioned paper
-    #   for each segment:
-    #     render 'anchor' edges in MST
-    #     render 'neighbor' edges in MST
-    pass
+    # for each set:
+    # subgraph: keep all anchor edges that incide on elements of set plus neighbor edges that are also set edges
+    # find t-spanner in that subgraph
+    # add spanner to G
+    # return G
+    def filter_edge(setidx, setid, elements):
+        def inner(u, v, k):
+            is_anchor_edge = k == EdgeType.ANCHOR
+            u_is_anchor = G.nodes[u]["node"] == "anchor"
+            v_is_anchor = G.nodes[v]["node"] == "anchor"
+            both_ends_are_anchors = u_is_anchor and v_is_anchor
+            u_is_glyph = G.nodes[u]["node"] == "glyph"
+            v_is_glyph = G.nodes[v]["node"] == "glyph"
+            u_in_set = u_is_glyph and G.nodes[u]["glyph"] in elements
+            v_in_set = v_is_glyph and G.nodes[v]["glyph"] in elements
+            either_end_in_set = u_in_set or v_in_set
+
+            is_neighbor_edge = k == EdgeType.NEIGHBOR
+            has_set_edge = G.has_edge(u, v, setidx)
+
+            return (
+                is_anchor_edge and (both_ends_are_anchors or either_end_in_set)
+            ) or (is_neighbor_edge and has_set_edge)
+
+        return inner
+
+    M = nx.MultiGraph(incoming_graph_data=G)
+    M.remove_edges_from(list(M.edges))
+
+    for setid, elements in instance["set_system"].items():
+        set_idx = 1 + instance["set_ftb_order"].index(setid)
+        G_ = nx.subgraph_view(G, filter_edge=filter_edge(set_idx, setid, elements))
+        G_ = nx.Graph(G_)
+        S = nx.spanner(G_, 10)  # TODO make configurable
+        for u, v in S.edges:
+            M.add_edge(u, v, set_idx)
+
+    # optional: bundle edges more
+    # idea would be to allow bundling of spanner sub-paths between two element nodes
+    # so that even after bundling the modified spanner connects all set elements (but is not a t-spanner anymore necessarily)
+
+    # next step: ordering of bundles
+    # for each edge and each pair of paths that use it, find relative order of paths (before, after) acc to paper
+    set_order_in_bundles = get_bundle_order(M, p)
+
+    # next step: defining line segments to draw, this is the annoying part
+    # we have all paths ordered clockwise from the previous step (i think)
+    # the first thing is to define the hubs, i.e., circles with given radius at anchor nodes, regular polygons with given segment length as glyph nodes
+    # then for each edge incident on a hub there's a segment along the hub's outline where the bundle can go (8 cones for sqr, 16 cones for hex)
+    # for each bundle b connecting hubs u and v we'd like to find |b| straight lines parallel to the line connecting u and v centers, spaced such that they are within the appointed segment on each hub
+    # for each anchor hub, connect incident lines of the same path with a biarc (or, simpler but ugly, a straight line)
+
+    # then return the geometries with parameters and hand it off to somewhere for drawing
+
+    return M
 
 
 def render_envelope(instance, G, p):
@@ -319,6 +413,11 @@ def render(instance, p):
             raise Exception(f'unknown render style {p["render_style"]}')
 
 
+def draw_rendering(rendering):
+    # TODO maybe with PIL for now
+    pass
+
+
 INSTANCE = {
     "glyph_ids": [
         "A",
@@ -351,7 +450,13 @@ INSTANCE = {
         "set2": ["G", "C"],
         "set3": ["G", "C"],
     },
-    "set_ordering": [
+    "set_bundle_order": [
+        "set2",
+        "set0",
+        "set1",
+        "set3",
+    ],
+    "set_ftb_order": [
         "set3",
         "set2",
         "set1",
@@ -362,9 +467,10 @@ INSTANCE = {
 if __name__ == "__main__":
     m = 3
     n = 3
-    lattice_type = "hex"
+    lattice_type = "sqr"
     G = get_routing_graph(lattice_type, (m, n))
     G = embed_to_routing_graph(INSTANCE, G)
+    G = render_line(INSTANCE, G, DEFAULT_PARAMS)
 
     pos = nx.get_node_attributes(G, "pos")
     node_color_map = {"glyph": "#882200", "anchor": "#123456"}
