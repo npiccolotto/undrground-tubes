@@ -74,6 +74,12 @@ def determine_lattice_size(glyph_positions):
 
 
 def make_hex_graph(m, n):
+    # TODO extend such that each hex is 17 nodes and...  136 edges :zipface:
+    # = 1 center, 6 corners and 6 sides.
+    # fully connect corners, sides and center
+    # neighbor edges run between adjacent sides of hexes
+    # maybe useful to add one more edge type that directly connects centers
+
     # start with square graph
     G = nx.grid_2d_graph(m, n)
     G = nx.MultiGraph(incoming_graph_data=G)
@@ -104,6 +110,8 @@ def make_tri_graph(m, n):
 
 
 def make_sqr_graph(m, n):
+    # TODO extend similar to hex graph (9 nodes total: 1 center, 4 corners, 4 sides)
+
     G = nx.grid_2d_graph(m, n)
     G = nx.MultiGraph(incoming_graph_data=G)
     for pos, u in G.nodes(data=True):
@@ -158,6 +166,7 @@ def convert_host_to_routing_graph(G: nx.Graph, lattice_type, lattice_size):
     # here we loop quadratically over all anchor nodes (faces), connect it to its glyph nodes and adjacent anchor nodes (faces)
     anchors = [(i, u) for i, u in G.nodes(data=True) if u["node"] == "anchor"]
 
+    # TODO anchors connect to nearest corner nodes of adjacent glyphs and to neighboring anchors
     for i, a in anchors:
         face = a["face"]
         for glyph_node in face:
@@ -197,6 +206,7 @@ def get_routing_graph(lattice_type, lattice_size):
 
 
 def filter_to_anchor_path(G, a, b):
+    # TODO include all A-A anchor edges, all A-C anchor edges where C belongs to a or b, and all edges of a and b that connect their center to the corners
     def inner(u, v, k):
         is_anchor_edge = k == EdgeType.ANCHOR
         u_is_anchor = G.nodes[u]["node"] == "anchor"
@@ -263,7 +273,9 @@ def embed_to_routing_graph(instance, G):
             phys_paths = []
 
             if G.has_edge(logpos_a, logpos_b, EdgeType.NEIGHBOR):
-                phys_paths = [[(logpos_a, logpos_b)]]
+                phys_paths = [
+                    [(logpos_a, logpos_b)]
+                ]  # TODO find shortest physical path between centers (C - C-S - N - S-C - C)
             else:
                 # no neighbor edge between these glyphse
                 # so make a subgraph of all anchor edges
@@ -295,26 +307,17 @@ def embed_to_routing_graph(instance, G):
 def get_bundle_order(M, p):
     """M is a nx MultiGraph with all edges to draw. Returned is an ordering of sets."""
 
-    # ok so here's the thing.
-    # you'd think that ordered bundles by Pupyrev et al. (2016) are a nice an simple option
-    # but no. our subgraphs, be it a spanner or TSP tour, 1) connect more than two nodes 2) path terminal property doesn't hold (some paths end at glyph nodes, others don't)
-    # one could try to do some splitting into proper paths, treat them separately, put them back together in the most favorable ordering... but requires fast crossing computation unless you obtain additional findings so that you don't have to compute...
+    # M is a spanner. we have to preprocess it a little bit so that Pupyrev et al.'s algorithm (ordered edge bundles, OEB) works.
+    # 1. M must not contain cycles.
+    #   - detect cycles, throw (for now) arbitrary edge away
+    # 2. OEB expects that i) nodes are either terminals or intermediates, never both, and ii) lines are simple paths, i.e., don't fork/merge.
+    #   - convert now-cycle-free spanner M to separate simple paths. splitting it at nodes with deg > 2 should be sufficient. so each simple path starts and ends at a glyph center (=terminal).
+    #   - for each simple path, remove glyph centers that are not the first or last node in the path: replace adjacent edges (u,v),(v,w) with (u,w) if v is glyph center.
+    # after these steps, OEB should work.
 
-    # then okay so maybe let's treat these things as metro lines, i.e., as an MLCM problem, but it's generally NP-hard
-    # quite some algorithms were proposed, e.g., by nöllenburg, okamoto...
-    # most make some assumptions that are not super useful for me here. e.g., the host graph is a path (nope), lines terminate only at deg=1 nodes (nope), no two lines terminate at same node (nope), 2-sides model (lines enter left and exit right, nope), lines don't fork (could do that)
-
-    # now here's a stupid idea. i expect we generally have few sets, like 6 or so, which amounts to 720 permutations - not THAT many
-    # if counting crossings with a given order is fast, we could brute-force this thing and have provably optimal solution
-
-    # OR, and this is kind of funny, maybe don't do it at all? since the sets we're gonna use are ordered categories (e.g., quantiles), there could even be an upside to making this user-steerable. then otoh by definition an element can't be in two categories of the same, like, group (e.g., two quantiles of the same variable). so an ordering of the bundle by, e.g., quantile order of same variable, won't show a nice transition of colors on one node. idk.
-
-    # but if we would know a nice way to get a crossing-minimizing order, we could do it here
-
-    # OKAY I THINK I KNOW
-    # so basically, make the host graph more detailed and add the corners of the shape. have centers still connected bei neighbor edges so that we can do the logical routing easily (MST, spanner and such). the corners of the shape are fully connected by anchor shapes, the center connects to all corners but should probs have a different edge type so that we don't accidentally through the center? althouth it would be an additional hop and thus never the shortest path i guess. but the idea is that the glyph CENTER is the terminal node always, period. all other nodes are intermediate. then we can cut up the MST in simple paths and route them separately according to the algorithm.
-
-    return p["set_bundle_order"]
+    return p[
+        "set_bundle_order"
+    ]  # btw still wondering in relation to WHAT that order actually is
 
 
 def render_line(instance, G, p):
@@ -324,6 +327,7 @@ def render_line(instance, G, p):
     # find t-spanner in that subgraph
     # add spanner to G
     # return G
+
     def filter_edge(setidx, setid, elements):
         def inner(u, v, k):
             is_anchor_edge = k == EdgeType.ANCHOR
@@ -365,9 +369,8 @@ def render_line(instance, G, p):
     set_order_in_bundles = get_bundle_order(M, p)
 
     # next step: defining line segments to draw, this is the annoying part
-    # we have all paths ordered clockwise from the previous step (i think)
-    # the first thing is to define the hubs, i.e., circles with given radius at anchor nodes, regular polygons with given segment length as glyph nodes
-    # then for each edge incident on a hub there's a segment along the hub's outline where the bundle can go (8 cones for sqr, 16 cones for hex)
+    # the first thing is to define the hubs, i.e., circles with given radius at anchor, corner, and glyph center nodes. move them a bit closer so that the actual glyph can be drawn over them.
+    # along each hub's outline is a segment where lines from a direction can go... no idea how to specify that (very asymmetric for corner and side nodes)
     # for each bundle b connecting hubs u and v we'd like to find |b| straight lines parallel to the line connecting u and v centers, spaced such that they are within the appointed segment on each hub
     # for each anchor hub, connect incident lines of the same path with a biarc (or, simpler but ugly, a straight line)
 
