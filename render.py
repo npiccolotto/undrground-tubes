@@ -10,10 +10,9 @@ from enum import Enum
 
 
 class EdgeType(Enum):
-    LOGICAL = 0  # must be 0 because that's what is by default assigned in graph->multigraph conversion
-    CENTER = -2
-    ANCHOR = -3
-    SET = -4
+    PHYSICAL = -1
+    NEIGHBOR = 0
+    # everything from here is a 1-based set index
 
 
 class NodeType(Enum):
@@ -114,7 +113,7 @@ def make_hex_graph(m, n):
     G = nx.grid_2d_graph(m, n)
     G = nx.MultiGraph(incoming_graph_data=G)
     for _1, _2, e in G.edges(data=True):
-        e["edge"] = EdgeType.LOGICAL
+        e["edge"] = EdgeType.NEIGHBOR
     for logpos, n in G.nodes(data=True):
         x, y = logpos
         n["node"] = NodeType.CENTER
@@ -129,10 +128,14 @@ def make_hex_graph(m, n):
         # add diagonal edges
         if y % 2 != 0 and y > 0 and x < m - 1:
             # tilting to right in odd rows
-            G.add_edge((x, y), (x + 1, y - 1), EdgeType.LOGICAL, edge=EdgeType.LOGICAL)
+            G.add_edge(
+                (x, y), (x + 1, y - 1), EdgeType.NEIGHBOR, edge=EdgeType.NEIGHBOR
+            )
         if y % 2 == 0 and y > 0 and x > 0:
             # tilting to left in even rows
-            G.add_edge((x, y), (x - 1, y - 1), EdgeType.LOGICAL, edge=EdgeType.LOGICAL)
+            G.add_edge(
+                (x, y), (x - 1, y - 1), EdgeType.NEIGHBOR, edge=EdgeType.NEIGHBOR
+            )
 
         hex_corners = [
             (0, side_length),  # N
@@ -156,11 +159,11 @@ def make_hex_graph(m, n):
         # fully connect corners and sides
         corners_and_sides = hex_corners + hex_sides
         for n1, n2 in combinations(corners_and_sides, 2):
-            G.add_edge(n1, n2, EdgeType.ANCHOR, edge=EdgeType.ANCHOR)
+            G.add_edge(n1, n2, EdgeType.PHYSICAL, edge=EdgeType.PHYSICAL)
 
         # connect center to corners and sides
         for n in corners_and_sides:
-            G.add_edge(logpos, n, EdgeType.CENTER, edge=EdgeType.CENTER)
+            G.add_edge(logpos, n, EdgeType.PHYSICAL, edge=EdgeType.PHYSICAL)
 
     for logpos, n in G.nodes(data=True):
         x, y = logpos
@@ -183,10 +186,10 @@ def make_sqr_graph(m, n):
     for pos, u in G.nodes(data=True):
         x, y = pos
         u["logpos"] = (x, y)
-        u["node"] = "glyph"
+        u["node"] = NodeType.CENTER
         u["pos"] = logical_coords_to_physical(x, y)
     for _1, _2, e in G.edges(data=True):
-        e["edge"] = EdgeType.LOGICAL
+        e["edge"] = EdgeType.NEIGHBOR
     return G
 
 
@@ -271,7 +274,7 @@ def convert_logical_to_physical_graph(G: nx.Graph, lattice_type, lattice_size):
                 and G.nodes[p]["belongs_to"] == center,
             )
             closest = get_closest_point(i, list(corner_nodes.nodes))
-            G.add_edge(closest, i, EdgeType.ANCHOR, edge=EdgeType.ANCHOR)
+            G.add_edge(closest, i, EdgeType.PHYSICAL, edge=EdgeType.PHYSICAL)
 
     for a, b in combinations(anchors, 2):
         k, u = a
@@ -279,11 +282,11 @@ def convert_logical_to_physical_graph(G: nx.Graph, lattice_type, lattice_size):
         face_u = u["face"]
         face_v = v["face"]
         if are_faces_adjacent(face_u, face_v):
-            G.add_edge(k, l, EdgeType.ANCHOR, edge=EdgeType.ANCHOR)
+            G.add_edge(k, l, EdgeType.PHYSICAL, edge=EdgeType.PHYSICAL)
 
     # make physical connections for neighboring glyphs
     logical_edges = [
-        (u, v, k) for u, v, e in G.edges(data=True) if e["edge"] == EdgeType.LOGICAL
+        (u, v, k) for u, v, e in G.edges(data=True) if e["edge"] == EdgeType.NEIGHBOR
     ]
     for u, v, k in logical_edges:
         u_sides = [w for w in G.neighbors(u) if G.nodes[w]["node"] == NodeType.SIDE]
@@ -293,8 +296,8 @@ def convert_logical_to_physical_graph(G: nx.Graph, lattice_type, lattice_size):
         G.add_edge(
             u_sides[closest_u],
             v_sides[closest_v],
-            EdgeType.ANCHOR,
-            edge=EdgeType.ANCHOR,
+            EdgeType.PHYSICAL,
+            edge=EdgeType.PHYSICAL,
         )
 
     return G
@@ -323,11 +326,10 @@ def get_routing_graph(lattice_type, lattice_size):
 
 
 def filter_to_anchor_path(G, a, b):
-    # TODO include all A-A anchor edges, all A-C anchor edges where C belongs to a or b, and all edges of a and b that connect their center to the corners
     def inner(u, v, k):
-        is_anchor_edge = k == EdgeType.ANCHOR
-        u_is_anchor = G.nodes[u]["node"] == "anchor"
-        v_is_anchor = G.nodes[v]["node"] == "anchor"
+        is_anchor_edge = k == EdgeType.PHYSICAL
+        u_is_anchor = G.nodes[u]["node"] == NodeType.ANCHOR
+        v_is_anchor = G.nodes[v]["node"] == NodeType.ANCHOR
         both_ends_are_anchors = u_is_anchor and v_is_anchor
         u_is_ab = u in [a, b]
         v_is_ab = v in [a, b]
@@ -356,11 +358,6 @@ def bundle_edges(G):
     # obv processing order is important then? idk
 
     # for now only pick one of the shortest graphs without actually bundling anything
-    for u, v, k in nx.edges(G):
-        e = G.edges[(u, v, k)]
-        if k == EdgeType.ANCHOR and e["edge"] == EdgeType.SET:
-            e["path"] = e["shortest_paths"][0]
-
     return G
 
 
@@ -389,7 +386,7 @@ def embed_to_routing_graph(instance, G):
 
             phys_paths = []
 
-            if G.has_edge(logpos_a, logpos_b, EdgeType.NEIGHBOR):
+            if G.has_edge(logpos_a, logpos_b, EdgeCategory.NEIGHBOR):
                 phys_paths = [
                     [(logpos_a, logpos_b)]
                 ]  # TODO find shortest physical path between centers (C - C-S - N - S-C - C)
@@ -414,7 +411,7 @@ def embed_to_routing_graph(instance, G):
                 logpos_a,
                 logpos_b,
                 set_ftb_order,
-                edge=EdgeType.SET,
+                edge=EdgeCategory.SET,
                 set_id=setid,
                 shortest_paths=phys_paths,
             )
@@ -447,7 +444,7 @@ def render_line(instance, G, p):
 
     def filter_edge(setidx, setid, elements):
         def inner(u, v, k):
-            is_anchor_edge = k == EdgeType.ANCHOR
+            is_anchor_edge = k == EdgeType.PHYSICAL
             u_is_anchor = G.nodes[u]["node"] == "anchor"
             v_is_anchor = G.nodes[v]["node"] == "anchor"
             both_ends_are_anchors = u_is_anchor and v_is_anchor
@@ -475,7 +472,7 @@ def render_line(instance, G, p):
         G_ = nx.Graph(G_)
         S = nx.spanner(G_, 10)  # TODO make configurable
         for u, v in S.edges:
-            M.add_edge(u, v, set_idx, edge=EdgeType.SET)
+            M.add_edge(u, v, set_idx)
 
     # optional: bundle edges more
     # idea would be to allow bundling of spanner sub-paths between two element nodes
@@ -613,16 +610,12 @@ if __name__ == "__main__":
         node_color=[node_color_map[node[1]["node"]] for node in G.nodes(data=True)],
     )
     edge_color_map = {
-        EdgeType.SET: "#1a6",
-        EdgeType.LOGICAL: "#882200",
-        EdgeType.ANCHOR: "#123456",
-        EdgeType.CENTER: "#882299",
+        EdgeType.NEIGHBOR: "#882200",
+        EdgeType.PHYSICAL: "#123456",
     }
     edge_alpha_map = {
-        EdgeType.SET: 0,
-        EdgeType.LOGICAL: 0,
-        EdgeType.ANCHOR: 0.5,
-        EdgeType.CENTER: 0.5,
+        EdgeType.NEIGHBOR: 0,
+        EdgeType.PHYSICAL: 1,
     }
     nx.draw_networkx_edges(
         G,
