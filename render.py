@@ -76,6 +76,18 @@ def get_closest_pair(list1, list2):
     return m
 
 
+def get_shortest_path_between(G, list1, list2):
+    shortest = float("inf"), []
+    for i in list1:
+        for j in list2:
+            p = nx.shortest_path(G, i, j)
+            p = list(pairwise(p))
+            l = calculate_path_length(G, p)
+            if l < shortest[0]:
+                shortest = (l, p)
+    return shortest
+
+
 def calculate_path_length(G, path):
     # path is a list of edges
     if len(path) == 0:
@@ -150,14 +162,15 @@ def make_hex_graph(m, n):
         ]
         pos = hex_center["pos"]
         hex_corners = [(x + pos[0], y + pos[1]) for x, y in hex_corners]
+        for corner in hex_corners:
+            G.add_node(corner, node=NodeType.CORNER, belongs_to=logpos, pos=corner)
 
-        G.add_nodes_from(hex_corners, node=NodeType.CORNER, belongs_to=logpos)
         sides = pairwise(hex_corners + [hex_corners[0]])
         hex_sides = []
         for c1, c2 in sides:
             n = centroid([c1, c2])
             hex_sides.append(n)
-            G.add_node(n, node=NodeType.SIDE, belongs_to=logpos)
+            G.add_node(n, node=NodeType.SIDE, belongs_to=logpos, pos=n)
 
         # fully connect corners and sides
         corners_and_sides = hex_corners + hex_sides
@@ -411,34 +424,6 @@ def get_bundle_order(M, p):
 
 
 def render_line(instance, G, p):
-    # sketch:
-    # for each set:
-    # subgraph: keep all anchor edges that incide on elements of set plus neighbor edges that are also set edges
-    # find t-spanner in that subgraph
-    # add spanner to G
-    # return G
-
-    def filter_edge(set_idx, elements):
-        def inner(u, v, k):
-
-            is_anchor_edge = k == EdgeType.ANCHOR
-            u_is_anchor = G.nodes[u]["node"] == NodeType.ANCHOR
-            v_is_anchor = G.nodes[v]["node"] == NodeType.ANCHOR
-            both_ends_are_anchors = u_is_anchor and v_is_anchor
-            u_is_glyph = G.nodes[u]["node"] == NodeType.CENTER
-            v_is_glyph = G.nodes[v]["node"] == NodeType.CENTER
-            u_in_set = u_is_glyph and G.nodes[u]["glyph"] in elements
-            v_in_set = v_is_glyph and G.nodes[v]["glyph"] in elements
-            either_end_in_set = u_in_set or v_in_set
-
-            is_neighbor_edge = k == int(EdgeType.NEIGHBOR)
-            has_set_edge = G.has_edge(u, v, set_idx)
-
-            return (
-                is_anchor_edge and (both_ends_are_anchors or either_end_in_set)
-            ) or (is_neighbor_edge and has_set_edge)
-
-        return inner
 
     M = nx.MultiGraph(incoming_graph_data=G)
     M.remove_edges_from(list(G.edges()))
@@ -454,22 +439,75 @@ def render_line(instance, G, p):
         )
 
         # 2) compute a spanner or MST, call it S
+        # S = nx.spanner(nx.Graph(incoming_graph_data=G_), 100)
         S = nx.minimum_spanning_tree(nx.Graph(incoming_graph_data=G_))
 
-        components = [c for c in nx.connected_components(S) if len(c) > 1]
+        # components with size > 1
+        components = [list(c) for c in nx.connected_components(S) if len(c) > 1]
+        # but we also may have components with size = 1, ie., elements as islands
+        # by logic these must be the set elements that not in components with size > 1
+        element_positions = list(
+            map(
+                lambda e: instance["glyph_positions"][instance["glyph_ids"].index(e)],
+                elements,
+            )
+        )
+        elements_in_large_components = [
+            item for sublist in components for item in sublist
+        ]
+        element_islands = [
+            e for e in element_positions if e not in elements_in_large_components
+        ]
+
+        for e in element_islands:
+            components.append([e])
+
         # 3) if S has 1 component, cool. replace the neighbor edges the physical path from the appropriate set edge and return
-        if len(components) == 1:
-            for u, v in S.edges():
+        if len(components) > 1:
+            # 4) else, make new graph G' where V = components of S and E = V x V with weight = length of shortest path from v1 to v2
+            G_ = nx.Graph()
+            G_.add_nodes_from(range(len(components)))
+            for i, j in combinations(range(len(components)), 2):
+                nodeset_a = components[i]
+                nodeset_b = components[j]
+                G_path = nx.subgraph_view(
+                    G,
+                    filter_edge=lambda u, v, k: k == EdgeType.PHYSICAL
+                    and (
+                        (
+                            G.nodes[u]["node"] == NodeType.ANCHOR
+                            or G.nodes[v]["node"] == NodeType.ANCHOR
+                        )
+                        or (
+                            G.nodes[u].get("belongs_to") in nodeset_a + nodeset_b
+                            or G.nodes[v].get("belongs_to") in nodeset_a + nodeset_b
+                        )
+                    ),
+                )
+                weight, shortest_path = get_shortest_path_between(
+                    G_path, nodeset_a, nodeset_b
+                )
+                G_.add_edge(i, j, weight=weight, shortest_path=shortest_path)
+            # 5) compute spanner or MST again, call it P
+            # P = nx.spanner(G_, 100)
+            P = nx.minimum_spanning_tree(G_)
+            # 6) merge S and P, replace logical with physical paths
+            # add P
+            for u, v in P.edges:
+                d = G_.edges[(u, v)]
                 M.add_edges_from(
-                    G.edges[(u, v, set_idx)]["shortest_paths"][0],
+                    d["shortest_path"],
                     edge=EdgeType.SET,
                     set_id=set_id,
                 )
-        else:
-            # 4) else, make new graph G' where V = components of S and E = V x V with weight = length of shortest path from v1 to v2
-            # 5) compute spanner or MST again, call it P
-            # 6) merge S and P, replace logical with physical paths, retu
-            pass
+
+        # add S
+        for u, v in S.edges():
+            M.add_edges_from(
+                G.edges[(u, v, set_idx)]["shortest_paths"][0],
+                edge=EdgeType.SET,
+                set_id=set_id,
+            )
 
     # optional: bundle edges more
     # idea would be to allow bundling of spanner sub-paths between two element nodes
@@ -563,7 +601,7 @@ INSTANCE = {
         # "set1": ["A", "B", "E"],
         # "set2": ["G", "C"],
         # "set3": ["G", "C"],
-        "set4": ["A", "B", "E"]
+        "set4": ["A", "H", "G", "F", "E"]
     },
     "set_bundle_order": [
         "set2",
