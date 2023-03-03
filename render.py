@@ -1,16 +1,26 @@
 import networkx as nx
 import matplotlib as mpl
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 from collections import Counter, defaultdict
-from itertools import combinations, pairwise
+from itertools import combinations, pairwise, product
 import math
 from enum import Enum
 
 
 class EdgeType(Enum):
-    NEIGHBOR = 0
-    ANCHOR = 1
+    LOGICAL = 0  # must be 0 because that's what is by default assigned in graph->multigraph conversion
+    CENTER = -2
+    ANCHOR = -3
+    SET = -4
+
+
+class NodeType(Enum):
+    CENTER = 0
+    CORNER = 1
+    SIDE = 2
+    ANCHOR = 3
 
 
 def are_faces_adjacent(face1, face2):
@@ -23,10 +33,7 @@ def are_faces_adjacent(face1, face2):
     return counter[2] == 2
 
 
-def centroid(points, lattice_type="sqr"):
-    points = list(
-        map(lambda p: logical_coords_to_physical(p[0], p[1], lattice_type), points)
-    )
+def centroid(points):
     x, y = zip(*points)
     n = len(x)
     return (sum(x) / n, sum(y) / n)
@@ -44,6 +51,28 @@ def dist_euclidean(p1, p2):
     x1, y1 = p1
     x2, y2 = p2
     return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+
+
+def get_closest_point(reference, options):
+    dists = [dist_euclidean(reference, option) for option in options]
+    closest = np.argmin(np.array(dists))
+    return options[closest]
+
+
+def distance_matrix(list1, list2, dist):
+    n = len(list1)
+    m = len(list2)
+    D = np.ndarray(shape=(n, m))
+    for i, j in product(range(n), range(m)):
+        D[i, j] = dist(list1[i], list2[j])
+    return D
+
+
+def get_closest_pair(list1, list2):
+    D = distance_matrix(list1, list2, dist_euclidean)
+    m = np.where(D == np.min(D))
+    m = (m[0][0], m[1][0])
+    return m
 
 
 def calculate_path_length(G, path):
@@ -79,27 +108,64 @@ def make_hex_graph(m, n):
     # fully connect corners, sides and center
     # neighbor edges run between adjacent sides of hexes
     # maybe useful to add one more edge type that directly connects centers
+    side_length = 0.25
 
     # start with square graph
     G = nx.grid_2d_graph(m, n)
     G = nx.MultiGraph(incoming_graph_data=G)
-    for pos, u in G.nodes(data=True):
-        x, y = pos
+    for _1, _2, e in G.edges(data=True):
+        e["edge"] = EdgeType.LOGICAL
+    for logpos, n in G.nodes(data=True):
+        x, y = logpos
+        n["node"] = NodeType.CENTER
+        n["logpos"] = logpos
+        n["pos"] = logical_coords_to_physical(x, y, "hex")
+
+    G_ = nx.MultiGraph(incoming_graph_data=G)
+
+    for logpos, hex_center in G_.nodes(data=True):
+        x, y = logpos
 
         # add diagonal edges
         if y % 2 != 0 and y > 0 and x < m - 1:
             # tilting to right in odd rows
-            G.add_edge((x, y), (x + 1, y - 1), EdgeType.NEIGHBOR)
+            G.add_edge((x, y), (x + 1, y - 1), EdgeType.LOGICAL, edge=EdgeType.LOGICAL)
         if y % 2 == 0 and y > 0 and x > 0:
             # tilting to left in even rows
-            G.add_edge((x, y), (x - 1, y - 1), EdgeType.NEIGHBOR)
+            G.add_edge((x, y), (x - 1, y - 1), EdgeType.LOGICAL, edge=EdgeType.LOGICAL)
 
-        u["node"] = "glyph"
-        u["logpos"] = (x, y)
-        u["pos"] = logical_coords_to_physical(x, y, "hex")
+        hex_corners = [
+            (0, side_length),  # N
+            (side_length * math.sqrt(3) / 2, side_length / 2),  # NE
+            (side_length * math.sqrt(3) / 2, -side_length / 2),  # SE
+            (0, -side_length),  # S
+            (-side_length * math.sqrt(3) / 2, -side_length / 2),  # SW
+            (-side_length * math.sqrt(3) / 2, side_length / 2),  # NW
+        ]
+        pos = hex_center["pos"]
+        hex_corners = [(x + pos[0], y + pos[1]) for x, y in hex_corners]
 
-    for _1, _2, e in G.edges(data=True):
-        e["edge"] = "neighbor"
+        G.add_nodes_from(hex_corners, node=NodeType.CORNER, belongs_to=logpos)
+        sides = pairwise(hex_corners + [hex_corners[0]])
+        hex_sides = []
+        for c1, c2 in sides:
+            n = centroid([c1, c2])
+            hex_sides.append(n)
+            G.add_node(n, node=NodeType.SIDE, belongs_to=logpos)
+
+        # fully connect corners and sides
+        corners_and_sides = hex_corners + hex_sides
+        for n1, n2 in combinations(corners_and_sides, 2):
+            G.add_edge(n1, n2, EdgeType.ANCHOR, edge=EdgeType.ANCHOR)
+
+        # connect center to corners and sides
+        for n in corners_and_sides:
+            G.add_edge(logpos, n, EdgeType.CENTER, edge=EdgeType.CENTER)
+
+    for logpos, n in G.nodes(data=True):
+        x, y = logpos
+        if "pos" not in n:
+            n["pos"] = logpos
 
     return G
 
@@ -120,12 +186,12 @@ def make_sqr_graph(m, n):
         u["node"] = "glyph"
         u["pos"] = logical_coords_to_physical(x, y)
     for _1, _2, e in G.edges(data=True):
-        e["edge"] = "neighbor"
+        e["edge"] = EdgeType.LOGICAL
     return G
 
 
-def convert_host_to_routing_graph(G: nx.Graph, lattice_type, lattice_size):
-    """Given a bare-bones host graph (glyph nodes and neighbor edges), extend it by anchor nodes and edges."""
+def convert_logical_to_physical_graph(G: nx.Graph, lattice_type, lattice_size):
+    """Adds physical paths and routing nodes."""
     # idea: we know where faces are based on grid position and grid type, so we just compute them
     # hex and sqr have the same "base" grid, hex is just shifted and has a few more edges
     # every 2x2 quad [A,B,C,D] cw in the sqr grid is a face
@@ -144,33 +210,68 @@ def convert_host_to_routing_graph(G: nx.Graph, lattice_type, lattice_size):
             quad = [(x, y), (x + 1, y), (x + 1, y + 1), (x, y + 1)]
             if lattice_type == "sqr":
                 u, v = centroid(quad)
-                G.add_node((u, v), node="anchor", face=quad, pos=(u, v))
+                G.add_node((u, v), node=NodeType.ANCHOR, face=quad, pos=(u, v))
 
             elif lattice_type == "hex":
                 a, b, c, d = quad
                 if y % 2 == 0:
                     # ABD and CBD triangles
-                    u, v = centroid([a, b, d], "hex")
-                    G.add_node((u, v), node="anchor", face=[a, b, d], pos=(u, v))
-                    u, v = centroid([c, b, d], "hex")
-                    G.add_node((u, v), node="anchor", face=[c, b, d], pos=(u, v))
+                    u, v = centroid(
+                        list(
+                            map(
+                                lambda x: logical_coords_to_physical(x[0], x[1], "hex"),
+                                [a, b, d],
+                            )
+                        )
+                    )
+                    G.add_node((u, v), node=NodeType.ANCHOR, face=[a, b, d], pos=(u, v))
+                    u, v = centroid(
+                        list(
+                            map(
+                                lambda x: logical_coords_to_physical(x[0], x[1], "hex"),
+                                [c, b, d],
+                            )
+                        )
+                    )
+                    G.add_node((u, v), node=NodeType.ANCHOR, face=[c, b, d], pos=(u, v))
                 else:
                     # ABC and ACD triangles
-                    u, v = centroid([a, b, c], "hex")
-                    G.add_node((u, v), node="anchor", face=[a, b, c], pos=(u, v))
-                    u, v = centroid([a, c, d], "hex")
-                    G.add_node((u, v), node="anchor", face=[a, c, d], pos=(u, v))
+                    u, v = centroid(
+                        list(
+                            map(
+                                lambda x: logical_coords_to_physical(x[0], x[1], "hex"),
+                                [a, b, c],
+                            )
+                        )
+                    )
+                    G.add_node((u, v), node=NodeType.ANCHOR, face=[a, b, c], pos=(u, v))
+                    u, v = centroid(
+                        list(
+                            map(
+                                lambda x: logical_coords_to_physical(x[0], x[1], "hex"),
+                                [a, c, d],
+                            )
+                        )
+                    )
+                    G.add_node((u, v), node=NodeType.ANCHOR, face=[a, c, d], pos=(u, v))
 
     # this is now a bit inefficient but should be fine in practice i guess
     # to add all anchor edges we have to insert all anchor nodes first, so we can't do it in the previous procedure
     # here we loop quadratically over all anchor nodes (faces), connect it to its glyph nodes and adjacent anchor nodes (faces)
-    anchors = [(i, u) for i, u in G.nodes(data=True) if u["node"] == "anchor"]
+    anchors = [(i, u) for i, u in G.nodes(data=True) if u["node"] == NodeType.ANCHOR]
 
-    # TODO anchors connect to nearest corner nodes of adjacent glyphs and to neighboring anchors
+    # anchors connect to nearest corner nodes of adjacent glyphs and to neighboring anchors
     for i, a in anchors:
         face = a["face"]
-        for glyph_node in face:
-            G.add_edge(i, glyph_node, EdgeType.ANCHOR, edge="anchor")
+        for center in face:
+            # find corner nodes of center
+            corner_nodes = nx.subgraph_view(
+                G,
+                filter_node=lambda p: G.nodes[p]["node"] == NodeType.CORNER
+                and G.nodes[p]["belongs_to"] == center,
+            )
+            closest = get_closest_point(i, list(corner_nodes.nodes))
+            G.add_edge(closest, i, EdgeType.ANCHOR, edge=EdgeType.ANCHOR)
 
     for a, b in combinations(anchors, 2):
         k, u = a
@@ -178,7 +279,23 @@ def convert_host_to_routing_graph(G: nx.Graph, lattice_type, lattice_size):
         face_u = u["face"]
         face_v = v["face"]
         if are_faces_adjacent(face_u, face_v):
-            G.add_edge(k, l, EdgeType.ANCHOR, edge="anchor")
+            G.add_edge(k, l, EdgeType.ANCHOR, edge=EdgeType.ANCHOR)
+
+    # make physical connections for neighboring glyphs
+    logical_edges = [
+        (u, v, k) for u, v, e in G.edges(data=True) if e["edge"] == EdgeType.LOGICAL
+    ]
+    for u, v, k in logical_edges:
+        u_sides = [w for w in G.neighbors(u) if G.nodes[w]["node"] == NodeType.SIDE]
+        v_sides = [w for w in G.neighbors(v) if G.nodes[w]["node"] == NodeType.SIDE]
+
+        closest_u, closest_v = get_closest_pair(u_sides, v_sides)
+        G.add_edge(
+            u_sides[closest_u],
+            v_sides[closest_v],
+            EdgeType.ANCHOR,
+            edge=EdgeType.ANCHOR,
+        )
 
     return G
 
@@ -201,7 +318,7 @@ def get_routing_graph(lattice_type, lattice_size):
         case _:
             raise Exception(f"unknown lattice type {lattice_type}")
 
-    H = convert_host_to_routing_graph(G, lattice_type, lattice_size)
+    H = convert_logical_to_physical_graph(G, lattice_type, lattice_size)
     return H
 
 
@@ -241,7 +358,7 @@ def bundle_edges(G):
     # for now only pick one of the shortest graphs without actually bundling anything
     for u, v, k in nx.edges(G):
         e = G.edges[(u, v, k)]
-        if k == EdgeType.ANCHOR and e["edge"] == "set":
+        if k == EdgeType.ANCHOR and e["edge"] == EdgeType.SET:
             e["path"] = e["shortest_paths"][0]
 
     return G
@@ -297,7 +414,7 @@ def embed_to_routing_graph(instance, G):
                 logpos_a,
                 logpos_b,
                 set_ftb_order,
-                edge="set",
+                edge=EdgeType.SET,
                 set_id=setid,
                 shortest_paths=phys_paths,
             )
@@ -358,7 +475,7 @@ def render_line(instance, G, p):
         G_ = nx.Graph(G_)
         S = nx.spanner(G_, 10)  # TODO make configurable
         for u, v in S.edges:
-            M.add_edge(u, v, set_idx)
+            M.add_edge(u, v, set_idx, edge=EdgeType.SET)
 
     # optional: bundle edges more
     # idea would be to allow bundling of spanner sub-paths between two element nodes
@@ -470,14 +587,24 @@ INSTANCE = {
 if __name__ == "__main__":
     m = 3
     n = 3
-    lattice_type = "sqr"
+    lattice_type = "hex"
     G = get_routing_graph(lattice_type, (m, n))
-    G = embed_to_routing_graph(INSTANCE, G)
-    G = render_line(INSTANCE, G, DEFAULT_PARAMS)
+    # G = embed_to_routing_graph(INSTANCE, G)
+    # G = render_line(INSTANCE, G, DEFAULT_PARAMS)
 
     pos = nx.get_node_attributes(G, "pos")
-    node_color_map = {"glyph": "#882200", "anchor": "#123456"}
-    node_size_map = {"glyph": 300, "anchor": 50}
+    node_color_map = {
+        NodeType.CENTER: "#882200",
+        NodeType.ANCHOR: "#123456",
+        NodeType.SIDE: "#123456",
+        NodeType.CORNER: "#123456",
+    }
+    node_size_map = {
+        NodeType.CENTER: 300,
+        NodeType.ANCHOR: 100,
+        NodeType.CORNER: 25,
+        NodeType.SIDE: 25,
+    }
     nx.draw_networkx_nodes(
         G,
         pos,
@@ -485,8 +612,18 @@ if __name__ == "__main__":
         node_size=[node_size_map[node[1]["node"]] for node in G.nodes(data=True)],
         node_color=[node_color_map[node[1]["node"]] for node in G.nodes(data=True)],
     )
-    edge_color_map = {"set": "#1a6", "neighbor": "#882200", "anchor": "#123456"}
-    edge_alpha_map = {"set": 0, "neighbor": 1, "anchor": 1}
+    edge_color_map = {
+        EdgeType.SET: "#1a6",
+        EdgeType.LOGICAL: "#882200",
+        EdgeType.ANCHOR: "#123456",
+        EdgeType.CENTER: "#882299",
+    }
+    edge_alpha_map = {
+        EdgeType.SET: 0,
+        EdgeType.LOGICAL: 0,
+        EdgeType.ANCHOR: 0.5,
+        EdgeType.CENTER: 0.5,
+    }
     nx.draw_networkx_edges(
         G,
         pos,
