@@ -6,17 +6,18 @@ import matplotlib.pyplot as plt
 from collections import Counter, defaultdict
 from itertools import combinations, pairwise, product
 import math
-from enum import Enum
+from enum import IntEnum
 
 
-class EdgeType(Enum):
+class EdgeType(IntEnum):
+    ANCHOR = -3
     SET = -2
     PHYSICAL = -1
     NEIGHBOR = 0
     # everything from here is a 1-based set index
 
 
-class NodeType(Enum):
+class NodeType(IntEnum):
     CENTER = 0
     CORNER = 1
     SIDE = 2
@@ -265,10 +266,11 @@ def convert_logical_to_physical_graph(G: nx.Graph, lattice_type, lattice_size):
     # here we loop quadratically over all anchor nodes (faces), connect it to its glyph nodes and adjacent anchor nodes (faces)
     anchors = [(i, u) for i, u in G.nodes(data=True) if u["node"] == NodeType.ANCHOR]
 
-    # anchors connect to nearest corner nodes of adjacent glyphs and to neighboring anchors
+    # anchors connect to nearest corner nodes of adjacent glyphs
     for i, a in anchors:
         face = a["face"]
         for center in face:
+            G.add_edge(i, center, EdgeType.ANCHOR, edge=EdgeType.ANCHOR)
             # find corner nodes of center
             corner_nodes = nx.subgraph_view(
                 G,
@@ -278,12 +280,14 @@ def convert_logical_to_physical_graph(G: nx.Graph, lattice_type, lattice_size):
             closest = get_closest_point(i, list(corner_nodes.nodes))
             G.add_edge(closest, i, EdgeType.PHYSICAL, edge=EdgeType.PHYSICAL)
 
+    # and to neighboring anchors
     for a, b in combinations(anchors, 2):
         k, u = a
         l, v = b
         face_u = u["face"]
         face_v = v["face"]
         if are_faces_adjacent(face_u, face_v):
+            G.add_edge(k, l, EdgeType.ANCHOR, edge=EdgeType.ANCHOR)
             G.add_edge(k, l, EdgeType.PHYSICAL, edge=EdgeType.PHYSICAL)
 
     # make physical connections for neighboring glyphs
@@ -327,20 +331,6 @@ def get_routing_graph(lattice_type, lattice_size):
     return H
 
 
-def filter_to_anchor_path(G, a, b):
-    def inner(u, v, k):
-        is_physical_edge = k == EdgeType.PHYSICAL
-        u_is_anchor = G.nodes[u]["node"] == NodeType.ANCHOR
-        v_is_anchor = G.nodes[v]["node"] == NodeType.ANCHOR
-        both_ends_are_anchors = u_is_anchor and v_is_anchor
-        u_is_ab = G.nodes[u]["belongs_to"] in [a, b]
-        v_is_ab = G.nodes[u]["belongs_to"] in [a, b]
-        either_end_is_ab = u_is_ab or v_is_ab
-        return is_physical_edge and (both_ends_are_anchors or either_end_is_ab)
-
-    return inner
-
-
 def bundle_edges(G):
     # several ideas how we could do this...
 
@@ -375,46 +365,31 @@ def embed_to_routing_graph(instance, G):
         G.nodes[logpos]["glyph"] = glyph
 
     # 2) add logical set edges between all pairs of elements in a set - this is the reachability graph
-    for setid, elements in instance["set_system"].items():
+    for set_id, elements in instance["set_system"].items():
         # +1 because 0 are neighbor edges. this way we have -1 = anchor, 0 = neighbor, everything after: set in ftb order
-        set_ftb_order = instance["set_ftb_order"].index(setid) + 1
+        set_ftb_order = instance["set_ftb_order"].index(set_id) + 1
         if set_ftb_order <= 0:
-            raise Exception(f"set {setid} unknown?")
+            raise Exception(f"set {set_id} unknown?")
         for a, b in combinations(elements, 2):
             ai = instance["glyph_ids"].index(a)
             bi = instance["glyph_ids"].index(b)
             logpos_a = instance["glyph_positions"][ai]
             logpos_b = instance["glyph_positions"][bi]
 
-            phys_paths = []
+            G_ = nx.subgraph_view(G, filter_edge=lambda u, v, k: k == EdgeType.PHYSICAL)
 
-            if G.has_edge(logpos_a, logpos_b, EdgeType.NEIGHBOR):
-                G_ = nx.MultiGraph(G)
-                G_.remove_edge(logpos_a, logpos_b, EdgeType.NEIGHBOR)
-                # the way the grid is set up there should be only 1 shortest path of length 3 (C - S - S - C)
-                phys_paths = nx.all_shortest_paths(G_, logpos_a, logpos_b)
-            else:
-                # no neighbor edge between these glyphs, find other path
-                # rule 1: don't use nodes (center, side, corner) that belong to other glyphs
-                G_ = nx.subgraph_view(
-                    G,
-                    filter_edge=filter_to_anchor_path,
-                )
-                if not nx.has_path(G_, logpos_a, logpos_b):
-                    raise Exception("you dummy")
-                phys_paths = [p for p in nx.all_shortest_paths(G_, logpos_a, logpos_b)]
-                # the path has to be longer than two nodes for it to i) run only along anchors ii) have a glyph node at source and target
-                # thus safe to use `pairwise`
-                phys_paths = [list(pairwise(p)) for p in phys_paths]
+            shortest_paths = [
+                list(pairwise(p)) for p in nx.all_shortest_paths(G_, logpos_a, logpos_b)
+            ]
 
-            # add the set edge along with physical shortest path and length
+            # add the set edge along with physical shortest paths
             G.add_edge(
                 logpos_a,
                 logpos_b,
                 set_ftb_order,
-                set_id=setid,
+                set_id=set_id,
                 edge=EdgeType.SET,
-                shortest_paths=phys_paths,
+                shortest_paths=shortest_paths,
             )
     return G
 
@@ -443,20 +418,21 @@ def render_line(instance, G, p):
     # add spanner to G
     # return G
 
-    def filter_edge(setidx, setid, elements):
+    def filter_edge(set_idx, elements):
         def inner(u, v, k):
-            is_anchor_edge = k == EdgeType.PHYSICAL
-            u_is_anchor = G.nodes[u]["node"] == "anchor"
-            v_is_anchor = G.nodes[v]["node"] == "anchor"
+
+            is_anchor_edge = k == EdgeType.ANCHOR
+            u_is_anchor = G.nodes[u]["node"] == NodeType.ANCHOR
+            v_is_anchor = G.nodes[v]["node"] == NodeType.ANCHOR
             both_ends_are_anchors = u_is_anchor and v_is_anchor
-            u_is_glyph = G.nodes[u]["node"] == "glyph"
-            v_is_glyph = G.nodes[v]["node"] == "glyph"
+            u_is_glyph = G.nodes[u]["node"] == NodeType.CENTER
+            v_is_glyph = G.nodes[v]["node"] == NodeType.CENTER
             u_in_set = u_is_glyph and G.nodes[u]["glyph"] in elements
             v_in_set = v_is_glyph and G.nodes[v]["glyph"] in elements
             either_end_in_set = u_in_set or v_in_set
 
-            is_neighbor_edge = k == EdgeType.NEIGHBOR
-            has_set_edge = G.has_edge(u, v, setidx)
+            is_neighbor_edge = k == int(EdgeType.NEIGHBOR)
+            has_set_edge = G.has_edge(u, v, set_idx)
 
             return (
                 is_anchor_edge and (both_ends_are_anchors or either_end_in_set)
@@ -465,15 +441,35 @@ def render_line(instance, G, p):
         return inner
 
     M = nx.MultiGraph(incoming_graph_data=G)
-    M.remove_edges_from(list(M.edges))
+    M.remove_edges_from(list(G.edges()))
 
-    for setid, elements in instance["set_system"].items():
-        set_idx = 1 + instance["set_ftb_order"].index(setid)
-        G_ = nx.subgraph_view(G, filter_edge=filter_edge(set_idx, setid, elements))
-        G_ = nx.Graph(G_)
-        S = nx.spanner(G_, 10)  # TODO make configurable
-        for u, v in S.edges:
-            M.add_edge(u, v, set_idx)
+    for set_id, elements in instance["set_system"].items():
+        set_idx = 1 + instance["set_ftb_order"].index(set_id)
+        # 1) filter graph to neighbor edges between elements
+        G_ = nx.subgraph_view(
+            G,
+            filter_edge=lambda u, v, k: k == EdgeType.NEIGHBOR
+            and G.nodes[u]["glyph"] in elements
+            and G.nodes[v]["glyph"] in elements,
+        )
+
+        # 2) compute a spanner or MST, call it S
+        S = nx.minimum_spanning_tree(nx.Graph(incoming_graph_data=G_))
+
+        components = [c for c in nx.connected_components(S) if len(c) > 1]
+        # 3) if S has 1 component, cool. replace the neighbor edges the physical path from the appropriate set edge and return
+        if len(components) == 1:
+            for u, v in S.edges():
+                M.add_edges_from(
+                    G.edges[(u, v, set_idx)]["shortest_paths"][0],
+                    edge=EdgeType.SET,
+                    set_id=set_id,
+                )
+        else:
+            # 4) else, make new graph G' where V = components of S and E = V x V with weight = length of shortest path from v1 to v2
+            # 5) compute spanner or MST again, call it P
+            # 6) merge S and P, replace logical with physical paths, retu
+            pass
 
     # optional: bundle edges more
     # idea would be to allow bundling of spanner sub-paths between two element nodes
@@ -481,7 +477,7 @@ def render_line(instance, G, p):
 
     # next step: ordering of bundles
     # for each edge and each pair of paths that use it, find relative order of paths (before, after) acc to paper
-    set_order_in_bundles = get_bundle_order(M, p)
+    # set_order_in_bundles = get_bundle_order(M, p)
 
     # next step: defining line segments to draw, this is the annoying part
     # the first thing is to define the hubs, i.e., circles with given radius at anchor, corner, and glyph center nodes. move them a bit closer so that the actual glyph can be drawn over them.
@@ -549,7 +545,7 @@ INSTANCE = {
         "I",
     ],  # list of strings (could be file urls)
     # A B C
-    # D E F
+    #  D E F
     # G H I
     "glyph_positions": [
         (0, 0),
@@ -563,10 +559,11 @@ INSTANCE = {
         (2, 2),
     ],  # a panda df with two columns (x and y) corresponding to logical grid position
     "set_system": {
-        "set0": ["A", "B", "D", "E"],
-        "set1": ["A", "B", "E"],
-        "set2": ["G", "C"],
-        "set3": ["G", "C"],
+        # "set0": ["A", "B", "D", "E"],
+        # "set1": ["A", "B", "E"],
+        # "set2": ["G", "C"],
+        # "set3": ["G", "C"],
+        "set4": ["A", "B", "E"]
     },
     "set_bundle_order": [
         "set2",
@@ -575,10 +572,11 @@ INSTANCE = {
         "set3",
     ],
     "set_ftb_order": [
-        "set3",
-        "set2",
-        "set1",
-        "set0",
+        "set4"
+        # "set3",
+        # "set2",
+        # "set1",
+        # "set0"
     ],  # a list of set ids that defines front to back ordering (index = 0 is most front)
 }
 
@@ -588,7 +586,7 @@ if __name__ == "__main__":
     lattice_type = "hex"
     G = get_routing_graph(lattice_type, (m, n))
     G = embed_to_routing_graph(INSTANCE, G)
-    # G = render_line(INSTANCE, G, DEFAULT_PARAMS)
+    G = render_line(INSTANCE, G, DEFAULT_PARAMS)
 
     pos = nx.get_node_attributes(G, "pos")
     node_color_map = {
@@ -611,14 +609,16 @@ if __name__ == "__main__":
         node_color=[node_color_map[node[1]["node"]] for node in G.nodes(data=True)],
     )
     edge_color_map = {
-        EdgeType.SET: "#882299",
-        EdgeType.NEIGHBOR: "#882200",
-        EdgeType.PHYSICAL: "#123456",
+        EdgeType.SET: "#829",
+        EdgeType.NEIGHBOR: "#820",
+        EdgeType.PHYSICAL: "#000",
+        EdgeType.ANCHOR: "#128",
     }
     edge_alpha_map = {
-        EdgeType.SET: 0,
-        EdgeType.NEIGHBOR: 0,
+        EdgeType.SET: 1,
+        EdgeType.NEIGHBOR: 1,
         EdgeType.PHYSICAL: 1,
+        EdgeType.ANCHOR: 1,
     }
     nx.draw_networkx_edges(
         G,
