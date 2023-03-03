@@ -10,6 +10,7 @@ from enum import Enum
 
 
 class EdgeType(Enum):
+    SET = -2
     PHYSICAL = -1
     NEIGHBOR = 0
     # everything from here is a 1-based set index
@@ -117,6 +118,7 @@ def make_hex_graph(m, n):
     for logpos, n in G.nodes(data=True):
         x, y = logpos
         n["node"] = NodeType.CENTER
+        n["belongs_to"] = logpos
         n["logpos"] = logpos
         n["pos"] = logical_coords_to_physical(x, y, "hex")
 
@@ -327,14 +329,14 @@ def get_routing_graph(lattice_type, lattice_size):
 
 def filter_to_anchor_path(G, a, b):
     def inner(u, v, k):
-        is_anchor_edge = k == EdgeType.PHYSICAL
+        is_physical_edge = k == EdgeType.PHYSICAL
         u_is_anchor = G.nodes[u]["node"] == NodeType.ANCHOR
         v_is_anchor = G.nodes[v]["node"] == NodeType.ANCHOR
         both_ends_are_anchors = u_is_anchor and v_is_anchor
-        u_is_ab = u in [a, b]
-        v_is_ab = v in [a, b]
+        u_is_ab = G.nodes[u]["belongs_to"] in [a, b]
+        v_is_ab = G.nodes[u]["belongs_to"] in [a, b]
         either_end_is_ab = u_is_ab or v_is_ab
-        return is_anchor_edge and (both_ends_are_anchors or either_end_is_ab)
+        return is_physical_edge and (both_ends_are_anchors or either_end_is_ab)
 
     return inner
 
@@ -367,8 +369,8 @@ def embed_to_routing_graph(instance, G):
     # 1) distribute glyphs onto glyph nodes
     for i, glyph in enumerate(instance["glyph_ids"]):
         logpos = instance["glyph_positions"][i]
-        if G.nodes[logpos]["node"] != "glyph":
-            raise Exception("glyph node is somehow not a glyph node")
+        if G.nodes[logpos]["node"] != NodeType.CENTER:
+            raise Exception("node to position glyph on is somehow not a glyph center")
         G.nodes[logpos]["occupied"] = True
         G.nodes[logpos]["glyph"] = glyph
 
@@ -386,22 +388,21 @@ def embed_to_routing_graph(instance, G):
 
             phys_paths = []
 
-            if G.has_edge(logpos_a, logpos_b, EdgeCategory.NEIGHBOR):
-                phys_paths = [
-                    [(logpos_a, logpos_b)]
-                ]  # TODO find shortest physical path between centers (C - C-S - N - S-C - C)
+            if G.has_edge(logpos_a, logpos_b, EdgeType.NEIGHBOR):
+                G_ = nx.MultiGraph(G)
+                G_.remove_edge(logpos_a, logpos_b, EdgeType.NEIGHBOR)
+                # the way the grid is set up there should be only 1 shortest path of length 3 (C - S - S - C)
+                phys_paths = nx.all_shortest_paths(G_, logpos_a, logpos_b)
             else:
-                # no neighbor edge between these glyphse
-                # so make a subgraph of all anchor edges
-                # since anchors don't connect two glyph nodes, the shortest path will run just along anchor edges
-                G_path = nx.subgraph_view(
-                    G, filter_edge=filter_to_anchor_path(G, logpos_a, logpos_b)
+                # no neighbor edge between these glyphs, find other path
+                # rule 1: don't use nodes (center, side, corner) that belong to other glyphs
+                G_ = nx.subgraph_view(
+                    G,
+                    filter_edge=filter_to_anchor_path,
                 )
-                if not nx.has_path(G_path, logpos_a, logpos_b):
+                if not nx.has_path(G_, logpos_a, logpos_b):
                     raise Exception("you dummy")
-                phys_paths = [
-                    p for p in nx.all_shortest_paths(G_path, logpos_a, logpos_b)
-                ]
+                phys_paths = [p for p in nx.all_shortest_paths(G_, logpos_a, logpos_b)]
                 # the path has to be longer than two nodes for it to i) run only along anchors ii) have a glyph node at source and target
                 # thus safe to use `pairwise`
                 phys_paths = [list(pairwise(p)) for p in phys_paths]
@@ -411,8 +412,8 @@ def embed_to_routing_graph(instance, G):
                 logpos_a,
                 logpos_b,
                 set_ftb_order,
-                edge=EdgeCategory.SET,
                 set_id=setid,
+                edge=EdgeType.SET,
                 shortest_paths=phys_paths,
             )
     return G
@@ -586,7 +587,7 @@ if __name__ == "__main__":
     n = 3
     lattice_type = "hex"
     G = get_routing_graph(lattice_type, (m, n))
-    # G = embed_to_routing_graph(INSTANCE, G)
+    G = embed_to_routing_graph(INSTANCE, G)
     # G = render_line(INSTANCE, G, DEFAULT_PARAMS)
 
     pos = nx.get_node_attributes(G, "pos")
@@ -610,10 +611,12 @@ if __name__ == "__main__":
         node_color=[node_color_map[node[1]["node"]] for node in G.nodes(data=True)],
     )
     edge_color_map = {
+        EdgeType.SET: "#882299",
         EdgeType.NEIGHBOR: "#882200",
         EdgeType.PHYSICAL: "#123456",
     }
     edge_alpha_map = {
+        EdgeType.SET: 0,
         EdgeType.NEIGHBOR: 0,
         EdgeType.PHYSICAL: 1,
     }
