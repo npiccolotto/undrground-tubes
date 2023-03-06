@@ -418,6 +418,21 @@ def embed_to_routing_graph(instance, G):
 
 
 def bundle_edges(instance, M):
+    # here we re-route the drawn edges in M (hopefully) such that we reduce the number of unique paths
+    # what may and may not happen:
+    # - edges (directly) connecting neighboring glyphs MUST NOT take a detour through the margins. reason being that these will be the visually most prominent lines.
+    # - edges (indirectly) connecting glyphs through anchor nodes MAY take a detour.
+    # - this detour MUST NOT include glyph nodes (not even of the same set b/c that may fuck up the general routing connections - e.g. when there are 3 components and the route connecting component 1 and 2 detours over 3, then we could have duplicate connections.)
+
+    # so rough process:
+    # - after converting M into a list of simple paths
+    # - process them in order by longest first
+    # - temporarily increase weight of edges incident to non-source/target nodes to Inf.
+    # - find the shortest path
+    # - replace current with new shortest path
+    # - increase counter for used edges incident to an anchor
+    # - set weight to some function of counter. use y= a*x^b+c and find some good parameters a,b,c
+    # - repeat until all paths are processed
     return M
 
 
@@ -510,7 +525,7 @@ def add_routes_of_set_systems(instance, G):
                 d = G_.edges[(u, v)]
                 M.add_edges_from(
                     d["shortest_path"],
-                    edge=EdgeType.SET,
+                    edge=EdgeType.SET,  # TODO change to another edge type (DRAWING?)
                     set_id=set_id,
                 )
 
