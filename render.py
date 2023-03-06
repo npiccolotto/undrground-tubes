@@ -366,18 +366,17 @@ def bundle_edges(G):
     return G
 
 
-def embed_to_routing_graph(instance, G):
-    """Routing graph is a graph with positioned nodes. This function embeds glyph nodes and set relations into the host graph.
-    Specifically, it adds i) the glyph to their respective nodes as property and ii) additional edges that correspond to the sets."""
-    # 1) distribute glyphs onto glyph nodes
+def add_glyphs_to_nodes(instance, G):
     for i, glyph in enumerate(instance["glyph_ids"]):
         logpos = instance["glyph_positions"][i]
         if G.nodes[logpos]["node"] != NodeType.CENTER:
             raise Exception("node to position glyph on is somehow not a glyph center")
         G.nodes[logpos]["occupied"] = True
         G.nodes[logpos]["glyph"] = glyph
+    return G
 
-    # 2) add logical set edges between all pairs of elements in a set - this is the reachability graph
+
+def add_set_edges(instance, G):
     for set_id, elements in instance["set_system"].items():
         # +1 because 0 are neighbor edges. this way we have -1 = anchor, 0 = neighbor, everything after: set in ftb order
         set_ftb_order = instance["set_ftb_order"].index(set_id) + 1
@@ -407,7 +406,22 @@ def embed_to_routing_graph(instance, G):
     return G
 
 
-def get_bundle_order(M, p):
+def embed_to_routing_graph(instance, G):
+    """Routing graph is a graph with positioned nodes. This function embeds glyph nodes and set relations into the host graph.
+    Specifically, it adds i) the glyph to their respective nodes as property and ii) additional edges that correspond to the sets."""
+    # 1) distribute glyphs onto glyph nodes
+    G = add_glyphs_to_nodes(instance, G)
+    # 2) add logical set edges between all pairs of elements in a set - this is the reachability graph of kelpfusion
+    G = add_set_edges(instance, G)
+
+    return G
+
+
+def bundle_edges(instance, M):
+    return M
+
+
+def order_bundles(instance, M):
     """M is a nx MultiGraph with all edges to draw. Returned is an ordering of sets."""
 
     # M is a spanner. we have to preprocess it a little bit so that Pupyrev et al.'s algorithm (ordered edge bundles, OEB) works.
@@ -418,13 +432,12 @@ def get_bundle_order(M, p):
     #   - for each simple path, remove glyph centers that are not the first or last node in the path: replace adjacent edges (u,v),(v,w) with (u,w) if v is glyph center.
     # after these steps, OEB should work.
 
-    return p[
-        "set_bundle_order"
-    ]  # btw still wondering in relation to WHAT that order actually is
+    # bundle order probably will be attribute of a physical edge
+
+    return M
 
 
-def render_line(instance, G, p):
-
+def add_routes_of_set_systems(instance, G):
     M = nx.MultiGraph(incoming_graph_data=G)
     M.remove_edges_from(list(G.edges()))
 
@@ -508,20 +521,29 @@ def render_line(instance, G, p):
                 edge=EdgeType.SET,
                 set_id=set_id,
             )
+    return M
 
+
+def render_line(instance, G, p):
+
+    M = add_routes_of_set_systems(instance, G)
     # optional: bundle edges more
     # idea would be to allow bundling of spanner sub-paths between two element nodes
     # so that even after bundling the modified spanner connects all set elements (but is not a t-spanner anymore necessarily)
+    M = bundle_edges(instance, M)
 
     # next step: ordering of bundles
     # for each edge and each pair of paths that use it, find relative order of paths (before, after) acc to paper
     # set_order_in_bundles = get_bundle_order(M, p)
+    M = order_bundles(instance, M)
 
     # next step: defining line segments to draw, this is the annoying part
     # the first thing is to define the hubs, i.e., circles with given radius at anchor, corner, and glyph center nodes. move them a bit closer so that the actual glyph can be drawn over them.
     # along each hub's outline is a segment where lines from a direction can go... no idea how to specify that (very asymmetric for corner and side nodes)
     # for each bundle b connecting hubs u and v we'd like to find |b| straight lines parallel to the line connecting u and v centers, spaced such that they are within the appointed segment on each hub
     # for each anchor hub, connect incident lines of the same path with a biarc (or, simpler but ugly, a straight line)
+    # geometries = graph_to_geometries(instance, M)
+    # img = draw_geometries(geometries)
 
     # then return the geometries with parameters and hand it off to somewhere for drawing
 
