@@ -7,6 +7,7 @@ from collections import Counter, defaultdict
 from itertools import combinations, pairwise, product
 import math
 from enum import IntEnum
+import drawsvg as svg
 
 
 class EdgeType(IntEnum):
@@ -116,11 +117,10 @@ def determine_lattice_size(glyph_positions):
 
 
 def make_hex_graph(m, n):
-    # TODO extend such that each hex is 17 nodes and...  136 edges :zipface:
+    # each hex is 17 nodes and...  136 edges :zipface:
     # = 1 center, 6 corners and 6 sides.
     # fully connect corners, sides and center
     # neighbor edges run between adjacent sides of hexes
-    # maybe useful to add one more edge type that directly connects centers
     side_length = 0.25
 
     # start with square graph
@@ -539,6 +539,22 @@ def add_routes_of_set_systems(instance, G):
     return M
 
 
+def render_svg(instance, M):
+    """In absence of another declarative language for geometric primitives, let's produce SVG."""
+
+    d = svg.Drawing(2000, 2000, origin=(0, 0))
+    margins = (50, 50)
+
+    for i, n in M.nodes(data=True):
+        if n["node"] == NodeType.CENTER:
+            x, y = n["pos"]
+            mx, my = margins
+            glyph = svg.Circle(mx + x * 100, my + -y * 100, 25)
+            d.append(glyph)
+
+    return d.as_svg()
+
+
 def render_line(instance, G, p):
 
     M = add_routes_of_set_systems(instance, G)
@@ -557,12 +573,11 @@ def render_line(instance, G, p):
     # along each hub's outline is a segment where lines from a direction can go... no idea how to specify that (very asymmetric for corner and side nodes)
     # for each bundle b connecting hubs u and v we'd like to find |b| straight lines parallel to the line connecting u and v centers, spaced such that they are within the appointed segment on each hub
     # for each anchor hub, connect incident lines of the same path with a biarc (or, simpler but ugly, a straight line)
-    # geometries = graph_to_geometries(instance, M)
-    # img = draw_geometries(geometries)
+    geometries = render_svg(instance, M)
 
     # then return the geometries with parameters and hand it off to somewhere for drawing
 
-    return M
+    return geometries
 
 
 def render_envelope(instance, G, p):
@@ -662,7 +677,9 @@ if __name__ == "__main__":
     G = get_routing_graph(lattice_type, (m, n))
     G = embed_to_routing_graph(INSTANCE, G)
     G = render_line(INSTANCE, G, DEFAULT_PARAMS)
+    print(G)
 
+    """
     pos = nx.get_node_attributes(G, "pos")
     node_color_map = {
         NodeType.CENTER: "#882200",
@@ -708,3 +725,4 @@ if __name__ == "__main__":
         font_color="w",
     )
     plt.show()
+"""
