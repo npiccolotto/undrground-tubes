@@ -543,11 +543,11 @@ def geometrize(instance, M):
     margins = (50, 50)
     factor = 100
     geometries = []
+    mx, my = margins
 
     # glyph nodes
     for i, n in M.nodes(data=True):
         if n["node"] == NodeType.CENTER:
-            mx, my = margins
             corners = [
                 M.nodes[m]["pos"]
                 for m in nx.subgraph_view(
@@ -569,6 +569,24 @@ def geometrize(instance, M):
             # for now it saves time to not do that
             glyph = svg.Lines(*flat_corners, close=True)
             geometries.append(glyph)
+
+    for i, j, e in M.edges(data=True):
+        if e["edge"] == EdgeType.SET:
+            s = M.nodes[i]
+            z = M.nodes[j]
+            sx, sy = s.get("pos")
+            ex, ey = z.get("pos")
+            geometries.append(
+                svg.Line(
+                    sx=sx * factor + mx,
+                    sy=-sy * factor + my,
+                    ex=ex * factor + mx,
+                    ey=-ey * factor + my,
+                    stroke="gray",
+                    stroke_width=5,
+                )
+            )
+
     return geometries
 
 
@@ -599,12 +617,10 @@ def render_line(instance, G, p):
     # along each hub's outline is a segment where lines from a direction can go... no idea how to specify that (very asymmetric for corner and side nodes)
     # for each bundle b connecting hubs u and v we'd like to find |b| straight lines parallel to the line connecting u and v centers, spaced such that they are within the appointed segment on each hub
     # for each anchor hub, connect incident lines of the same path with a biarc (or, simpler but ugly, a straight line)
-    geometries = geometrize(instance, M)
-    img = draw_svg(geometries)
 
     # then return the geometries with parameters and hand it off to somewhere for drawing
 
-    return img
+    return M
 
 
 def render_envelope(instance, G, p):
@@ -704,52 +720,53 @@ if __name__ == "__main__":
     G = get_routing_graph(lattice_type, (m, n))
     G = embed_to_routing_graph(INSTANCE, G)
     G = render_line(INSTANCE, G, DEFAULT_PARAMS)
-    print(G)
+    geometries = geometrize(INSTANCE, G)
+    img = draw_svg(geometries)
+    print(img)
 
-    """
-    pos = nx.get_node_attributes(G, "pos")
-    node_color_map = {
-        NodeType.CENTER: "#882200",
-        NodeType.ANCHOR: "#123456",
-        NodeType.SIDE: "#123456",
-        NodeType.CORNER: "#123456",
-    }
-    node_size_map = {
-        NodeType.CENTER: 300,
-        NodeType.ANCHOR: 100,
-        NodeType.CORNER: 25,
-        NodeType.SIDE: 25,
-    }
-    nx.draw_networkx_nodes(
-        G,
-        pos,
-        node_shape="h" if lattice_type == "hex" else "s",
-        node_size=[node_size_map[node[1]["node"]] for node in G.nodes(data=True)],
-        node_color=[node_color_map[node[1]["node"]] for node in G.nodes(data=True)],
-    )
-    edge_color_map = {
-        EdgeType.SET: "#829",
-        EdgeType.NEIGHBOR: "#820",
-        EdgeType.PHYSICAL: "#000",
-        EdgeType.ANCHOR: "#128",
-    }
-    edge_alpha_map = {
-        EdgeType.SET: 1,
-        EdgeType.NEIGHBOR: 1,
-        EdgeType.PHYSICAL: 1,
-        EdgeType.ANCHOR: 1,
-    }
-    nx.draw_networkx_edges(
-        G,
-        pos,
-        alpha=[edge_alpha_map[e[2]["edge"]] for e in G.edges(data=True)],
-        edge_color=[edge_color_map[e[2]["edge"]] for e in G.edges(data=True)],
-    )
-    nx.draw_networkx_labels(
-        G,
-        pos,
-        dict(zip(INSTANCE["glyph_positions"], INSTANCE["glyph_ids"])),
-        font_color="w",
-    )
-    plt.show()
-"""
+    if False:
+        pos = nx.get_node_attributes(G, "pos")
+        node_color_map = {
+            NodeType.CENTER: "#882200",
+            NodeType.ANCHOR: "#123456",
+            NodeType.SIDE: "#123456",
+            NodeType.CORNER: "#123456",
+        }
+        node_size_map = {
+            NodeType.CENTER: 300,
+            NodeType.ANCHOR: 100,
+            NodeType.CORNER: 25,
+            NodeType.SIDE: 25,
+        }
+        nx.draw_networkx_nodes(
+            G,
+            pos,
+            node_shape="h" if lattice_type == "hex" else "s",
+            node_size=[node_size_map[node[1]["node"]] for node in G.nodes(data=True)],
+            node_color=[node_color_map[node[1]["node"]] for node in G.nodes(data=True)],
+        )
+        edge_color_map = {
+            EdgeType.SET: "#829",
+            EdgeType.NEIGHBOR: "#820",
+            EdgeType.PHYSICAL: "#000",
+            EdgeType.ANCHOR: "#128",
+        }
+        edge_alpha_map = {
+            EdgeType.SET: 1,
+            EdgeType.NEIGHBOR: 0,
+            EdgeType.PHYSICAL: 0,
+            EdgeType.ANCHOR: 0,
+        }
+        nx.draw_networkx_edges(
+            G,
+            pos,
+            alpha=[edge_alpha_map[e[2]["edge"]] for e in G.edges(data=True)],
+            edge_color=[edge_color_map[e[2]["edge"]] for e in G.edges(data=True)],
+        )
+        nx.draw_networkx_labels(
+            G,
+            pos,
+            dict(zip(INSTANCE["glyph_positions"], INSTANCE["glyph_ids"])),
+            font_color="w",
+        )
+        plt.show()
