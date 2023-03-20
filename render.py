@@ -539,18 +539,44 @@ def add_routes_of_set_systems(instance, G):
     return M
 
 
-def render_svg(instance, M):
-    """In absence of another declarative language for geometric primitives, let's produce SVG."""
-
-    d = svg.Drawing(2000, 2000, origin=(0, 0))
+def geometrize(instance, M):
     margins = (50, 50)
+    factor = 100
+    geometries = []
 
+    # glyph nodes
     for i, n in M.nodes(data=True):
         if n["node"] == NodeType.CENTER:
-            x, y = n["pos"]
             mx, my = margins
-            glyph = svg.Circle(mx + x * 100, my + -y * 100, 25)
-            d.append(glyph)
+            corners = [
+                M.nodes[m]["pos"]
+                for m in nx.subgraph_view(
+                    M,
+                    filter_node=lambda p: G.nodes[p]["node"] == NodeType.CORNER
+                    and G.nodes[p]["belongs_to"] == i,
+                )
+            ]
+            xs, ys = zip(*corners)
+            xs = [x * factor + mx for x in xs]
+            ys = [-y * factor + my for y in ys]
+            # https://stackoverflow.com/a/3678938/490524
+            flat_corners = [None] * (len(xs) + len(ys))
+            flat_corners[::2] = xs
+            flat_corners[1::2] = ys
+            # so if we wanted to render to something else than svg, we could
+            # replace the drawsvg elements with some dicts and make drawsvg
+            # elements in draw_svg function.
+            # for now it saves time to not do that
+            glyph = svg.Lines(*flat_corners, close=True)
+            geometries.append(glyph)
+    return geometries
+
+
+def draw_svg(geometries):
+    d = svg.Drawing(2000, 2000, origin=(0, 0))
+
+    for e in geometries:
+        d.append(e)
 
     return d.as_svg()
 
@@ -573,11 +599,12 @@ def render_line(instance, G, p):
     # along each hub's outline is a segment where lines from a direction can go... no idea how to specify that (very asymmetric for corner and side nodes)
     # for each bundle b connecting hubs u and v we'd like to find |b| straight lines parallel to the line connecting u and v centers, spaced such that they are within the appointed segment on each hub
     # for each anchor hub, connect incident lines of the same path with a biarc (or, simpler but ugly, a straight line)
-    geometries = render_svg(instance, M)
+    geometries = geometrize(instance, M)
+    img = draw_svg(geometries)
 
     # then return the geometries with parameters and hand it off to somewhere for drawing
 
-    return geometries
+    return img
 
 
 def render_envelope(instance, G, p):
