@@ -11,11 +11,13 @@ import drawsvg as svg
 
 
 class EdgeType(IntEnum):
-    ANCHOR = -3
-    SET = -2
-    PHYSICAL = -1
-    NEIGHBOR = 0
-    # everything from here is a 1-based set index
+    ANCHOR = -3  # logical edges that run in the margins between glyphs
+    SET = (
+        -2
+    )  # logical set edges, i.e., these edges connect elements of the same set _completely_
+    PHYSICAL = -1  # possible edge that can appear in the drawing
+    NEIGHBOR = 0  # logical edge that tells neighborhood relations of the glyphs
+    DRAW = 1  # physical edge that is actually drawn
 
 
 class NodeType(IntEnum):
@@ -436,16 +438,92 @@ def bundle_edges(instance, M):
     return M
 
 
+def get_longest_simple_paths(G, src, tgt, visited=[], current_path=[]):
+    # follow the path as long as nodes have deg = 2
+    # when paths fork (deg>2), add path up until here to list
+    # restart procedure along the forks
+    # eventually we have visited all nodes
+
+    next_visited = visited + [src]
+    if G.degree[tgt] > 2:
+        # fork, split here
+        current_path = current_path + [tgt]
+        next_tgts = [i for i in G.neighbors(tgt) if i not in next_visited]
+        next_paths = [
+            get_longest_simple_paths(
+                G, tgt, next_tgt, visited=next_visited, current_path=[]
+            )
+            for next_tgt in next_tgts
+        ]
+        ret = [current_path]
+        for p in next_paths:
+            ret += p
+        return ret
+
+    if G.degree[tgt] == 1:
+        # end of the simple path
+        current_path = current_path + [tgt]
+        return [current_path]
+
+    # regular case
+    next_src = tgt
+    next_tgt = [i for i in G.neighbors(tgt) if i not in next_visited]
+    if len(next_tgt) > 1:
+        raise Exception("uhm what")
+    return get_longest_simple_paths(
+        G,
+        next_src,
+        next_tgt[0],
+        visited=next_visited,
+        current_path=current_path + [src],
+    )
+
+
 def order_bundles(instance, M):
     """M is a nx MultiGraph with all edges to draw. Returned is an ordering of sets."""
 
-    # M is a spanner. we have to preprocess it a little bit so that Pupyrev et al.'s algorithm (ordered edge bundles, OEB) works.
-    # 1. M must not contain cycles.
+    # we have to preprocess M a little bit so that Pupyrev et al.'s algorithm (ordered edge bundles, OEB) works.
+    # 1. drawn edges for a set in M must not contain cycles.
     #   - detect cycles, throw (for now) arbitrary edge away
+    #   - since drawn edges are built out of MSTs there can't currently be any cycles so it's fine
     # 2. OEB expects that i) nodes are either terminals or intermediates, never both, and ii) lines are simple paths, i.e., don't fork/merge.
-    #   - convert now-cycle-free spanner M to separate simple paths. splitting it at nodes with deg > 2 should be sufficient. so each simple path starts and ends at a glyph center (=terminal).
+    #   - convert M to separate simple paths. splitting it at nodes with deg > 2 should be sufficient. so each simple path starts and ends at a glyph center (=terminal).
     #   - for each simple path, remove glyph centers that are not the first or last node in the path: replace adjacent edges (u,v),(v,w) with (u,w) if v is glyph center.
     # after these steps, OEB should work.
+
+    paths = defaultdict(list)
+    # step 2: split forking paths
+    for set_id in instance["set_ftb_order"]:
+        # get edges for this set
+        G_ = nx.subgraph_view(
+            M, filter_edge=lambda i, j, e: M.edges[i, j, e]["set_id"] == set_id
+        )
+        # then, start at any node with deg=1
+        first = list([i for i in G_.nodes() if G_.degree[i] == 1])[0]
+        next = list(G_.neighbors(first))[0]
+        glsp = get_longest_simple_paths(G_, first, next)
+        paths[set_id] = paths[set_id] + glsp
+
+    # step 2: remove intermediate center nodes from paths
+    for set_id in instance["set_ftb_order"]:
+        paths[set_id] = [
+            [
+                n
+                for i, n in enumerate(path)
+                if i in [0, len(path) - 1] or M.nodes[n]["node"] != NodeType.CENTER
+            ]
+            for path in paths[set_id]
+        ]
+
+    # TODO unsure if good to modify this here, but whatevs
+    M.remove_edges_from(list(M.edges()))
+    for set_id in instance["set_ftb_order"]:
+        set_ftb_order = instance["set_ftb_order"].index(set_id) + 1
+        for path in paths[set_id]:
+            for i, j in pairwise(path):
+                M.add_edge(i, j, set_ftb_order, set_id=set_id, edge=EdgeType.DRAW)
+
+    # then do the actual OEB algorithm
 
     # bundle order probably will be attribute of a physical edge
 
@@ -525,7 +603,7 @@ def add_routes_of_set_systems(instance, G):
                 d = G_.edges[(u, v)]
                 M.add_edges_from(
                     d["shortest_path"],
-                    edge=EdgeType.SET,  # TODO change to another edge type (DRAWING?)
+                    edge=EdgeType.DRAW,
                     set_id=set_id,
                 )
 
@@ -533,7 +611,7 @@ def add_routes_of_set_systems(instance, G):
         for u, v in S.edges():
             M.add_edges_from(
                 G.edges[(u, v, set_idx)]["shortest_paths"][0],
-                edge=EdgeType.SET,
+                edge=EdgeType.DRAW,
                 set_id=set_id,
             )
     return M
@@ -571,7 +649,7 @@ def geometrize(instance, M):
             geometries.append(glyph)
 
     for i, j, e in M.edges(data=True):
-        if e["edge"] == EdgeType.SET:
+        if e["edge"] == EdgeType.DRAW:
             s = M.nodes[i]
             z = M.nodes[j]
             sx, sy = s.get("pos")
@@ -695,8 +773,8 @@ INSTANCE = {
         # "set0": ["A", "B", "D", "E"],
         # "set1": ["A", "B", "E"],
         # "set2": ["G", "C"],
-        # "set3": ["G", "C"],
-        "set4": ["A", "H", "G", "F", "E"]
+        "set3": ["D", "G", "H"],
+        "set4": ["A", "H", "G", "F", "E"],
     },
     "set_bundle_order": [
         "set2",
@@ -705,8 +783,8 @@ INSTANCE = {
         "set3",
     ],
     "set_ftb_order": [
-        "set4"
-        # "set3",
+        "set4",
+        "set3",
         # "set2",
         # "set1",
         # "set0"
@@ -749,12 +827,14 @@ if __name__ == "__main__":
             EdgeType.SET: "#829",
             EdgeType.NEIGHBOR: "#820",
             EdgeType.PHYSICAL: "#000",
+            EdgeType.DRAW: "#000",
             EdgeType.ANCHOR: "#128",
         }
         edge_alpha_map = {
-            EdgeType.SET: 1,
+            EdgeType.SET: 0,
             EdgeType.NEIGHBOR: 0,
             EdgeType.PHYSICAL: 0,
+            EdgeType.DRAW: 1,
             EdgeType.ANCHOR: 0,
         }
         nx.draw_networkx_edges(
