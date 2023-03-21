@@ -501,8 +501,9 @@ def order_bundles(instance, M):
         # then, start at any node with deg=1
         first = list([i for i in G_.nodes() if G_.degree[i] == 1])[0]
         next = list(G_.neighbors(first))[0]
-        glsp = get_longest_simple_paths(G_, first, next)
-        paths[set_id] = paths[set_id] + glsp
+        paths[set_id] = paths[set_id] + get_longest_simple_paths(G_, first, next)
+
+    # TODO give each part a path id, can just be the set_id+index
 
     # step 2: remove intermediate center nodes from paths
     for set_id in instance["set_ftb_order"]:
@@ -520,12 +521,47 @@ def order_bundles(instance, M):
     for set_id in instance["set_ftb_order"]:
         set_ftb_order = instance["set_ftb_order"].index(set_id) + 1
         for path in paths[set_id]:
-            for i, j in pairwise(path):
-                M.add_edge(i, j, set_ftb_order, set_id=set_id, edge=EdgeType.DRAW)
+            for u, v in pairwise(path):
+                M.add_edge(u, v, set_ftb_order, set_id=set_id, edge=EdgeType.DRAW)
 
     # then do the actual OEB algorithm
+    # iterate through edges in no particular order
+    unique_edges = list(set(M.edges()))
+    for u, v in unique_edges:
+        # find paths using this edge,ie. all edges (u,v,k) for any k
+        this_edge = nx.subgraph_view(M, filter_edge=lambda w, x, _: (u, v) == (w, x))
+        p_uv = [k for u, v, k in this_edge.edges(keys=True)]
+        if len(p_uv) < 2:
+            # nothing to do here! only one path using this edge.
+            k = p_uv[0]
+            M.edges[(u, v, k)]["oeb_order"] = [k]
+            continue
 
-    # bundle order probably will be attribute of a physical edge
+        # make a square matrix holding the relative orderings: O[a,b] = 1 -> a precedes b. 0 = don't matter, NA = don't know, -1 = succeeds.
+        O = np.empty(shape=(len(p_uv), len(p_uv)))
+        np.fill_diagonal(O, 0)
+        print(O)
+
+        # direction of (u,v): u -> v
+        # (acc. to paper apparently it doesn't matter)
+
+        # for each pair of paths
+        for p1, p2 in combinations(p_uv, 2):
+            # filter graph to just these
+            # TODO filter here to path ids identified earlier so that we don't deal here with the path itself forking
+            M_ = nx.subgraph_view(M, filter_edge=lambda w, x, k: k in [p1, p2])
+            # walk along their common edges starting from u
+            # find edges from u to any node but v
+            # there should be 0 or 2
+            # if 0: both paths end after next edge. if that edge does not have an ordering, repeat process from v and exclude u
+            # else: look at end nodes of the 2 edges
+            # if the same: cool. check if that edge has an ordering and apply it here, if so. repeat procedure for next node.
+            # if different: the two paths fork at u. nothing to do
+            pass
+
+        # linearize O to something like (b,a,d,...,z)
+        # save order on all multiedges between u and v
+        pass
 
     return M
 
@@ -680,6 +716,7 @@ def draw_svg(geometries):
 def render_line(instance, G, p):
 
     M = add_routes_of_set_systems(instance, G)
+
     # optional: bundle edges more
     # idea would be to allow bundling of spanner sub-paths between two element nodes
     # so that even after bundling the modified spanner connects all set elements (but is not a t-spanner anymore necessarily)
@@ -773,8 +810,8 @@ INSTANCE = {
         # "set0": ["A", "B", "D", "E"],
         # "set1": ["A", "B", "E"],
         # "set2": ["G", "C"],
-        "set3": ["D", "G", "H"],
-        "set4": ["A", "H", "G", "F", "E"],
+        "set3": ["D", "G", "H", "E", "F"],
+        "set4": ["A", "F", "D", "H", "E"],
     },
     "set_bundle_order": [
         "set2",
