@@ -518,7 +518,6 @@ def find_edge_ordering(
         else:
             # paths both use same edge
             # check if that edge has an ordering and apply it here, if so, and break. else walk further.
-            # TODO not cool to rely on this path id construction here
             e = [
                 (w, x, k)
                 for w, x, k in G.edges(nbunch=u, keys=True)
@@ -770,17 +769,45 @@ def merge_alternating(xs, ys):
     return result
 
 
+def triangular_area(a, b, c):
+    aX, aY = a
+    bX, bY = b
+    cX, cY = c
+    return (bX - aX) * (cY - aY) - (cX - aX) * (bY - aY)
+
+
+# https://bryceboe.com/2006/10/23/line-segment-intersection-algorithm/
+def ccw(a, b, c):
+    ax, ay = a
+    bx, by = b
+    cx, cy = c
+    return (cy - ay) * (bx - ax) > (by - ay) * (cx - ax)
+
+
+def do_lines_intersect(a, b, c, d):
+    return ccw(a, c, d) != ccw(b, c, d) and ccw(a, b, c) != ccw(a, b, d)
+
+
+def cart2pol(x, y):
+    rho = np.sqrt(x**2 + y**2)
+    phi = np.arctan2(y, x)
+    return (rho, phi)
+
+
+def pol2cart(rho, phi):
+    x = rho * np.cos(phi)
+    y = rho * np.sin(phi)
+    return (x, y)
+
+
 def geometrize(instance, M):
     margins = (50, 50)
     factor = 100
     geometries = []
     mx, my = margins
 
-    # SOOOOO
-    # the tricky part.
-    # render the shit
-    # guess we 1st identify the hubs: all used intermediate (=non-center) nodes
-    # then each hub becomes a circle?
+    # TODO somehow it would be easier if we first went through all nodes
+    # and updated their position to the intended projection
 
     # glyph nodes
     for i, n in M.nodes(data=True):
@@ -804,6 +831,7 @@ def geometrize(instance, M):
             glyph = svg.Lines(*merge_alternating(xs, ys), close=True)
             geometries.append(glyph)
 
+    """
     for i, j, e in M.edges(data=True):
         if e["edge"] == EdgeType.DRAW:
             s = M.nodes[i]
@@ -817,9 +845,93 @@ def geometrize(instance, M):
                     ex=ex * factor + mx,
                     ey=-ey * factor + my,
                     stroke="gray",
-                    stroke_width=5,
+                    stroke_width=1,
                 )
             )
+    """
+
+    hub_radius = factor / 10
+    hubs = [
+        n
+        for n in M.nodes()
+        if M.degree[n] > 0 and M.nodes[n]["node"] != NodeType.CENTER
+    ]
+    for hub in hubs:
+        cx, cy = M.nodes[hub]["pos"]
+        center = np.array(margins) + np.array((cx, -cy)) * factor
+        # make sectors
+        sectors = []
+        if M.nodes[hub]["node"] == NodeType.ANCHOR:
+            # for anchor nodes it's equal-width sectors
+            # 45 degrees for square lattice, 60 degrees for hex lattice
+            deg = 0
+            if instance["lattice_type"] == "hex":
+                deg = 60
+            elif instance["lattice_type"] == "sqr":
+                deg = 45
+            rad = deg * math.pi / 180
+            for i in range(int(360 / deg)):
+                sectors.append(
+                    (
+                        center + np.array(pol2cart(hub_radius, i * rad)),
+                        center + np.array(pol2cart(hub_radius, (i + 1) * rad)),
+                    ),
+                )
+        elif M.nodes[hub]["node"] in [NodeType.SIDE, NodeType.CORNER]:
+            # not rendering those for now
+            pass
+        for sector in sectors:
+            s, e = sector
+            sx, sy = s
+            ex, ey = e
+            geometries.append(
+                svg.Lines(
+                    center[0],
+                    center[1],
+                    sx,
+                    sy,
+                    ex,
+                    ey,
+                    stroke="gray",
+                    fill="white",
+                    close=True,
+                    stroke_width=1,
+                )
+            )
+        # ok now... each sector of the hub has an associated edge yes
+        # find them
+        sectors_dict = dict()
+        incident_edges = list(set(M.edges(nbunch=hub)))
+        if M.nodes[hub]["node"] == NodeType.ANCHOR:
+            # the edge has to intersect (sector_start, sector_end)
+            for u, v in incident_edges:
+                ux, uy = u
+                vx, vy = v
+                up = np.array(margins) + factor * np.array((ux, -uy))
+                vp = np.array(margins) + factor * np.array((vx, -vy))
+                for start, end in sectors:
+                    if do_lines_intersect(up, vp, start, end):
+                        sectors_dict[(u, v)] = (start, end)
+                        continue
+        elif M.nodes[hub]["node"] in [NodeType.CORNER, NodeType.SIDE]:
+            # assign them by circular order
+            # for collinear points break ties arbitrarily
+            pass
+        print(sectors_dict)
+        # OKAY ready.
+        # unsure what's a good way to continue
+        # seems like i should be able to process each sector individually?
+        # but not independently of others...
+        # reason being this: i have a hub and two lines a,b go through
+        #   i take any sector and select points on it for a and b
+        #   i use the order on the edge, which is a,b, so i assign a then b in clockwise order
+        #   i find the sector where a,b exit
+        #   BUT if i repeat the same operations there, i will have it reversed such that a and b cross!
+        #   and fine, i can reverse the order on the other sector, but then it's not in sync with the edge??
+        #   unless you make a rule like its the order as specified on the in-edge and reversed on the out-edge
+        #   but we don't have a notion of direction at all, there are no in or out edges, just edges.
+        #   making such an order up also seems error prone... so idk. weird.
+        # maybe a completely differing approach is needed?
 
     return geometries
 
@@ -901,6 +1013,7 @@ def draw_rendering(rendering):
 
 
 INSTANCE = {
+    "lattice_type": "hex",
     "glyph_ids": [
         "A",
         "B",
@@ -928,7 +1041,7 @@ INSTANCE = {
     ],  # a panda df with two columns (x and y) corresponding to logical grid position
     "set_system": {
         # "set0": ["A", "B", "D", "E"],
-        # "set1": ["A", "B", "E"],
+        "set1": ["B", "I"],
         "set2": ["G", "C", "D", "E"],
         "set3": ["A", "F", "D", "E"],
         "set4": ["A", "I", "D", "E"],
@@ -943,7 +1056,7 @@ INSTANCE = {
         "set4",
         "set3",
         "set2",
-        # "set1",
+        "set1",
         # "set0"
     ],  # a list of set ids that defines front to back ordering (index = 0 is most front)
 }
@@ -951,7 +1064,7 @@ INSTANCE = {
 if __name__ == "__main__":
     m = 3
     n = 3
-    lattice_type = "hex"
+    lattice_type = INSTANCE["lattice_type"]
     G = get_routing_graph(lattice_type, (m, n))
     G = embed_to_routing_graph(INSTANCE, G)
     G = render_line(INSTANCE, G, DEFAULT_PARAMS)
