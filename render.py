@@ -479,6 +479,103 @@ def get_longest_simple_paths(G, src, tgt, visited=[], current_path=[]):
     )
 
 
+def get_side(a, b, c):
+    "Given a line from a to b in 2D and a point c, determine if c is left, right or on the line."
+    ax, ay = a
+    bx, by = b
+    cx, cy = c
+    det = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
+    if det > 0:
+        return 1
+    if det < 0:
+        return -1
+    return 0
+
+
+def walk_direction(G, start, avoid_node=None):
+    possible_edges = G.edges(nbunch=start, keys=True)
+    edges = [(u, v, k) for u, v, k in possible_edges if v != avoid_node]
+    return edges
+
+
+def find_edge_ordering(
+    G, p1, p2, u, v, initial_edge, return_default_order_if_not_found=False
+):
+    # walk along their common edges starting from u
+    # find edges from u to any node but v
+    edges = walk_direction(G, u, v)
+    order = 0
+    while len(edges) > 0:
+        edges = dict([(G.edges[(u, v, k)]["path_id"], v) for u, v, k in edges])
+        next_p1 = edges[p1]
+        next_p2 = edges[p2]
+
+        if next_p1 != next_p2:
+            # the two paths fork at u. path going to left takes precendence over the other.
+            # left of what? left of the first edge of left of this edge?
+            # let's assume left of this edge.
+            return get_side(u, next_p1, next_p2)
+        else:
+            # paths both use same edge
+            # check if that edge has an ordering and apply it here, if so, and break. else walk further.
+            # TODO not cool to rely on this path id construction here
+            e = [
+                (w, x, k)
+                for w, x, k in G.edges(nbunch=u, keys=True)
+                if (w, x) == (u, next_p1)
+            ]
+            e = G.edges[e[0]]
+
+            if "oeb_order" in e:
+                ordering = e["oeb_order"]
+                if ordering.index(p1) < ordering.index(p2):
+                    return 1
+                elif ordering.index(p2) < ordering.index(p1):
+                    return -1
+                else:
+                    return 0
+
+        edges = walk_direction(G, next_p1, u)
+        u = next_p1
+        v = u
+    # if 0: both paths end at u. repeat process from v and exclude u
+    if not return_default_order_if_not_found:
+        w, x = initial_edge
+        return find_edge_ordering(
+            G, p1, p2, x, w, initial_edge, return_default_order_if_not_found=True
+        )
+
+    # in case we did all of the above and still didn't find an ordering, the two paths are coincident (=the same)
+    return order
+
+
+def get_linear_order(O):
+    n, _ = O.shape
+    # "dependency" graph. edge (i,j) means i must precede j
+    G = nx.DiGraph()
+    G.add_nodes_from(range(n))
+    triu = list(zip(*np.triu_indices(n, 1)))
+    for u, v in triu:
+        if O[u, v] > 0:
+            G.add_edge(u, v)
+        if O[u, v] < 0:
+            G.add_edge(v, u)
+    linearized = []
+    for comp in nx.connected_components(nx.Graph(incoming_graph_data=G)):
+        # start at the node with no in-edges
+        # hopefully there is only one
+        num_in_edges = [(n, len(G.in_edges(nbunch=n))) for n in comp]
+        num_in_edges = list(sorted(num_in_edges, key=lambda x: x[1]))
+        src, l_src = num_in_edges[0]
+        if l_src > 0:
+            raise Exception("cyclellelellele")
+        dep_order = nx.dfs_postorder_nodes(G, src)
+        for n in dep_order:
+            linearized.append(n)
+
+    return linearized
+
+
 def order_bundles(instance, M):
     """M is a nx MultiGraph with all edges to draw. Returned is an ordering of sets."""
 
@@ -503,8 +600,6 @@ def order_bundles(instance, M):
         next = list(G_.neighbors(first))[0]
         paths[set_id] = paths[set_id] + get_longest_simple_paths(G_, first, next)
 
-    # TODO give each part a path id, can just be the set_id+index
-
     # step 2: remove intermediate center nodes from paths
     for set_id in instance["set_ftb_order"]:
         paths[set_id] = [
@@ -520,9 +615,16 @@ def order_bundles(instance, M):
     M.remove_edges_from(list(M.edges()))
     for set_id in instance["set_ftb_order"]:
         set_ftb_order = instance["set_ftb_order"].index(set_id) + 1
-        for path in paths[set_id]:
+        for i, path in enumerate(paths[set_id]):
             for u, v in pairwise(path):
-                M.add_edge(u, v, set_ftb_order, set_id=set_id, edge=EdgeType.DRAW)
+                M.add_edge(
+                    u,
+                    v,
+                    set_ftb_order,
+                    set_id=set_id,
+                    path_id=f"{set_id}-{i}",
+                    edge=EdgeType.DRAW,
+                )
 
     # then do the actual OEB algorithm
     # iterate through edges in no particular order
@@ -534,34 +636,41 @@ def order_bundles(instance, M):
         if len(p_uv) < 2:
             # nothing to do here! only one path using this edge.
             k = p_uv[0]
-            M.edges[(u, v, k)]["oeb_order"] = [k]
+            M.edges[(u, v, k)]["oeb_order"] = [M.edges[(u, v, k)]["path_id"]]
             continue
 
-        # make a square matrix holding the relative orderings: O[a,b] = 1 -> a precedes b. 0 = don't matter, NA = don't know, -1 = succeeds.
+        path_ids = [
+            (k, this_edge.edges[(u, v, k)]["path_id"])
+            for u, v, k in this_edge.edges(keys=True)
+        ]
+
+        # make a square matrix holding the relative orderings: O[a,b] = 1 -> a precedes b. 0 = don't matter, -1 = succeeds, else = don't know
         O = np.empty(shape=(len(p_uv), len(p_uv)))
         np.fill_diagonal(O, 0)
-        print(O)
 
         # direction of (u,v): u -> v
         # (acc. to paper apparently it doesn't matter)
 
         # for each pair of paths
-        for p1, p2 in combinations(p_uv, 2):
-            # filter graph to just these
-            # TODO filter here to path ids identified earlier so that we don't deal here with the path itself forking
-            M_ = nx.subgraph_view(M, filter_edge=lambda w, x, k: k in [p1, p2])
-            # walk along their common edges starting from u
-            # find edges from u to any node but v
-            # there should be 0 or 2
-            # if 0: both paths end after next edge. if that edge does not have an ordering, repeat process from v and exclude u
-            # else: look at end nodes of the 2 edges
-            # if the same: cool. check if that edge has an ordering and apply it here, if so. repeat procedure for next node.
-            # if different: the two paths fork at u. nothing to do
-            pass
+        for pi1, pi2 in combinations(path_ids, 2):
+            k1, p1 = pi1
+            k2, p2 = pi2
+            # filter here to path ids identified earlier so that we don't deal here with the path itself forking
+            M_ = nx.subgraph_view(
+                M, filter_edge=lambda w, x, k: M.edges[(w, x, k)]["path_id"] in [p1, p2]
+            )
+            order = find_edge_ordering(M_, p1, p2, u, v, (u, v))
+            k1i = p_uv.index(k1)
+            k2i = p_uv.index(k2)
+            O[k1i, k2i] = order
+            O[k2i, k1i] = -order
 
         # linearize O to something like (b,a,d,...,z)
+        path_id_dict = dict(path_ids)
+        linear_O = [path_id_dict[k] for k in get_linear_order(O)]
         # save order on all multiedges between u and v
-        pass
+        for k in p_uv:
+            M.edges[(u, v, k)]["oeb_order"] = linear_O
 
     return M
 
@@ -679,7 +788,8 @@ def geometrize(instance, M):
             flat_corners[1::2] = ys
             # so if we wanted to render to something else than svg, we could
             # replace the drawsvg elements with some dicts and make drawsvg
-            # elements in draw_svg function.
+            # elements in draw_svg function. convert to something else in
+            # draw_smth_else.
             # for now it saves time to not do that
             glyph = svg.Lines(*flat_corners, close=True)
             geometries.append(glyph)
@@ -810,8 +920,8 @@ INSTANCE = {
         # "set0": ["A", "B", "D", "E"],
         # "set1": ["A", "B", "E"],
         # "set2": ["G", "C"],
-        "set3": ["D", "G", "H", "E", "F"],
-        "set4": ["A", "F", "D", "H", "E"],
+        "set3": ["A", "F", "D", "E"],
+        "set4": ["A", "I", "D", "E"],
     },
     "set_bundle_order": [
         "set2",
