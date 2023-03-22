@@ -667,7 +667,7 @@ def order_bundles(instance, M):
 
         # linearize O to something like (b,a,d,...,z)
         path_id_dict = dict(path_ids)
-        linear_O = [path_id_dict[k] for k in get_linear_order(O)]
+        linear_O = [path_id_dict[p_uv[i]] for i in get_linear_order(O)]
         # save order on all multiedges between u and v
         for k in p_uv:
             M.edges[(u, v, k)]["oeb_order"] = linear_O
@@ -762,11 +762,25 @@ def add_routes_of_set_systems(instance, G):
     return M
 
 
+def merge_alternating(xs, ys):
+    # https://stackoverflow.com/a/3678938/490524
+    result = [None] * (len(xs) + len(ys))
+    result[::2] = xs
+    result[1::2] = ys
+    return result
+
+
 def geometrize(instance, M):
     margins = (50, 50)
     factor = 100
     geometries = []
     mx, my = margins
+
+    # SOOOOO
+    # the tricky part.
+    # render the shit
+    # guess we 1st identify the hubs: all used intermediate (=non-center) nodes
+    # then each hub becomes a circle?
 
     # glyph nodes
     for i, n in M.nodes(data=True):
@@ -782,16 +796,12 @@ def geometrize(instance, M):
             xs, ys = zip(*corners)
             xs = [x * factor + mx for x in xs]
             ys = [-y * factor + my for y in ys]
-            # https://stackoverflow.com/a/3678938/490524
-            flat_corners = [None] * (len(xs) + len(ys))
-            flat_corners[::2] = xs
-            flat_corners[1::2] = ys
             # so if we wanted to render to something else than svg, we could
             # replace the drawsvg elements with some dicts and make drawsvg
             # elements in draw_svg function. convert to something else in
             # draw_smth_else.
             # for now it saves time to not do that
-            glyph = svg.Lines(*flat_corners, close=True)
+            glyph = svg.Lines(*merge_alternating(xs, ys), close=True)
             geometries.append(glyph)
 
     for i, j, e in M.edges(data=True):
@@ -919,7 +929,7 @@ INSTANCE = {
     "set_system": {
         # "set0": ["A", "B", "D", "E"],
         # "set1": ["A", "B", "E"],
-        # "set2": ["G", "C"],
+        "set2": ["G", "C", "D", "E"],
         "set3": ["A", "F", "D", "E"],
         "set4": ["A", "I", "D", "E"],
     },
@@ -932,7 +942,7 @@ INSTANCE = {
     "set_ftb_order": [
         "set4",
         "set3",
-        # "set2",
+        "set2",
         # "set1",
         # "set0"
     ],  # a list of set ids that defines front to back ordering (index = 0 is most front)
