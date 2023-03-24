@@ -500,9 +500,7 @@ def incident_edges(G, start, avoid_node=None):
     return edges
 
 
-def find_edge_ordering(
-    G, p1, p2, u, v, initial_edge, return_default_order_if_not_found=False
-):
+def find_edge_ordering(G, p1, p2, u, v, initial_edge, exploring_other_way=False):
     # walk along their common edges starting from u
     # find edges from u to any node but v. G contains two paths, that were up until now
     # coincident, so either we find 0 edges (paths end) or 2 edges (paths continue).
@@ -517,7 +515,25 @@ def find_edge_ordering(
             # the two paths fork at u. path going to left takes precendence over the other.
             # left of what? left of the first edge of left of this edge?
             # let's assume left of this edge.
-            side = get_side(u, next_p1, next_p2)
+            side = get_side(u, next_p2, next_p1)
+            if not exploring_other_way:
+                # we search backwards first
+                # so if we find an order when looking back we have to reverse it
+                side *= -1
+
+            print(
+                "order found for",
+                (p1, p2),
+                "at",
+                (G.nodes[initial_edge[0]], G.nodes[initial_edge[1]]),
+                "on",
+                (G.nodes[u], G.nodes[next_p1], G.nodes[next_p2]),
+                ": ",
+                side,
+                "(fork)",
+                "while exploring other direction" if exploring_other_way else "",
+                "\n",
+            )
             return side
         else:
             # paths both use same edge
@@ -535,16 +551,37 @@ def find_edge_ordering(
                     order = -1
                 elif ordering.index(p2) < ordering.index(p1):
                     order = 1
+
+                # we search backwards first
+                # so if we find an order when looking back we have to reverse it
+                if not exploring_other_way:
+                    order *= -1
+
+                    """
+                print(
+                    "order found for",
+                    (p1, p2),
+                    "at",
+                    (G.nodes[initial_edge[0]], G.nodes[initial_edge[1]]),
+                    "on",
+                    (G.nodes[u], G.nodes[next_p1]),
+                    ": ",
+                    order,
+                    "(existing)",
+                )
+                """
                 return order
 
+        print("STEP")
         edges = incident_edges(G, next_p1, avoid_node=u)
         u = next_p1
         v = u
     # if 0: both paths end at u. repeat process from v and exclude u
-    if not return_default_order_if_not_found:
+    if not exploring_other_way:
+        print("REVERSE")
         w, x = initial_edge
         return find_edge_ordering(
-            G, p1, p2, x, w, initial_edge, return_default_order_if_not_found=True
+            G, p1, p2, x, w, initial_edge, exploring_other_way=True
         )
 
     # in case we did all of the above and still didn't find an ordering, the two paths are coincident (=the same)
@@ -629,16 +666,6 @@ def order_bundles(instance, M):
                 )
 
     # then do the actual OEB algorithm
-    # iterate through edges in no particular order
-
-    # different approach. instead of processing edges independently, we process
-    # each path.
-    # and also we will do dual bookkeeping for ordering. one order for (u,v), reverse order for (v,u). otherwise this gets out of sync
-    # take a path. pick a start point (deg = 1 node). follow the path.
-    # if there are no other paths on an edge, cool. order for that edge is fixed.
-    # if there are other paths on the edge, do the thing from the paper:
-    #  -
-
     unique_edges = list(set(M.edges()))
     for u, v in unique_edges:
         # find paths using this edge,ie. all edges (u,v,k) for any k
@@ -684,6 +711,7 @@ def order_bundles(instance, M):
         # linearize O to something like (b,a,d,...,z)
         path_id_dict = dict(path_ids)
         linear_O = [path_id_dict[p_uv[i]] for i in get_linear_order(O)]
+        print((u, v), linear_O)
         # save order on all multiedges between u and v
         for k in p_uv:
             M.edges[(u, v, k)]["oeb_order"] = {
@@ -691,6 +719,49 @@ def order_bundles(instance, M):
                 (v, u): list(reversed(linear_O)),
             }
 
+    """
+    O = dict()
+    for set_id in instance["set_ftb_order"]:
+        set_ftb_order = instance["set_ftb_order"].index(set_id) + 1
+        for i, path in enumerate(paths[set_id]):
+            p1 = f"{set_id}-{i}"
+            for u, v in pairwise(path):
+                # does this edge have an ordering?
+                # if not, add ourselves and continue
+                if (u, v) not in O:
+                    O[(u, v)] = [p1]
+                    O[(v, u)] = [p1]
+                    continue
+
+                if p1 in O[(u, v)]:
+                    # nothing to do here, this path already ordered for this edge
+                    continue
+
+                # this edge already has an ordering
+                # figure out which path we go left of
+                insert_idx = len(O[(u, v)])
+                for j, p2 in enumerate(O[(u, v)]):
+                    M_ = nx.subgraph_view(
+                        M,
+                        filter_edge=lambda w, x, k: M.edges[(w, x, k)]["path_id"]
+                        in [p1, p2],
+                    )
+                    order = find_edge_ordering(M_, p1, p2, u, v, (u, v))
+                    if order <= 0:
+                        insert_idx = j
+                        break
+
+                O[(u, v)].insert(insert_idx, p1)
+                O[(v, u)] = list(reversed(O[(u, v)]))
+
+    for e, o in O.items():
+        u, v = e
+        multi_edges = [(w, x, k) for w, x, k in M.edges(keys=True) if (u, v) == (w, x)]
+        for me in multi_edges:
+            if "oeb_order" not in M.edges[me]:
+                M.edges[me]["oeb_order"] = {}
+            M.edges[me]["oeb_order"][(u, v)] = o
+    """
     return M
 
 
@@ -824,6 +895,8 @@ def get_angle(u, v):
     ux, uy = u
     vx, vy = v
     theta = math.atan2(uy - vy, ux - vx)
+    if theta < 0:
+        theta += 2 * math.pi
     return theta
 
 
@@ -888,8 +961,52 @@ def geometrize(instance, M):
             )
     """
 
-    uniq_edges = list(set(M.edges()))
     set_colors = ["red", "blue", "orange", "green", "yellow"]
+    paths = list(set([d["path_id"] for u, v, k, d in M.edges(keys=True, data=True)]))
+    for path_id in paths:
+        set_id, _ = path_id.split("-")  # TODO meh
+        set_idx = instance["set_ftb_order"].index(set_id)
+        M_ = nx.subgraph_view(
+            M, filter_edge=lambda u, v, k: M.edges[(u, v, k)]["path_id"] == path_id
+        )
+        u = [n for n in M_.nodes() if M_.degree(n) == 1][0]
+        v = list(M_.neighbors(u))[0]
+        while True:
+            # do things
+            src = M_.nodes[u]["pos"]
+            tgt = M_.nodes[v]["pos"]
+            edge_angle = get_angle(src, tgt)
+            i = M_.edges[(u, v, set_idx + 1)]["oeb_order"][(u, v)].index(path_id)
+            offset_dir = math.pi / 2
+            offset_length = i * 5  # TODO idk some factor
+            # minus pi/2=90deg -> should mean that we offset edges to its right handside
+            # so that earlier indices are rendered left of later indices
+            o_u, o_v = offset_edge((src, tgt), edge_angle - offset_dir, offset_length)
+            cx1, cy1 = centroid([src, tgt])
+            cx2, cy2 = offset_point((cx1, cy1), edge_angle - math.pi / 2, 10)
+            geometries.append(
+                svg.Line(cx1, cy1, cx2, cy2, stroke="lightgray", stroke_width=1)
+            )
+            geometries.append(
+                svg.Line(
+                    o_u[0],
+                    o_u[1],
+                    o_v[0],
+                    o_v[1],
+                    data_order=i,
+                    stroke_width=2,
+                    stroke=set_colors[set_idx],
+                    z=set_idx,
+                )
+            )
+
+            next_edges = incident_edges(M_, v, avoid_node=u)
+            if len(next_edges) == 0:
+                break
+            u, v, _ = next_edges[0]
+
+    """
+    uniq_edges = list(set(M.edges()))
     for u, v in uniq_edges:
         ks = [k for w, x, k in M.edges(keys=True) if (w, x) == (u, v)]
         src = M.nodes[u]["pos"]
@@ -897,11 +1014,12 @@ def geometrize(instance, M):
         edge_angle = get_angle(src, tgt)
 
         # print normal of edge vector just for debugging
-        # cx1, cy1 = centroid([src, tgt])
-        # cx2, cy2 = offset_point((cx1, cy1), edge_angle + math.pi / 2, 10)
-        # geometries.append(
-        #    svg.Line(cx1, cy1, cx2, cy2, stroke="lightgray", stroke_width=1)
-        # )
+        cx1, cy1 = centroid([src, tgt])
+        cx2, cy2 = offset_point((cx1, cy1), edge_angle + math.pi / 2, 10)
+        geometries.append(
+            svg.Line(cx1, cy1, cx2, cy2, stroke="lightgray", stroke_width=1)
+        )
+
 
         g = svg.Group()
         for i, path_id in enumerate(M.edges[(u, v, ks[0])]["oeb_order"][(u, v)]):
@@ -922,9 +1040,8 @@ def geometrize(instance, M):
                     z=set_idx,
                 )
             )
-        pass
         geometries.append(g)
-
+    """
     """
     hub_radius = factor / 10
     hubs = [
