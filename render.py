@@ -800,14 +800,34 @@ def pol2cart(rho, phi):
     return (x, y)
 
 
+def get_angle(u, v):
+    ux, uy = u
+    vx, vy = v
+    theta = math.atan2(ux - vx, uy - vy)
+    return theta
+
+
+def offset_point(p, angle, length):
+    pn = np.array(p) + np.array(pol2cart(length, angle))
+    x, y = pn
+    return (x, y)
+
+
+def offset_edge(edge, angle, length):
+    s, t = edge
+    return (offset_point(s, angle, length), offset_point(t, angle, length))
+
+
 def geometrize(instance, M):
     margins = (50, 50)
     factor = 100
     geometries = []
     mx, my = margins
 
-    # TODO somehow it would be easier if we first went through all nodes
-    # and updated their position to the intended projection
+    # project nodes
+    for i in M.nodes():
+        (x, y) = M.nodes[i]["pos"]
+        M.nodes[i]["pos"] = (x * factor + mx, -y * factor + my)
 
     # glyph nodes
     for i, n in M.nodes(data=True):
@@ -821,8 +841,6 @@ def geometrize(instance, M):
                 )
             ]
             xs, ys = zip(*corners)
-            xs = [x * factor + mx for x in xs]
-            ys = [-y * factor + my for y in ys]
             # so if we wanted to render to something else than svg, we could
             # replace the drawsvg elements with some dicts and make drawsvg
             # elements in draw_svg function. convert to something else in
@@ -850,6 +868,27 @@ def geometrize(instance, M):
             )
     """
 
+    uniq_edges = list(set(M.edges()))
+    for u, v in uniq_edges:
+        ks = [k for w, x, k in M.edges(keys=True) if (w, x) == (u, v)]
+        src = M.nodes[u]["pos"]
+        tgt = M.nodes[v]["pos"]
+        edge_angle = get_angle(src, tgt)
+        g = svg.Group()
+        for i, path_id in enumerate(M.edges[(u, v, ks[0])]["oeb_order"]):
+            print(path_id)
+            offset_dir = (1 if i % 2 == 0 else -1) * math.pi / 2
+            offset_length = math.floor((i + 1) / 2) * 5  # TODO idk some factor
+            o_u, o_v = offset_edge((src, tgt), edge_angle + offset_dir, offset_length)
+            g.append(
+                svg.Line(
+                    o_u[0], o_u[1], o_v[0], o_v[1], stroke_width=2, stroke="gray", z=i
+                )
+            )
+        pass
+        geometries.append(g)
+
+    """
     hub_radius = factor / 10
     hubs = [
         n
@@ -932,7 +971,7 @@ def geometrize(instance, M):
         #   but we don't have a notion of direction at all, there are no in or out edges, just edges.
         #   making such an order up also seems error prone... so idk. weird.
         # maybe a completely differing approach is needed?
-
+    """
     return geometries
 
 
