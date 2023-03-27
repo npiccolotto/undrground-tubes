@@ -16,6 +16,7 @@ from util.geometry import (
     offset_edge,
     is_point_inside_circle,
     get_segment_circle_intersection,
+    simple_control_points,
 )
 from util.graph import (
     incident_edges,
@@ -771,18 +772,19 @@ def geometrize(instance, M):
                     keypoints.append(
                         get_segment_circle_intersection((vhub_center, b), vhub_circle)
                     )
+
         geometries.append(
             svg.Lines(
                 *merge_alternating(list(zip(*keypoints))),
                 close=False,
-                stroke_width=2,
+                stroke_width=1,
                 fill="none",
                 stroke=set_colors[set_idx],
                 z=set_idx,
             )
         )
 
-    if DEBUG:
+    if True:
         hubs = [n for n in M.nodes() if M.degree[n] > 0]
         for hub in hubs:
             cx, cy = M.nodes[hub]["pos"]

@@ -1,6 +1,7 @@
 import math
 import numpy as np
 from collections import Counter
+from pygame.math import Vector2
 
 
 def dist_euclidean(p1, p2):
@@ -105,21 +106,72 @@ def is_point_inside_circle(point, circle):
 
 
 def get_segment_circle_intersection(segment, circle):
-    a, b = segment
-    c, r = circle
-    # crude, but should work:
-    # if a or b is less than r away from c, we have an intersection
-    d_ac = dist_euclidean(a, c)
-    d_bc = dist_euclidean(b, c)
-    if d_ac > r and d_bc > r:
-        # in the general case both points could be outside the circle and yet the segment
-        # still intersecting it, but due to our construction rules that can't really happen
+    # https://codereview.stackexchange.com/a/86428
+    s1, s2 = segment
+    ax, ay = s1
+    bx, by = s2
+    center, r = circle
+    cx, cy = center
+
+    Q = Vector2(cx, cy)  # Centre of circle
+    P1 = Vector2(ax, ay)  # Start of line segment
+    V = Vector2(bx, by) - P1  # Vector along line segment
+
+    a = V.dot(V)
+    b = 2 * V.dot(P1 - Q)
+    c = P1.dot(P1) + Q.dot(Q) - 2 * P1.dot(Q) - r**2
+
+    disc = b**2 - 4 * a * c
+    if disc < 0:
         return None
-    if d_ac <= r and d_bc <= r:
-        raise Exception("somehow segment completely in circle")
-    # the intersection is found by offsetting from the point inside the circle
-    point_in_circle = a if d_ac < d_bc else b
-    point_out_circle = b if point_in_circle == a else a
-    offset_from_point_in_circle = min(d_ac, d_bc) - r
-    angle = get_angle(point_in_circle, point_out_circle)
-    return offset_point(point_in_circle, angle, offset_from_point_in_circle)
+
+    sqrt_disc = math.sqrt(disc)
+    t1 = (-b + sqrt_disc) / (2 * a)
+    t2 = (-b - sqrt_disc) / (2 * a)
+    if not (0 <= t1 <= 1 or 0 <= t2 <= 1):
+        return None
+
+    # https://stackoverflow.com/a/1084899/490524
+    if t1 >= 0 and t1 <= 1:
+        i = P1 + t1 * V
+        return i
+    if t2 >= 0 and t2 <= 1:
+        i = P1 + t2 * V
+        return i
+
+    return None
+
+
+def simple_control_points(a, b, c, offset=2):
+    "Given three points on polyline abc, return control points for middle point"
+    # idea is following. determine angle between a and c
+    # control points are offset from b in that angle and 2π-angle
+    a = get_angle(a, c)
+    c1 = offset_point(b, a, offset)
+    a_ = 2 * math.pi - a
+    if a_ < 0:
+        a_ += 2 * math.pi
+    c2 = offset_point(b, a_, offset)
+    return (c1, c2)
+
+
+# https://stackoverflow.com/a/50974391/490524
+def define_circle(p1, p2, p3):
+    """
+    Returns the center and radius of the circle passing the given 3 points.
+    In case the 3 points form a line, returns (None, infinity).
+    """
+    temp = p2[0] * p2[0] + p2[1] * p2[1]
+    bc = (p1[0] * p1[0] + p1[1] * p1[1] - temp) / 2
+    cd = (temp - p3[0] * p3[0] - p3[1] * p3[1]) / 2
+    det = (p1[0] - p2[0]) * (p2[1] - p3[1]) - (p2[0] - p3[0]) * (p1[1] - p2[1])
+
+    if abs(det) < 1.0e-6:
+        return (None, np.inf)
+
+    # Center of circle
+    cx = (bc * (p2[1] - p3[1]) - cd * (p1[1] - p2[1])) / det
+    cy = ((p1[0] - p2[0]) * cd - (p2[0] - p3[0]) * bc) / det
+
+    radius = np.sqrt((cx - p1[0]) ** 2 + (cy - p1[1]) ** 2)
+    return ((cx, cy), radius)
