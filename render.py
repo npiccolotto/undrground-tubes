@@ -58,6 +58,8 @@ DEFAULT_PARAMS = {
     "lattice_size": "auto",  # counts glyphs, makes square lattice that fits all. otherwise provide [widht,height] array
 }
 
+DEBUG = False
+
 
 def determine_lattice_size(glyph_positions):
     # TODO implement
@@ -780,13 +782,14 @@ def geometrize(instance, M):
             )
         )
 
-    hubs = [n for n in M.nodes() if M.degree[n] > 0]
-    for hub in hubs:
-        cx, cy = M.nodes[hub]["pos"]
-        r = 1 / 16 * factor
-        geometries.append(
-            svg.Circle(cx, cy, r, fill="none", stroke="gray", stroke_width=1)
-        )
+    if DEBUG:
+        hubs = [n for n in M.nodes() if M.degree[n] > 0]
+        for hub in hubs:
+            cx, cy = M.nodes[hub]["pos"]
+            r = 1 / 16 * factor
+            geometries.append(
+                svg.Circle(cx, cy, r, fill="none", stroke="gray", stroke_width=1)
+            )
     return geometries
 
 
@@ -838,27 +841,6 @@ def render_kelpfusion(instance, G, p):
     #   for each face: define if it gets filled according to paper
     #   SOMEHOW render faces and edges
     pass
-
-
-def render(instance, p):
-    p = DEFAULT_PARAMS | p
-    lattice_size = (
-        determine_lattice_size(glyph_positions)
-        if p["lattice_size"] == "auto"
-        else p["lattice_size"]
-    )
-    G = get_routing_graph(p["lattice_type"], lattice_size)
-    G = embed_to_routing_graph(instance, G)
-
-    match p["render_style"]:
-        case "line":
-            return render_line(instance, G, p)
-        case "envelope":
-            return render_envelope(instance, G, p)
-        case "kelpfusion":
-            return render_kelpfusion(instance, G, p)
-        case _:
-            raise Exception(f'unknown render style {p["render_style"]}')
 
 
 INSTANCE = {

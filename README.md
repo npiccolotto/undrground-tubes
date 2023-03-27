@@ -1,11 +1,14 @@
 # draw-ensemble-set-vis
 
-TODO (no order)
+TODO
 
-- geometry drawing code (pixels with PIL, SVG, idk)
-- KelpFusion renderer ("KelpFusion: A Hybrid Set Visualization Technique", Meulemans et al., 2013)
-- ordered edge bundles ("Edge routing with ordered bundles", Pupyrev et al., 2016)
-- edge bundling ("Winding Roads: Routing edges into bundles", Lambert et al., 2010)
+- √ hex glyphs
+- √ ordered bundles ("Edge routing with ordered bundles", Pupyrev et al., 2016)
+- configurable spacing and sizing
+- smooth curves instead of straight lines
+- square glyphs
+- kelpfusion drawing ("KelpFusion: A Hybrid Set Visualization Technique", Meulemans et al., 2013)
+- edge bundling, e.g., ("Winding Roads: Routing edges into bundles", Lambert et al., 2010)
 
 
 # Optimize MST choice
