@@ -1,13 +1,28 @@
 import networkx as nx
-import matplotlib as mpl
-import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-from collections import Counter, defaultdict
+from collections import defaultdict
 from itertools import combinations, pairwise, product
 import math
 from enum import IntEnum
 import drawsvg as svg
+
+from util.collections import merge_alternating
+from util.geometry import (
+    get_side,
+    get_closest_point,
+    centroid,
+    are_faces_adjacent,
+    get_angle,
+    offset_edge,
+    is_point_inside_circle,
+    get_segment_circle_intersection,
+)
+from util.graph import (
+    incident_edges,
+    get_longest_simple_paths,
+    get_closest_pair,
+    get_shortest_path_between,
+)
 
 
 class EdgeType(IntEnum):
@@ -27,22 +42,6 @@ class NodeType(IntEnum):
     ANCHOR = 3
 
 
-def are_faces_adjacent(face1, face2):
-    # faces are a list of tuples (points)
-    # faces are adjacent obv iff they share an edge, ie, two consecutive points
-    # however, the way our grid is constructed, any two shared points must be a shared edge
-    # thus we count the occurrences of points in both faces and if there are 2 points appearing 2 times, that's an edge
-    c = Counter(face1 + face2)
-    counter = Counter(list(c.values()))
-    return counter[2] == 2
-
-
-def centroid(points):
-    x, y = zip(*points)
-    n = len(x)
-    return (sum(x) / n, sum(y) / n)
-
-
 def logical_coords_to_physical(x, y, lattice_type="sqr"):
     if lattice_type == "hex":
         if y % 2 == 1:
@@ -50,62 +49,9 @@ def logical_coords_to_physical(x, y, lattice_type="sqr"):
     return (x, -y)
 
 
-def dist_euclidean(p1, p2):
-    # p1,p2 are tuples
-    x1, y1 = p1
-    x2, y2 = p2
-    return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-
-
-def get_closest_point(reference, options):
-    dists = [dist_euclidean(reference, option) for option in options]
-    closest = np.argmin(np.array(dists))
-    return options[closest]
-
-
-def distance_matrix(list1, list2, dist):
-    n = len(list1)
-    m = len(list2)
-    D = np.ndarray(shape=(n, m))
-    for i, j in product(range(n), range(m)):
-        D[i, j] = dist(list1[i], list2[j])
-    return D
-
-
-def get_closest_pair(list1, list2):
-    D = distance_matrix(list1, list2, dist_euclidean)
-    m = np.where(D == np.min(D))
-    m = (m[0][0], m[1][0])
-    return m
-
-
-def get_shortest_path_between(G, list1, list2):
-    shortest = float("inf"), []
-    for i in list1:
-        for j in list2:
-            p = nx.shortest_path(G, i, j)
-            p = list(pairwise(p))
-            l = calculate_path_length(G, p)
-            if l < shortest[0]:
-                shortest = (l, p)
-    return shortest
-
-
-def calculate_path_length(G, path):
-    # path is a list of edges
-    if len(path) == 0:
-        return float("inf")
-
-    length = 0
-    for e in path:
-        a, b = e
-        length += dist_euclidean(G.nodes[a]["pos"], G.nodes[b]["pos"])
-    return length
-
-
 DEFAULT_PARAMS = {
     "render_style": "kelpfusion",  # kelpfusion, line, envelope
-    "unit_size_in_px": 50,
+    "unit_size_in_px": 100,
     "margin_size": 0.5,  # % of glyph size (which is 1 unit)
     "lane_width": 0.1,  # width of lanes as % of glyph size (which is 1 unit)
     "lattice_type": "sqr",  # hex, tri, sqr
@@ -136,6 +82,7 @@ def make_hex_graph(m, n):
         n["belongs_to"] = logpos
         n["logpos"] = logpos
         n["pos"] = logical_coords_to_physical(x, y, "hex")
+        # TODO support glyph spacing in x and y separately
 
     G_ = nx.MultiGraph(incoming_graph_data=G)
 
@@ -189,11 +136,6 @@ def make_hex_graph(m, n):
             n["pos"] = logpos
 
     return G
-
-
-def make_tri_graph(m, n):
-    # TODO implement
-    raise Exception("not implemented")
 
 
 def make_sqr_graph(m, n):
@@ -337,8 +279,6 @@ def get_routing_graph(lattice_type, lattice_size):
             G = make_hex_graph(m, n)
         case "sqr":
             G = make_sqr_graph(m, n)
-        case "tri":
-            G = make_tri_graph(m, n)
         case _:
             raise Exception(f"unknown lattice type {lattice_type}")
 
@@ -438,68 +378,6 @@ def bundle_edges(instance, M):
     return M
 
 
-def get_longest_simple_paths(G, src, tgt, visited=[], current_path=[]):
-    # follow the path as long as nodes have deg = 2
-    # when paths fork (deg>2), add path up until here to list
-    # restart procedure along the forks
-    # eventually we have visited all nodes
-
-    next_visited = visited + [src]
-    if G.degree[tgt] > 2:
-        # fork, split here
-        current_path = current_path + [tgt]
-        next_tgts = [i for i in G.neighbors(tgt) if i not in next_visited]
-        next_paths = [
-            get_longest_simple_paths(
-                G, tgt, next_tgt, visited=next_visited, current_path=[]
-            )
-            for next_tgt in next_tgts
-        ]
-        ret = [current_path]
-        for p in next_paths:
-            ret += p
-        return ret
-
-    if G.degree[tgt] == 1:
-        # end of the simple path
-        current_path = current_path + [tgt]
-        return [current_path]
-
-    # regular case
-    next_src = tgt
-    next_tgt = [i for i in G.neighbors(tgt) if i not in next_visited]
-    if len(next_tgt) > 1:
-        raise Exception("uhm what")
-    return get_longest_simple_paths(
-        G,
-        next_src,
-        next_tgt[0],
-        visited=next_visited,
-        current_path=current_path + [src],
-    )
-
-
-def get_side(a, b, c):
-    "Given a line from a to b in 2D and a point c, determine if c is left, right or on the line."
-    ax, ay = a
-    bx, by = b
-    cx, cy = c
-    det = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
-    if det > 0:
-        # left
-        return -1
-    if det < 0:
-        # right
-        return 1
-    return 0
-
-
-def incident_edges(G, start, avoid_node=None):
-    possible_edges = G.edges(nbunch=start, keys=True)
-    edges = [(u, v, k) for u, v, k in possible_edges if v != avoid_node]
-    return edges
-
-
 def find_edge_ordering(G, p1, p2, u, v, initial_edge, exploring_other_way=False):
     # walk along their common edges starting from u
     # find edges from u to any node but v. G contains two paths, that were up until now
@@ -520,20 +398,6 @@ def find_edge_ordering(G, p1, p2, u, v, initial_edge, exploring_other_way=False)
                 # we search backwards first
                 # so if we find an order when looking back we have to reverse it
                 side *= -1
-
-            print(
-                "order found for",
-                (p1, p2),
-                "at",
-                (G.nodes[initial_edge[0]], G.nodes[initial_edge[1]]),
-                "on",
-                (G.nodes[u], G.nodes[next_p1], G.nodes[next_p2]),
-                ": ",
-                side,
-                "(fork)",
-                "while exploring other direction" if exploring_other_way else "",
-                "\n",
-            )
             return side
         else:
             # paths both use same edge
@@ -556,29 +420,13 @@ def find_edge_ordering(G, p1, p2, u, v, initial_edge, exploring_other_way=False)
                 # so if we find an order when looking back we have to reverse it
                 if not exploring_other_way:
                     order *= -1
-
-                    """
-                print(
-                    "order found for",
-                    (p1, p2),
-                    "at",
-                    (G.nodes[initial_edge[0]], G.nodes[initial_edge[1]]),
-                    "on",
-                    (G.nodes[u], G.nodes[next_p1]),
-                    ": ",
-                    order,
-                    "(existing)",
-                )
-                """
                 return order
 
-        print("STEP")
         edges = incident_edges(G, next_p1, avoid_node=u)
         u = next_p1
         v = u
     # if 0: both paths end at u. repeat process from v and exclude u
     if not exploring_other_way:
-        print("REVERSE")
         w, x = initial_edge
         return find_edge_ordering(
             G, p1, p2, x, w, initial_edge, exploring_other_way=True
@@ -711,7 +559,6 @@ def order_bundles(instance, M):
         # linearize O to something like (b,a,d,...,z)
         path_id_dict = dict(path_ids)
         linear_O = [path_id_dict[p_uv[i]] for i in get_linear_order(O)]
-        print((u, v), linear_O)
         # save order on all multiedges between u and v
         for k in p_uv:
             M.edges[(u, v, k)]["oeb_order"] = {
@@ -719,49 +566,6 @@ def order_bundles(instance, M):
                 (v, u): list(reversed(linear_O)),
             }
 
-    """
-    O = dict()
-    for set_id in instance["set_ftb_order"]:
-        set_ftb_order = instance["set_ftb_order"].index(set_id) + 1
-        for i, path in enumerate(paths[set_id]):
-            p1 = f"{set_id}-{i}"
-            for u, v in pairwise(path):
-                # does this edge have an ordering?
-                # if not, add ourselves and continue
-                if (u, v) not in O:
-                    O[(u, v)] = [p1]
-                    O[(v, u)] = [p1]
-                    continue
-
-                if p1 in O[(u, v)]:
-                    # nothing to do here, this path already ordered for this edge
-                    continue
-
-                # this edge already has an ordering
-                # figure out which path we go left of
-                insert_idx = len(O[(u, v)])
-                for j, p2 in enumerate(O[(u, v)]):
-                    M_ = nx.subgraph_view(
-                        M,
-                        filter_edge=lambda w, x, k: M.edges[(w, x, k)]["path_id"]
-                        in [p1, p2],
-                    )
-                    order = find_edge_ordering(M_, p1, p2, u, v, (u, v))
-                    if order <= 0:
-                        insert_idx = j
-                        break
-
-                O[(u, v)].insert(insert_idx, p1)
-                O[(v, u)] = list(reversed(O[(u, v)]))
-
-    for e, o in O.items():
-        u, v = e
-        multi_edges = [(w, x, k) for w, x, k in M.edges(keys=True) if (u, v) == (w, x)]
-        for me in multi_edges:
-            if "oeb_order" not in M.edges[me]:
-                M.edges[me]["oeb_order"] = {}
-            M.edges[me]["oeb_order"][(u, v)] = o
-    """
     return M
 
 
@@ -852,68 +656,10 @@ def add_routes_of_set_systems(instance, G):
     return M
 
 
-def merge_alternating(xs, ys):
-    # https://stackoverflow.com/a/3678938/490524
-    result = [None] * (len(xs) + len(ys))
-    result[::2] = xs
-    result[1::2] = ys
-    return result
-
-
-def triangular_area(a, b, c):
-    aX, aY = a
-    bX, bY = b
-    cX, cY = c
-    return (bX - aX) * (cY - aY) - (cX - aX) * (bY - aY)
-
-
-# https://bryceboe.com/2006/10/23/line-segment-intersection-algorithm/
-def ccw(a, b, c):
-    ax, ay = a
-    bx, by = b
-    cx, cy = c
-    return (cy - ay) * (bx - ax) > (by - ay) * (cx - ax)
-
-
-def do_lines_intersect(a, b, c, d):
-    return ccw(a, c, d) != ccw(b, c, d) and ccw(a, b, c) != ccw(a, b, d)
-
-
-def cart2pol(x, y):
-    rho = np.sqrt(x**2 + y**2)
-    phi = np.arctan2(y, x)
-    return (rho, phi)
-
-
-def pol2cart(rho, phi):
-    x = rho * np.cos(phi)
-    y = rho * np.sin(phi)
-    return (x, y)
-
-
-def get_angle(u, v):
-    ux, uy = u
-    vx, vy = v
-    theta = math.atan2(uy - vy, ux - vx)
-    if theta < 0:
-        theta += 2 * math.pi
-    return theta
-
-
-def offset_point(p, angle, length):
-    pn = np.array(p) + np.array(pol2cart(length, angle))
-    x, y = pn
-    return (x, y)
-
-
-def offset_edge(edge, angle, length):
-    s, t = edge
-    return (offset_point(s, angle, length), offset_point(t, angle, length))
-
-
 def geometrize(instance, M):
-    margins = (50, 50)
-    factor = 100
+    one_unit_px = DEFAULT_PARAMS["unit_size_in_px"]
+    margins = np.array((0.5, 0.5)) * one_unit_px
+    factor = one_unit_px
     geometries = []
     mx, my = margins
 
@@ -942,70 +688,7 @@ def geometrize(instance, M):
             glyph = svg.Lines(*merge_alternating(xs, ys), close=True)
             geometries.append(glyph)
 
-    """
-    for i, j, e in M.edges(data=True):
-        if e["edge"] == EdgeType.DRAW:
-            s = M.nodes[i]
-            z = M.nodes[j]
-            sx, sy = s.get("pos")
-            ex, ey = z.get("pos")
-            geometries.append(
-                svg.Line(
-                    sx=sx * factor + mx,
-                    sy=-sy * factor + my,
-                    ex=ex * factor + mx,
-                    ey=-ey * factor + my,
-                    stroke="gray",
-                    stroke_width=1,
-                )
-            )
-    """
-
     set_colors = ["red", "blue", "orange", "green", "yellow"]
-    paths = list(set([d["path_id"] for u, v, k, d in M.edges(keys=True, data=True)]))
-    for path_id in paths:
-        set_id, _ = path_id.split("-")  # TODO meh
-        set_idx = instance["set_ftb_order"].index(set_id)
-        M_ = nx.subgraph_view(
-            M, filter_edge=lambda u, v, k: M.edges[(u, v, k)]["path_id"] == path_id
-        )
-        u = [n for n in M_.nodes() if M_.degree(n) == 1][0]
-        v = list(M_.neighbors(u))[0]
-        while True:
-            # do things
-            src = M_.nodes[u]["pos"]
-            tgt = M_.nodes[v]["pos"]
-            edge_angle = get_angle(src, tgt)
-            i = M_.edges[(u, v, set_idx + 1)]["oeb_order"][(u, v)].index(path_id)
-            offset_dir = math.pi / 2
-            offset_length = i * 5  # TODO idk some factor
-            # minus pi/2=90deg -> should mean that we offset edges to its right handside
-            # so that earlier indices are rendered left of later indices
-            o_u, o_v = offset_edge((src, tgt), edge_angle - offset_dir, offset_length)
-            cx1, cy1 = centroid([src, tgt])
-            cx2, cy2 = offset_point((cx1, cy1), edge_angle - math.pi / 2, 10)
-            geometries.append(
-                svg.Line(cx1, cy1, cx2, cy2, stroke="lightgray", stroke_width=1)
-            )
-            geometries.append(
-                svg.Line(
-                    o_u[0],
-                    o_u[1],
-                    o_v[0],
-                    o_v[1],
-                    data_order=i,
-                    stroke_width=2,
-                    stroke=set_colors[set_idx],
-                    z=set_idx,
-                )
-            )
-
-            next_edges = incident_edges(M_, v, avoid_node=u)
-            if len(next_edges) == 0:
-                break
-            u, v, _ = next_edges[0]
-
-    """
     uniq_edges = list(set(M.edges()))
     for u, v in uniq_edges:
         ks = [k for w, x, k in M.edges(keys=True) if (w, x) == (u, v)]
@@ -1014,118 +697,96 @@ def geometrize(instance, M):
         edge_angle = get_angle(src, tgt)
 
         # print normal of edge vector just for debugging
-        cx1, cy1 = centroid([src, tgt])
-        cx2, cy2 = offset_point((cx1, cy1), edge_angle + math.pi / 2, 10)
-        geometries.append(
-            svg.Line(cx1, cy1, cx2, cy2, stroke="lightgray", stroke_width=1)
-        )
+        # cx1, cy1 = centroid([src, tgt])
+        # cx2, cy2 = offset_point((cx1, cy1), edge_angle + math.pi / 2, 10)
+        # geometries.append(
+        #    svg.Line(cx1, cy1, cx2, cy2, stroke="lightgray", stroke_width=1)
+        # )
 
-
-        g = svg.Group()
-        for i, path_id in enumerate(M.edges[(u, v, ks[0])]["oeb_order"][(u, v)]):
+        paths_at_edge = M.edges[(u, v, ks[0])]["oeb_order"][(u, v)]
+        offset = factor / 20  # TODO idk some pixels
+        centering_offset = ((len(paths_at_edge) - 1) / 2) * -offset
+        for i, path_id in enumerate(paths_at_edge):
             set_id, _ = path_id.split("-")  # TODO meh
             set_idx = instance["set_ftb_order"].index(set_id)
             offset_dir = math.pi / 2
-            offset_length = i * 5  # TODO idk some factor
-            o_u, o_v = offset_edge((src, tgt), edge_angle + offset_dir, offset_length)
-            g.append(
-                svg.Line(
-                    o_u[0],
-                    o_u[1],
-                    o_v[0],
-                    o_v[1],
-                    data_order=M.edges[(u, v, ks[0])]["oeb_order"][(u, v)],
-                    stroke_width=2,
-                    stroke=set_colors[set_idx],
-                    z=set_idx,
-                )
+            offset_length = centering_offset + i * offset
+            o_u, o_v = offset_edge((src, tgt), edge_angle - offset_dir, offset_length)
+
+            M.edges[(u, v, set_idx + 1)]["edge_pos"] = {
+                (u, v): (o_u, o_v),
+                (v, u): (o_v, o_u),
+            }
+
+    paths = list(set([d["path_id"] for u, v, k, d in M.edges(keys=True, data=True)]))
+    for path_id in paths:
+        set_id, _ = path_id.split("-")  # TODO meh
+        set_idx = instance["set_ftb_order"].index(set_id)
+        M_ = nx.subgraph_view(
+            M, filter_edge=lambda u, v, k: M.edges[(u, v, k)]["path_id"] == path_id
+        )
+        endpoints = [n for n in M_.nodes() if M_.degree(n) == 1]
+        path = nx.shortest_path(M_, endpoints[0], endpoints[1])
+        keypoints = [M_.nodes[path[0]]["pos"]]  # idk, like keyframe... find better word
+
+        for i, u in enumerate(path):
+            v = path[i + 1] if i >= 0 and i < len(path) - 1 else None
+            if v is None:
+                # u is last point, just connect to center
+                ux, uy = M_.nodes[u]["pos"]
+                keypoints.append((ux, uy))
+
+            else:
+                # at each node, we find segments from the last key point to the next node's hub circle
+                hub_radius = 1 / 16 * factor
+                ux, uy = M_.nodes[u]["pos"]
+                uhub_center = (ux, uy)
+                uhub_circle = (uhub_center, hub_radius)
+
+                vx, vy = M_.nodes[v]["pos"]
+                vhub_center = (vx, vy)
+                vhub_circle = (vhub_center, hub_radius)
+
+                edge = M_.edges[(u, v, set_idx + 1)]["edge_pos"][(u, v)]
+                a, b = edge
+
+                if is_point_inside_circle(a, uhub_circle):
+                    keypoints.append(
+                        get_segment_circle_intersection((a, b), uhub_circle)
+                    )
+                else:
+                    keypoints.append(
+                        get_segment_circle_intersection((uhub_center, a), uhub_circle)
+                    )
+                    keypoints.append(a)
+
+                if is_point_inside_circle(b, vhub_circle):
+                    keypoints.append(
+                        get_segment_circle_intersection((a, b), vhub_circle)
+                    )
+                else:
+                    keypoints.append(b)
+                    keypoints.append(
+                        get_segment_circle_intersection((vhub_center, b), vhub_circle)
+                    )
+        geometries.append(
+            svg.Lines(
+                *merge_alternating(list(zip(*keypoints))),
+                close=False,
+                stroke_width=2,
+                fill="none",
+                stroke=set_colors[set_idx],
+                z=set_idx,
             )
-        geometries.append(g)
-    """
-    """
-    hub_radius = factor / 10
-    hubs = [
-        n
-        for n in M.nodes()
-        if M.degree[n] > 0 and M.nodes[n]["node"] != NodeType.CENTER
-    ]
+        )
+
+    hubs = [n for n in M.nodes() if M.degree[n] > 0]
     for hub in hubs:
         cx, cy = M.nodes[hub]["pos"]
-        center = np.array(margins) + np.array((cx, -cy)) * factor
-        # make sectors
-        sectors = []
-        if M.nodes[hub]["node"] == NodeType.ANCHOR:
-            # for anchor nodes it's equal-width sectors
-            # 45 degrees for square lattice, 60 degrees for hex lattice
-            deg = 0
-            if instance["lattice_type"] == "hex":
-                deg = 60
-            elif instance["lattice_type"] == "sqr":
-                deg = 45
-            rad = deg * math.pi / 180
-            for i in range(int(360 / deg)):
-                sectors.append(
-                    (
-                        center + np.array(pol2cart(hub_radius, i * rad)),
-                        center + np.array(pol2cart(hub_radius, (i + 1) * rad)),
-                    ),
-                )
-        elif M.nodes[hub]["node"] in [NodeType.SIDE, NodeType.CORNER]:
-            # not rendering those for now
-            pass
-        for sector in sectors:
-            s, e = sector
-            sx, sy = s
-            ex, ey = e
-            geometries.append(
-                svg.Lines(
-                    center[0],
-                    center[1],
-                    sx,
-                    sy,
-                    ex,
-                    ey,
-                    stroke="gray",
-                    fill="white",
-                    close=True,
-                    stroke_width=1,
-                )
-            )
-        # ok now... each sector of the hub has an associated edge yes
-        # find them
-        sectors_dict = dict()
-        incident_edges = list(set(M.edges(nbunch=hub)))
-        if M.nodes[hub]["node"] == NodeType.ANCHOR:
-            # the edge has to intersect (sector_start, sector_end)
-            for u, v in incident_edges:
-                ux, uy = u
-                vx, vy = v
-                up = np.array(margins) + factor * np.array((ux, -uy))
-                vp = np.array(margins) + factor * np.array((vx, -vy))
-                for start, end in sectors:
-                    if do_lines_intersect(up, vp, start, end):
-                        sectors_dict[(u, v)] = (start, end)
-                        continue
-        elif M.nodes[hub]["node"] in [NodeType.CORNER, NodeType.SIDE]:
-            # assign them by circular order
-            # for collinear points break ties arbitrarily
-            pass
-        print(sectors_dict)
-        # OKAY ready.
-        # unsure what's a good way to continue
-        # seems like i should be able to process each sector individually?
-        # but not independently of others...
-        # reason being this: i have a hub and two lines a,b go through
-        #   i take any sector and select points on it for a and b
-        #   i use the order on the edge, which is a,b, so i assign a then b in clockwise order
-        #   i find the sector where a,b exit
-        #   BUT if i repeat the same operations there, i will have it reversed such that a and b cross!
-        #   and fine, i can reverse the order on the other sector, but then it's not in sync with the edge??
-        #   unless you make a rule like its the order as specified on the in-edge and reversed on the out-edge
-        #   but we don't have a notion of direction at all, there are no in or out edges, just edges.
-        #   making such an order up also seems error prone... so idk. weird.
-        # maybe a completely differing approach is needed?
-    """
+        r = 1 / 16 * factor
+        geometries.append(
+            svg.Circle(cx, cy, r, fill="none", stroke="gray", stroke_width=1)
+        )
     return geometries
 
 
@@ -1200,11 +861,6 @@ def render(instance, p):
             raise Exception(f'unknown render style {p["render_style"]}')
 
 
-def draw_rendering(rendering):
-    # TODO maybe with PIL for now
-    pass
-
-
 INSTANCE = {
     "lattice_type": "hex",
     "glyph_ids": [
@@ -1264,52 +920,3 @@ if __name__ == "__main__":
     geometries = geometrize(INSTANCE, G)
     img = draw_svg(geometries)
     print(img)
-
-    if False:
-        pos = nx.get_node_attributes(G, "pos")
-        node_color_map = {
-            NodeType.CENTER: "#882200",
-            NodeType.ANCHOR: "#123456",
-            NodeType.SIDE: "#123456",
-            NodeType.CORNER: "#123456",
-        }
-        node_size_map = {
-            NodeType.CENTER: 300,
-            NodeType.ANCHOR: 100,
-            NodeType.CORNER: 25,
-            NodeType.SIDE: 25,
-        }
-        nx.draw_networkx_nodes(
-            G,
-            pos,
-            node_shape="h" if lattice_type == "hex" else "s",
-            node_size=[node_size_map[node[1]["node"]] for node in G.nodes(data=True)],
-            node_color=[node_color_map[node[1]["node"]] for node in G.nodes(data=True)],
-        )
-        edge_color_map = {
-            EdgeType.SET: "#829",
-            EdgeType.NEIGHBOR: "#820",
-            EdgeType.PHYSICAL: "#000",
-            EdgeType.DRAW: "#000",
-            EdgeType.ANCHOR: "#128",
-        }
-        edge_alpha_map = {
-            EdgeType.SET: 0,
-            EdgeType.NEIGHBOR: 0,
-            EdgeType.PHYSICAL: 0,
-            EdgeType.DRAW: 1,
-            EdgeType.ANCHOR: 0,
-        }
-        nx.draw_networkx_edges(
-            G,
-            pos,
-            alpha=[edge_alpha_map[e[2]["edge"]] for e in G.edges(data=True)],
-            edge_color=[edge_color_map[e[2]["edge"]] for e in G.edges(data=True)],
-        )
-        nx.draw_networkx_labels(
-            G,
-            pos,
-            dict(zip(INSTANCE["glyph_positions"], INSTANCE["glyph_ids"])),
-            font_color="w",
-        )
-        plt.show()
