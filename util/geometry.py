@@ -1,6 +1,7 @@
 import math
 import numpy as np
 from collections import Counter
+from itertools import pairwise
 from pygame.math import Vector2
 import drawsvg as svg
 
@@ -286,32 +287,32 @@ def interpolate_biarcs(points, **kwargs):
     if len(points) < 2:
         return None
 
-    x0, y0 = points[0]
-    x1, y1 = points[1]
-    line.M(x0, y0).L(x1, y1)
-    line = svg.Path(**kwargs
-    
+    line = svg.Path(**kwargs)
 
-    # simplest case: a straight line segment
-    if len(points) == 2:
-        return line
+    pairs = pairwise(points)
+    for i, (p, q) in enumerate(pairs):
 
-    # annoying case: not a straight line segment
-    for i in range(0, len(points) - 2):
-        ps = points[i - 1]
-        p0 = points[i]
-        p4 = points[i + 1]
-        pt = points[i + 2]
+        seg_type, p = p
+        _, q = q
 
-        if i % 2 == 1:
-            line.L(p4[0], p4[1])
+        if seg_type == "L":
+            line.M(p[0], p[1]).L(q[0], q[1])
             continue
+        if seg_type != "B":
+            raise Exception(f"unknown segment type '{seg_type}'")
+
+        _, ps = points[i - 1]
+        _, p0 = points[i]
+        _, p4 = points[i + 1]
+        _, pt = points[i + 2]
 
         # "Biarc approximation of NURBS curves", Piegl & Tiller, 2002
         tangent_s = vector(ps, p0, unit=True)
         tangent_e = vector(p4, pt, unit=True)
 
         if are_vectors_parallel(tangent_s, tangent_e):
+            # TODO tangents are parallel, but not collinear
+            # so i guess we could draw a bezier curve too?
             line.L(p4[0], p4[1])
             continue
 
@@ -380,7 +381,5 @@ def interpolate_biarcs(points, **kwargs):
         )
         line.A(arc2_r, arc2_r, 0, arc2_large, arc2_sweep, arc2_x, arc2_y)
         line.M(arc2_x, arc2_y)
-
-    line.L(points[-1][0], points[-1][1])
 
     return line

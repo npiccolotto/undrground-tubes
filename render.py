@@ -733,49 +733,52 @@ def geometrize(instance, M):
         # idk, like keyframe... find better word
         keypoints = [
             # (type of connection to following point, keypoint coordinates)
-            ("L", M_.nodes[path[0]]["pos"])
         ]
 
         for i, pair in enumerate(pairwise(path)):
             u, v = pair
             ux, uy = M_.nodes[u]["pos"]
             vx, vy = M_.nodes[v]["pos"]
-            if i == len(path) - 2:
-                keypoints.append(("L", (vx, vy)))
+
+            # at each node, we find segments from the last key point to the next node's hub circle
+            hub_radius = 1 / 16 * factor
+            uhub_center = (ux, uy)
+            uhub_circle = (uhub_center, hub_radius)
+
+            vhub_center = (vx, vy)
+            vhub_circle = (vhub_center, hub_radius)
+
+            edge = M_.edges[(u, v, set_idx + 1)]["edge_pos"][(u, v)]
+            a, b = edge
+
+            if is_point_inside_circle(a, uhub_circle):
+                # if start point of edge is inside hub circle,
+                # we want a straight line from the hub circle circumference to the following point
+                keypoints.append(
+                    ("L", get_segment_circle_intersection((a, b), uhub_circle))
+                )
             else:
-                # at each node, we find segments from the last key point to the next node's hub circle
-                hub_radius = 1 / 16 * factor
-                uhub_center = (ux, uy)
-                uhub_circle = (uhub_center, hub_radius)
-
-                vhub_center = (vx, vy)
-                vhub_circle = (vhub_center, hub_radius)
-
-                edge = M_.edges[(u, v, set_idx + 1)]["edge_pos"][(u, v)]
-                a, b = edge
-
-                if is_point_inside_circle(a, uhub_circle):
-                    keypoints.append(
-                        "L", get_segment_circle_intersection((a, b), uhub_circle)
-                    )
-                else:
-                    keypoints.append(
+                keypoints.append(
+                    (
                         "B",
                         get_segment_circle_intersection((uhub_center, a), uhub_circle),
-                    )
-                    keypoints.append(("L", a))
+                    ),
+                )
+                keypoints.append(("L", a))
 
-                if is_point_inside_circle(b, vhub_circle):
-                    keypoints.append(
-                        "B", get_segment_circle_intersection((a, b), vhub_circle)
-                    )
-                else:
-                    # edge to hub
-                    keypoints.append(("B", b))
-                    keypoints.append(
-                        "B",
+            if is_point_inside_circle(b, vhub_circle):
+                keypoints.append(
+                    ("B", get_segment_circle_intersection((a, b), vhub_circle))
+                )
+            else:
+                # edge to hub
+                keypoints.append(("B", b))
+                keypoints.append(
+                    (
+                        "B" if i + 1 < len(path) - 1 else "L",
                         get_segment_circle_intersection((vhub_center, b), vhub_circle),
-                    )
+                    ),
+                )
 
         kwargs = {
             "close": False,
