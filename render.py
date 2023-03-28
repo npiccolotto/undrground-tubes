@@ -758,12 +758,15 @@ def geometrize(instance, M):
                     ("L", get_segment_circle_intersection((a, b), uhub_circle))
                 )
             else:
+                # start point of edge is not inside the hub circle
+                # so we need an arc from the hub circle circumference to the edge start
                 keypoints.append(
                     (
                         "B",
                         get_segment_circle_intersection((uhub_center, a), uhub_circle),
                     ),
                 )
+                # and then a straight line
                 keypoints.append(("L", a))
 
             if is_point_inside_circle(b, vhub_circle):

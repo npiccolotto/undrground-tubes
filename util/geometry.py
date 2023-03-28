@@ -234,12 +234,18 @@ def are_vectors_parallel(a, b, eps=10e-4):
     return abs(ax * by - bx * ay) < eps
 
 
+def to_unit(v):
+    n = np.linalg.norm(v)
+    if n != 0:
+        return v / n
+    return v
+
+
 def vector(a, b, unit=False):
     ax, ay = a
     bx, by = b
     v = np.array((bx - ax, by - ay))
-    n = np.linalg.norm(v)
-    return v if not unit or n == 0 else v / n
+    return to_unit(v) if unit else v
 
 
 def normal_vector(a):
@@ -310,19 +316,16 @@ def interpolate_biarcs(points, **kwargs):
         tangent_s = vector(ps, p0, unit=True)
         tangent_e = vector(p4, pt, unit=True)
 
-        if are_vectors_parallel(tangent_s, tangent_e):
-            # TODO tangents are parallel, but not collinear
-            # so i guess we could draw a bezier curve too?
-            line.L(p4[0], p4[1])
-            continue
+        if are_vectors_parallel(tangent_s, tangent_e) or (
+            tangent_s.dot(p4 - p0) <= 0 and tangent_s.dot(tangent_e) <= 0
+        ):
+            # tangents are parallel (or some other bad case happened), but not necessarily collinear
+            # so we draw a bezier curve
+            d = dist_euclidean(p0, p4)
+            cx1, cy1 = np.array(p0) + tangent_s * d / 4
+            cx2, cy2 = np.array(p4) - tangent_e * d / 4
 
-        if tangent_s.dot(p4 - p0) <= 0 and tangent_s.dot(tangent_e) <= 0:
-            # something is bad idk, draw a bezier curve
-            length = dist_euclidean(p0, p4) / 4
-            cp1 = p0 + tangent_s * length
-            cp2 = p4 + tangent_e * length
-
-            line.C(cp1[0], cp1[1], cp2[0], cp2[1], p4[0], p4[1])
+            line.C(cx1, cy1, cx2, cy2, p4[0], p4[1])
             continue
 
         v = p0 - p4
