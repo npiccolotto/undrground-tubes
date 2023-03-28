@@ -691,7 +691,7 @@ def geometrize(instance, M):
             glyph = svg.Lines(*merge_alternating(xs, ys), close=True)
             geometries.append(glyph)
 
-    set_colors = ["red", "blue", "orange", "green", "yellow"]
+    set_colors = ["red", "blue", "orange", "green", "magenta"]
     uniq_edges = list(set(M.edges()))
     for u, v in uniq_edges:
         ks = [k for w, x, k in M.edges(keys=True) if (w, x) == (u, v)]
@@ -785,7 +785,7 @@ def geometrize(instance, M):
 
         kwargs = {
             "close": False,
-            "stroke_width": 3,
+            "stroke_width": 2,
             "fill": "none",
             "stroke": set_colors[set_idx],
             "z": set_idx,
@@ -882,24 +882,18 @@ INSTANCE = {
         (2, 2),
     ],  # a panda df with two columns (x and y) corresponding to logical grid position
     "set_system": {
-        # "set0": ["A", "B", "D", "E"],
+        "set0": ["A", "B", "H", "D", "E"],
         "set1": ["B", "I"],
         "set2": ["G", "C", "D", "E"],
         "set3": ["A", "F", "D", "E"],
         "set4": ["A", "I", "D", "E"],
     },
-    "set_bundle_order": [
-        "set2",
-        "set0",
-        "set1",
-        "set3",
-    ],
     "set_ftb_order": [
         "set4",
         "set3",
         "set2",
         "set1",
-        # "set0"
+        "set0",
     ],  # a list of set ids that defines front to back ordering (index = 0 is most front)
 }
 
@@ -912,4 +906,7 @@ if __name__ == "__main__":
     G = render_line(INSTANCE, G, DEFAULT_PARAMS)
     geometries = geometrize(INSTANCE, G)
     img = draw_svg(geometries)
-    print(img)
+
+    with open("drawing.svg", "w") as f:
+        f.write(img)
+        f.flush()
