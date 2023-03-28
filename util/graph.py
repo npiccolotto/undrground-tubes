@@ -19,14 +19,12 @@ def get_longest_simple_paths(G, src, tgt, visited=[], current_path=[]):
     next_visited = visited + [src]
     if G.degree[tgt] > 2:
         # fork, split here
-        current_path = current_path + [tgt]
         next_tgts = [i for i in G.neighbors(tgt) if i not in next_visited]
         next_paths = [
-            get_longest_simple_paths(
-                G, tgt, next_tgt, visited=next_visited, current_path=[]
-            )
+            get_longest_simple_paths(G, tgt, next_tgt, visited=[], current_path=[])
             for next_tgt in next_tgts
         ]
+        current_path = current_path + [src, tgt]
         ret = [current_path]
         for p in next_paths:
             ret += p
@@ -34,7 +32,7 @@ def get_longest_simple_paths(G, src, tgt, visited=[], current_path=[]):
 
     if G.degree[tgt] == 1:
         # end of the simple path
-        current_path = current_path + [tgt]
+        current_path = current_path + [src, tgt]
         return [current_path]
 
     # regular case

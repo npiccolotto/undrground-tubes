@@ -59,7 +59,7 @@ DEFAULT_PARAMS = {
     "lattice_size": "auto",  # counts glyphs, makes square lattice that fits all. otherwise provide [widht,height] array
 }
 
-DEBUG = True
+DEBUG = False
 
 
 def determine_lattice_size(glyph_positions):
@@ -793,7 +793,7 @@ def geometrize(instance, M):
         line = interpolate_biarcs(keypoints, **kwargs)
         geometries.append(line)
 
-    if False:
+    if DEBUG:
         hubs = [n for n in M.nodes() if M.degree[n] > 0]
         for hub in hubs:
             cx, cy = M.nodes[hub]["pos"]
