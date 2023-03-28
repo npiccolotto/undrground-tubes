@@ -12,11 +12,11 @@ from util.geometry import (
     get_closest_point,
     centroid,
     are_faces_adjacent,
+    interpolate_biarcs,
     get_angle,
     offset_edge,
     is_point_inside_circle,
     get_segment_circle_intersection,
-    simple_control_points,
 )
 from util.graph import (
     incident_edges,
@@ -59,7 +59,7 @@ DEFAULT_PARAMS = {
     "lattice_size": "auto",  # counts glyphs, makes square lattice that fits all. otherwise provide [widht,height] array
 }
 
-DEBUG = False
+DEBUG = True
 
 
 def determine_lattice_size(glyph_positions):
@@ -730,23 +730,24 @@ def geometrize(instance, M):
         )
         endpoints = [n for n in M_.nodes() if M_.degree(n) == 1]
         path = nx.shortest_path(M_, endpoints[0], endpoints[1])
-        keypoints = [M_.nodes[path[0]]["pos"]]  # idk, like keyframe... find better word
+        # idk, like keyframe... find better word
+        keypoints = [
+            # (type of connection to following point, keypoint coordinates)
+            ("L", M_.nodes[path[0]]["pos"])
+        ]
 
-        for i, u in enumerate(path):
-            v = path[i + 1] if i >= 0 and i < len(path) - 1 else None
-            if v is None:
-                # u is last point, just connect to center
-                ux, uy = M_.nodes[u]["pos"]
-                keypoints.append((ux, uy))
-
+        for i, pair in enumerate(pairwise(path)):
+            u, v = pair
+            ux, uy = M_.nodes[u]["pos"]
+            vx, vy = M_.nodes[v]["pos"]
+            if i == len(path) - 2:
+                keypoints.append(("L", (vx, vy)))
             else:
                 # at each node, we find segments from the last key point to the next node's hub circle
                 hub_radius = 1 / 16 * factor
-                ux, uy = M_.nodes[u]["pos"]
                 uhub_center = (ux, uy)
                 uhub_circle = (uhub_center, hub_radius)
 
-                vx, vy = M_.nodes[v]["pos"]
                 vhub_center = (vx, vy)
                 vhub_circle = (vhub_center, hub_radius)
 
@@ -755,36 +756,38 @@ def geometrize(instance, M):
 
                 if is_point_inside_circle(a, uhub_circle):
                     keypoints.append(
-                        get_segment_circle_intersection((a, b), uhub_circle)
+                        "L", get_segment_circle_intersection((a, b), uhub_circle)
                     )
                 else:
                     keypoints.append(
-                        get_segment_circle_intersection((uhub_center, a), uhub_circle)
+                        "B",
+                        get_segment_circle_intersection((uhub_center, a), uhub_circle),
                     )
-                    keypoints.append(a)
+                    keypoints.append(("L", a))
 
                 if is_point_inside_circle(b, vhub_circle):
                     keypoints.append(
-                        get_segment_circle_intersection((a, b), vhub_circle)
+                        "B", get_segment_circle_intersection((a, b), vhub_circle)
                     )
                 else:
-                    keypoints.append(b)
+                    # edge to hub
+                    keypoints.append(("B", b))
                     keypoints.append(
-                        get_segment_circle_intersection((vhub_center, b), vhub_circle)
+                        "B",
+                        get_segment_circle_intersection((vhub_center, b), vhub_circle),
                     )
 
-        geometries.append(
-            svg.Lines(
-                *merge_alternating(list(zip(*keypoints))),
-                close=False,
-                stroke_width=1,
-                fill="none",
-                stroke=set_colors[set_idx],
-                z=set_idx,
-            )
-        )
+        kwargs = {
+            "close": False,
+            "stroke_width": 3,
+            "fill": "none",
+            "stroke": set_colors[set_idx],
+            "z": set_idx,
+        }
+        line = interpolate_biarcs(keypoints, **kwargs)
+        geometries.append(line)
 
-    if True:
+    if False:
         hubs = [n for n in M.nodes() if M.degree[n] > 0]
         for hub in hubs:
             cx, cy = M.nodes[hub]["pos"]

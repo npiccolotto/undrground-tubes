@@ -2,6 +2,7 @@ import math
 import numpy as np
 from collections import Counter
 from pygame.math import Vector2
+import drawsvg as svg
 
 
 def dist_euclidean(p1, p2):
@@ -79,6 +80,15 @@ def pol2cart(rho, phi):
     return (x, y)
 
 
+def get_angle_vector(v):
+    angle = math.atan2(v[1], v[0])
+
+    if angle < 0:
+        angle += 2 * math.pi
+
+    return angle
+
+
 def get_angle(u, v):
     ux, uy = u
     vx, vy = v
@@ -105,8 +115,44 @@ def is_point_inside_circle(point, circle):
     return d <= radius
 
 
+def is_point_on_circle(point, circle, eps=10e-4):
+    center, radius = circle
+    d = dist_euclidean(point, center)
+    return abs(d - radius) < eps
+
+
+def get_line_segment_intersection(segment1, segment2):
+    # http://paulbourke.net/geometry/pointlineplane/
+    a, b = segment1
+    c, d = segment2
+
+    x1, y1 = a
+    x2, y2 = b
+    x3, y3 = c
+    x4, y4 = d
+
+    if (x1 == x2 and y1 == y2) or (x3 == x4 and y3 == y4):
+        return [x2, y2]
+
+    denominator = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1)
+
+    # Lines are parallel
+    if denominator == 0:
+        return [x2, y2]
+
+    ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denominator
+    ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denominator
+
+    x = x1 + ua * (x2 - x1)
+    y = y1 + ua * (y2 - y1)
+
+    return (x, y)
+
+
 def get_segment_circle_intersection(segment, circle):
     # https://codereview.stackexchange.com/a/86428
+    # TODO get rid of pygame vectors and convert to numpy
+    # (it's probably numpy under the hood anyways)
     s1, s2 = segment
     ax, ay = s1
     bx, by = s2
@@ -175,3 +221,166 @@ def define_circle(p1, p2, p3):
 
     radius = np.sqrt((cx - p1[0]) ** 2 + (cy - p1[1]) ** 2)
     return ((cx, cy), radius)
+
+
+def biarc_segment(p, q):
+    pass
+
+
+def are_vectors_parallel(a, b, eps=10e-4):
+    ax, ay = a
+    bx, by = b
+    return abs(ax * by - bx * ay) < eps
+
+
+def vector(a, b, unit=False):
+    ax, ay = a
+    bx, by = b
+    v = np.array((bx - ax, by - ay))
+    n = np.linalg.norm(v)
+    return v if not unit or n == 0 else v / n
+
+
+def normal_vector(a):
+    x, y = a
+    return np.array((-y, x))
+
+
+def is_clockwise_order(a0, a1):
+    # assumed both to be in [0, 2π]
+    if a0 < a1:
+        return a1 - a0 > math.pi
+
+    return a1 + 2 * math.pi - a0 > math.pi
+
+
+def get_svg_arc_params(
+    startpoint, endpoint, center, radius, angle1, angle2, clockwise, eps=10e-4
+):
+    counterclockwise = not clockwise
+    # we have a startpoint, from which the arc should originate
+    # then a circle given by center and radius
+    # the arc should be from angle1 to angle2 on that circle
+    angle_diff = angle1 - angle2 if clockwise else angle2 - angle1
+
+    # is the startpoint on the arc? if not we screwed up
+    cx, cy = center
+    sx, sy = startpoint
+    sx_c = cx + radius * math.cos(angle1)
+    sy_c = cy + radius * math.sin(angle1)
+
+    if abs(sx - sx_c) > eps or abs(sy - sy_c) > eps:
+        raise Exception("startpoint not on arc circle circumference")
+
+    ex, ey = (cx + radius * math.cos(angle2), cy + radius * math.sin(angle2))
+    if abs(endpoint[0] - ex) > eps or abs(endpoint[1] - ey) > eps:
+        raise Exception("desired endpoint not the same as calculated endpoint'")
+
+    large_arc_bit = angle_diff >= math.pi
+    sweep_bit = counterclockwise
+
+    return (ex, ey, radius, sweep_bit, large_arc_bit)
+
+
+def interpolate_biarcs(points, **kwargs):
+    if len(points) < 2:
+        return None
+
+    x0, y0 = points[0]
+    x1, y1 = points[1]
+    line.M(x0, y0).L(x1, y1)
+    line = svg.Path(**kwargs
+    
+
+    # simplest case: a straight line segment
+    if len(points) == 2:
+        return line
+
+    # annoying case: not a straight line segment
+    for i in range(0, len(points) - 2):
+        ps = points[i - 1]
+        p0 = points[i]
+        p4 = points[i + 1]
+        pt = points[i + 2]
+
+        if i % 2 == 1:
+            line.L(p4[0], p4[1])
+            continue
+
+        # "Biarc approximation of NURBS curves", Piegl & Tiller, 2002
+        tangent_s = vector(ps, p0, unit=True)
+        tangent_e = vector(p4, pt, unit=True)
+
+        if are_vectors_parallel(tangent_s, tangent_e):
+            line.L(p4[0], p4[1])
+            continue
+
+        if tangent_s.dot(p4 - p0) <= 0 and tangent_s.dot(tangent_e) <= 0:
+            # something is bad idk, draw a bezier curve
+            length = dist_euclidean(p0, p4) / 4
+            cp1 = p0 + tangent_s * length
+            cp2 = p4 + tangent_e * length
+
+            line.C(cp1[0], cp1[1], cp2[0], cp2[1], p4[0], p4[1])
+            continue
+
+        v = p0 - p4
+        a = 2 * (np.dot(tangent_s, tangent_e) - 1)
+        b = 2 * np.dot(v, tangent_s + tangent_e)
+        c = np.dot(v, v)
+
+        alpha1 = (-b + math.sqrt(b**2 - 4 * a * c)) / (2 * a)
+        alpha2 = (-b - math.sqrt(b**2 - 4 * a * c)) / (2 * a)
+
+        alpha = alpha2 if alpha1 < 0 else alpha1
+
+        p1 = p0 + tangent_s * alpha
+        p3 = p4 + tangent_e * (-alpha)
+        p2 = 1 / 2 * (p1 + p3)
+
+        p1p0_norm = normal_vector(vector(p1, p0))
+        p3p2_norm = normal_vector(vector(p3, p2))
+        p3p4_norm = normal_vector(vector(p3, p4))
+
+        pointOnP1P0Norm = p0 + p1p0_norm
+        pointOnP3P2Norm = p2 + p3p2_norm
+        pointOnP3P4Norm = p4 + p3p4_norm
+
+        c1 = get_line_segment_intersection((p0, pointOnP1P0Norm), (p2, pointOnP3P2Norm))
+        c2 = get_line_segment_intersection((p4, pointOnP3P4Norm), (p2, pointOnP3P2Norm))
+
+        r1 = dist_euclidean(p0, c1)
+        r2 = dist_euclidean(p4, c2)
+
+        assert is_point_on_circle(p0, (c1, r1))
+        assert is_point_on_circle(p2, (c1, r1))
+        assert is_point_on_circle(p2, (c2, r2))
+        assert is_point_on_circle(p4, (c2, r2))
+
+        c1p0 = vector(c1, p0)
+        c1p2 = vector(c1, p2)
+        angle1a = get_angle_vector(c1p0)
+        angle1b = get_angle_vector(c1p2)
+        clockwise1 = is_clockwise_order(angle1a, angle1b)
+
+        c2p2 = vector(c2, p2)
+        c2p4 = vector(c2, p4)
+        angle2a = get_angle_vector(c2p2)
+        angle2b = get_angle_vector(c2p4)
+        clockwise2 = is_clockwise_order(angle2a, angle2b)
+
+        line.M(p0[0], p0[1])
+        arc1_x, arc1_y, arc1_r, arc1_sweep, arc1_large = get_svg_arc_params(
+            p0, p2, c1, r1, angle1a, angle1b, clockwise1
+        )
+        line.A(arc1_r, arc1_r, 0, arc1_large, arc1_sweep, arc1_x, arc1_y)
+        line.M(arc1_x, arc1_y)
+        arc2_x, arc2_y, arc2_r, arc2_sweep, arc2_large = get_svg_arc_params(
+            p2, p4, c2, r2, angle2a, angle2b, clockwise2
+        )
+        line.A(arc2_r, arc2_r, 0, arc2_large, arc2_sweep, arc2_x, arc2_y)
+        line.M(arc2_x, arc2_y)
+
+    line.L(points[-1][0], points[-1][1])
+
+    return line
