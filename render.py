@@ -707,7 +707,7 @@ def geometrize(instance, M):
         # )
 
         paths_at_edge = M.edges[(u, v, ks[0])]["oeb_order"][(u, v)]
-        offset = factor / 20  # TODO idk some pixels
+        offset = factor / 30  # TODO idk some pixels
         centering_offset = ((len(paths_at_edge) - 1) / 2) * -offset
         for i, path_id in enumerate(paths_at_edge):
             set_id, _ = path_id.split("-")  # TODO meh
@@ -848,7 +848,7 @@ def render_kelpfusion(instance, G, p):
     # acc to meulemans 2013
     #   compute reachability graph R of S_i, where an edge (u,v) runs in the margins (along 'anchor' edges) if (u,v) is not in host graph. use geometric length of e as weight. R contains an edge for each a,b in S_i a!=b
     #   compute shortest path graph SPG of R
-    #   find faces = cycles in SPG
+    #   find faces: 1) make a PlanarEmbedding 2) call traverse_face until we processed all half-edges 3) triangulate all found faces
     #   for each face: define if it gets filled according to paper
     #   SOMEHOW render faces and edges
     pass
@@ -883,7 +883,7 @@ INSTANCE = {
     ],  # a panda df with two columns (x and y) corresponding to logical grid position
     "set_system": {
         "set0": ["A", "B", "H", "D", "E"],
-        "set1": ["B", "I"],
+        "set1": ["A", "I"],
         "set2": ["G", "C", "D", "E"],
         "set3": ["A", "F", "D", "E"],
         "set4": ["A", "I", "D", "E"],

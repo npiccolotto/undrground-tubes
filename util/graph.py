@@ -87,3 +87,24 @@ def get_shortest_path_between(G, list1, list2):
             if l < shortest[0]:
                 shortest = (l, p)
     return shortest
+
+
+def shortest_path_graph(G, t=1):
+    """Meulemans et al., 2013: Kelpfusion: A Hybrid Set Visualization Technique"""
+    S = nx.Graph(incoming_graph_data=G)
+    S.remove_edges_from(list(G.edges()))
+
+    # sort by weight ascending
+    edges = sorted(list(G.edges(data=True)), key=lambda u, v, d: d["weight"])
+
+    for u, v, d in edges:
+        w = d["weight"]
+        try:
+            p = nx.shortest_path_length(S, u, v)
+        except nx.NetworkXNoPath:
+            p = -1
+
+        if p < 0 or p >= w**t:
+            S.add_edge(u, v, weight=w**t)
+
+    return S
