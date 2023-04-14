@@ -15,6 +15,7 @@ from util.geometry import (
     interpolate_biarcs,
     get_angle,
     offset_edge,
+    logical_coords_to_physical,
     is_point_inside_circle,
     get_segment_circle_intersection,
 )
@@ -41,13 +42,6 @@ class NodeType(IntEnum):
     CORNER = 1
     SIDE = 2
     ANCHOR = 3
-
-
-def logical_coords_to_physical(x, y, lattice_type="sqr"):
-    if lattice_type == "hex":
-        if y % 2 == 1:
-            return (x + 0.5, -y)
-    return (x, -y)
 
 
 DEFAULT_PARAMS = {
@@ -172,7 +166,6 @@ def convert_logical_to_physical_graph(G: nx.Graph, lattice_type, lattice_size):
     m, n = lattice_size
     for y in range(0, n - 1):
         for x in range(0, m - 1):
-
             quad = [(x, y), (x + 1, y), (x + 1, y + 1), (x, y + 1)]
             if lattice_type == "sqr":
                 u, v = centroid(quad)
@@ -274,7 +267,8 @@ def get_routing_graph(lattice_type, lattice_size):
     Nodes can be 'glyph' nodes, which correspond to spots where glyphs will be placed.
     Nodes can also be 'anchor' nodes, which corresponds to anchor points in the margins of the layout along which we trace lines and anchor polygons. We place them in the center of 'glyph' node faces.
     Edges can be 'neighbor' edges, which corresponds to direct neighbor relations of glyphs, e.g., in a sqr grid most nodes have 4 neighbors.
-    Edges can also be 'anchor' edges. They connect both 'glyph' and 'anchor' nodes. In a hex lattice, faces (polygons between 'glyph' nodes) are triangles. So each 'anchor' node has 6 'anchor' edges incident: 3 for neighboring anchors and 3 for glyphs on the boundary of the face."""
+    Edges can also be 'anchor' edges. They connect both 'glyph' and 'anchor' nodes. In a hex lattice, faces (polygons between 'glyph' nodes) are triangles. So each 'anchor' node has 6 'anchor' edges incident: 3 for neighboring anchors and 3 for glyphs on the boundary of the face.
+    """
     m, n = lattice_size
     G = None
     match lattice_type:
@@ -353,7 +347,8 @@ def add_set_edges(instance, G):
 
 def embed_to_routing_graph(instance, G):
     """Routing graph is a graph with positioned nodes. This function embeds glyph nodes and set relations into the host graph.
-    Specifically, it adds i) the glyph to their respective nodes as property and ii) additional edges that correspond to the sets."""
+    Specifically, it adds i) the glyph to their respective nodes as property and ii) additional edges that correspond to the sets.
+    """
     # 1) distribute glyphs onto glyph nodes
     G = add_glyphs_to_nodes(instance, G)
     # 2) add logical set edges between all pairs of elements in a set - this is the reachability graph of kelpfusion
@@ -814,7 +809,6 @@ def draw_svg(geometries):
 
 
 def render_line(instance, G, p):
-
     M = add_routes_of_set_systems(instance, G)
 
     # optional: bundle edges more

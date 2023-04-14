@@ -297,7 +297,6 @@ def interpolate_biarcs(points, **kwargs):
 
     pairs = pairwise(points)
     for i, (p, q) in enumerate(pairs):
-
         seg_type, p = p
         _, q = q
 
@@ -386,3 +385,10 @@ def interpolate_biarcs(points, **kwargs):
         line.M(arc2_x, arc2_y)
 
     return line
+
+
+def logical_coords_to_physical(x, y, lattice_type="sqr"):
+    if lattice_type == "hex":
+        if y % 2 == 1:
+            return (x + 0.5, -y)
+    return (x, -y)
