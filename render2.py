@@ -151,10 +151,30 @@ def make_hex_graph(m, n):
         # add diagonal edges
         if y % 2 != 0 and y > 0 and x < m - 1:
             # tilting to right in odd rows
-            G_.add_edge((x, y), (x + 1, y - 1), EdgeType.CENTER, edge=EdgeType.CENTER)
+            right_diagonal = (x + 1, y - 1)
+            weight = dist_euclidean(
+                G_.nodes[logpos]["pos"], G.nodes[right_diagonal]["pos"]
+            )
+            G_.add_edge(
+                logpos,
+                right_diagonal,
+                EdgeType.CENTER,
+                edge=EdgeType.CENTER,
+                weight=weight,
+            )
         if y % 2 == 0 and y > 0 and x > 0:
             # tilting to left in even rows
-            G_.add_edge((x, y), (x - 1, y - 1), EdgeType.CENTER, edge=EdgeType.CENTER)
+            left_diagonal = (x - 1, y - 1)
+            weight = dist_euclidean(
+                G_.nodes[logpos]["pos"], G.nodes[left_diagonal]["pos"]
+            )
+            G_.add_edge(
+                logpos,
+                left_diagonal,
+                EdgeType.CENTER,
+                edge=EdgeType.CENTER,
+                weight=weight,
+            )
 
     for logpos, hex_center in G.nodes(data=True):
         G_ = add_ports_to_hex_node(G_, logpos, hex_center, side_length=0.25)
@@ -254,11 +274,31 @@ def make_sqr_graph(m, n):
     for logpos, _ in G.nodes(data=True):
         x, y = logpos
         if y > 0 and x < m - 1:
-            # tilt left
-            G_.add_edge((x, y), (x + 1, y - 1), EdgeType.CENTER, edge=EdgeType.CENTER)
+            # tilt to right
+            right_diagonal = (x + 1, y - 1)
+            weight = dist_euclidean(
+                G_.nodes[logpos]["pos"], G.nodes[right_diagonal]["pos"]
+            )
+            G_.add_edge(
+                logpos,
+                right_diagonal,
+                EdgeType.CENTER,
+                edge=EdgeType.CENTER,
+                weight=weight,
+            )
         if y > 0 and x > 0:
-            # tilt right
-            G_.add_edge((x, y), (x - 1, y - 1), EdgeType.CENTER, edge=EdgeType.CENTER)
+            # tilt to left
+            left_diagonal = (x - 1, y - 1)
+            weight = dist_euclidean(
+                G_.nodes[logpos]["pos"], G.nodes[left_diagonal]["pos"]
+            )
+            G_.add_edge(
+                logpos,
+                left_diagonal,
+                EdgeType.CENTER,
+                edge=EdgeType.CENTER,
+                weight=weight,
+            )
 
     for logpos, center in G.nodes(data=True):
         G_ = add_ports_to_sqr_node(G_, logpos, center, side_length=0.25)
