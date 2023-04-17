@@ -179,11 +179,6 @@ def make_hex_graph(m, n):
     for logpos, hex_center in G.nodes(data=True):
         G_ = add_ports_to_hex_node(G_, logpos, hex_center, side_length=0.25)
 
-    for logpos, n in G.nodes(data=True):
-        x, y = logpos
-        if "pos" not in n:
-            n["pos"] = logpos
-
     return G_
 
 
@@ -302,11 +297,6 @@ def make_sqr_graph(m, n):
 
     for logpos, center in G.nodes(data=True):
         G_ = add_ports_to_sqr_node(G_, logpos, center, side_length=0.25)
-
-    for logpos, n in G.nodes(data=True):
-        x, y = logpos
-        if "pos" not in n:
-            n["pos"] = logpos
 
     return G_
 
