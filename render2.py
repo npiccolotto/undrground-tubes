@@ -145,7 +145,7 @@ def make_hex_graph(m, n):
 
     G_ = nx.MultiGraph(incoming_graph_data=G)
 
-    for logpos, hex_center in G.nodes(data=True):
+    for logpos, _ in G.nodes(data=True):
         x, y = logpos
 
         # add diagonal edges
@@ -167,21 +167,118 @@ def make_hex_graph(m, n):
     return G_
 
 
+def add_ports_to_sqr_node(G, node, data, side_length=0.25):
+    sqr_corners = [
+        (0, side_length / 2),  # N
+        (side_length / 2, side_length / 2),  # NE
+        (side_length / 2, 0),  # E
+        (side_length / 2, -side_length / 2),  # SE
+        (0, -side_length / 2),  # S
+        (-side_length / 2, -side_length / 2),  # SW
+        (-side_length / 2, 0),  # W
+        (-side_length / 2, side_length / 2),  # NW
+    ]
+    pos = data["pos"]
+    sqr_corners = [(x + pos[0], y + pos[1]) for x, y in sqr_corners]
+    dirs = ["n", "ne", "e", "se", "s", "sw", "w", "nw"]
+    sqr_corners_dirs = list(zip(dirs, sqr_corners))
+    for dir, corner in sqr_corners_dirs:
+        G.add_node(corner, node=NodeType.PORT, belongs_to=node, pos=corner, port=dir)
+
+    penalties = [
+        BendPenalty.FORTY_FIVE,
+        BendPenalty.NINETY,
+        BendPenalty.ONE_THIRTY_FIVE,
+        BendPenalty.ONE_EIGHTY,
+        BendPenalty.ONE_THIRTY_FIVE,
+        BendPenalty.NINETY,
+        BendPenalty.FORTY_FIVE,
+    ]
+    for i in range(len(sqr_corners)):
+        p = 0
+        n1 = sqr_corners[i]
+        for j in range(i + 1, len(sqr_corners)):
+            n2 = sqr_corners[j]
+            # ports on the diagonals don't have 90deg edges as they overlap with the 45 deg edges
+            if (
+                G.nodes[n1]["port"] in ["ne", "se", "sw", "nw"]
+                and penalties[p] == BendPenalty.NINETY
+            ):
+                p += 1
+                continue
+
+            G.add_edge(
+                n1, n2, EdgeType.PHYSICAL, edge=EdgeType.PHYSICAL, weight=penalties[p]
+            )
+            p += 1
+
+    # connect center to ports
+    for n in sqr_corners:
+        G.add_edge(
+            node,
+            n,
+            EdgeType.PHYSICAL,
+            edge=EdgeType.PHYSICAL,
+            weight=0,
+        )
+
+    # find neighbors and replace center edges with physical edges to ports
+    neighbors = list(nx.neighbors(G, node))
+    for neighbor in neighbors:
+        G.remove_edge(node, neighbor)
+        # use physically closest port for any neighbor
+        neighbor_pos = G.nodes[neighbor]["pos"]
+        port = get_closest_point(neighbor_pos, sqr_corners)
+
+        weight = dist_euclidean(port, neighbor_pos)
+        G.add_edge(
+            neighbor, port, EdgeType.PHYSICAL, edge=EdgeType.PHYSICAL, weight=weight
+        )
+    return G
+
+
+def make_sqr_graph(m, n):
+    G = nx.grid_2d_graph(m, n)
+    G = nx.MultiGraph(incoming_graph_data=G)
+    for _1, _2, e in G.edges(data=True):
+        e["edge"] = EdgeType.CENTER
+    for logpos, n in G.nodes(data=True):
+        x, y = logpos
+        n["node"] = NodeType.CENTER
+        n["belongs_to"] = logpos
+        n["logpos"] = logpos
+        n["pos"] = logical_coords_to_physical(x, y, "sqr")
+
+    G_ = nx.MultiGraph(incoming_graph_data=G)
+
+    for logpos, _ in G.nodes(data=True):
+        x, y = logpos
+        if y > 0 and x < m - 1:
+            # tilt left
+            G_.add_edge((x, y), (x + 1, y - 1), EdgeType.CENTER, edge=EdgeType.CENTER)
+        if y > 0 and x > 0:
+            # tilt right
+            G_.add_edge((x, y), (x - 1, y - 1), EdgeType.CENTER, edge=EdgeType.CENTER)
+
+    for logpos, center in G.nodes(data=True):
+        G_ = add_ports_to_sqr_node(G_, logpos, center, side_length=0.25)
+
+    for logpos, n in G.nodes(data=True):
+        x, y = logpos
+        if "pos" not in n:
+            n["pos"] = logpos
+
+    return G_
+
+
 def get_routing_graph(lattice_type, lattice_size):
-    """Returns a networkx graph. It contains two types of nodes and two types of edges.
-    Nodes can be 'glyph' nodes, which correspond to spots where glyphs will be placed.
-    Nodes can also be 'anchor' nodes, which corresponds to anchor points in the margins of the layout along which we trace lines and anchor polygons. We place them in the center of 'glyph' node faces.
-    Edges can be 'neighbor' edges, which corresponds to direct neighbor relations of glyphs, e.g., in a sqr grid most nodes have 4 neighbors.
-    Edges can also be 'anchor' edges. They connect both 'glyph' and 'anchor' nodes. In a hex lattice, faces (polygons between 'glyph' nodes) are triangles. So each 'anchor' node has 6 'anchor' edges incident: 3 for neighboring anchors and 3 for glyphs on the boundary of the face.
-    """
     m, n = lattice_size
     G = None
     match lattice_type:
         case "hex":
             G = make_hex_graph(m, n)
         case "sqr":
-            # G = make_sqr_graph(m, n)
-            pass
+            G = make_sqr_graph(m, n)
         case _:
             raise Exception(f"unknown lattice type {lattice_type}")
 
@@ -207,7 +304,7 @@ def geometrize(instance, M):
                 m
                 for m in nx.subgraph_view(
                     M,
-                    filter_node=lambda p: G.nodes[p]["node"] == NodeType.CORNER
+                    filter_node=lambda p: G.nodes[p]["node"] == NodeType.PORT
                     and G.nodes[p]["belongs_to"] == i,
                 )
             ]
@@ -242,8 +339,9 @@ def geometrize(instance, M):
         x2, y2 = M.nodes[v]["pos"]
         if M.edges[(u, v, k)]["edge"] == EdgeType.PHYSICAL:
             color = {
-                BendPenalty.NINETY: "red",
-                BendPenalty.ONE_THIRTY_FIVE: "orange",
+                BendPenalty.FORTY_FIVE: "red",
+                BendPenalty.NINETY: "orange",
+                BendPenalty.ONE_THIRTY_FIVE: "lightblue",
                 BendPenalty.ONE_EIGHTY: "green",
             }
             w = M.edges[(u, v, k)].get("weight", 0)
@@ -385,7 +483,7 @@ def draw_svg(geometries):
 
 
 INSTANCE = {
-    "lattice_type": "hex",
+    "lattice_type": "sqr",
     "glyph_ids": [
         "A",
         "B",
