@@ -1,7 +1,13 @@
 import numpy as np
 import networkx as nx
 from util.geometry import dist_euclidean
-from itertools import product, pairwise
+from itertools import product, pairwise, combinations
+
+
+def path_to_edges(path):
+    # path is a list of nodes
+    # we want that as edges
+    return list(pairwise(path))
 
 
 def incident_edges(G, start, avoid_node=None):
@@ -82,7 +88,7 @@ def get_shortest_path_between(G, list1, list2):
     for i in list1:
         for j in list2:
             p = nx.shortest_path(G, i, j)
-            p = list(pairwise(p))
+            p = path_to_edges(p)
             l = calculate_path_length(G, p)
             if l < shortest[0]:
                 shortest = (l, p)
@@ -108,3 +114,45 @@ def shortest_path_graph(G, t=1):
             S.add_edge(u, v, weight=w**t)
 
     return S
+
+
+def approximate_steiner_tree(G, S):
+    """G is a metric graph (edge weight is euclidean distance), S is the set of terminal nodes. Returns a tree subgraph of G that is a Steiner tree.
+
+    Wu et al., 1986: A faster approximation algorithm for the Steiner problem in graphs
+    """
+    # we assume the majority of nodes are steiner nodes, ie only few terminals
+    # step 1: make G1, a complete graph of all the terminals where edge weight is shortest path length. pick any shortest path if it's not unique
+    G1 = nx.Graph(incoming_graph_data=nx.subgraph_view(G, filter_node=lambda n: n in S))
+    for n1, n2 in combinations(S, 2):
+        shortest_path = nx.shortest_path_length(G, n1, n2)
+        G1.add_edge(n1, n2, weight=shortest_path)
+
+    # step 2: make G2, a MST on G1
+    G2 = nx.minimum_spanning_tree(G1)
+
+    # step 3: make G3 by starting with G nodes and no edges. for every edge in G2 add *all* shortest paths between the endpoints in G
+    G3 = nx.Graph(incoming_graph_data=G)
+    G3.remove_edges_from(list(G.edges()))
+    for u, v in G2.edges():
+        all_paths = nx.all_shortest_paths(G, u, v)
+        for path in all_paths:
+            for w, x in path_to_edges(path):
+                G3.add_edge(w, x, weight=G.edges[(w, x)]["weight"])
+
+    # step 4: make G4, a MST on G3
+    G4 = nx.minimum_spanning_tree(G3)
+    # step 5: make G5 by removing any non-terminal leaves from G4
+    G5 = nx.Graph(incoming_graph_data=G4)
+
+    while (
+        len(
+            non_terminal_leaves := [
+                n for n in G5.nodes() if G5.degree[n] == 1 and n not in S
+            ]
+        )
+        > 0
+    ):
+        G5.remove_nodes_from(non_terminal_leaves)
+
+    return G5

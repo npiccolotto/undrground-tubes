@@ -7,7 +7,7 @@ import drawsvg as svg
 import networkx as nx
 import numpy as np
 
-from util.collections import merge_alternating, get_elements_in_same_lists
+from util.collections import get_elements_in_same_lists, merge_alternating
 from util.geometry import (
     are_faces_adjacent,
     centroid,
@@ -22,6 +22,7 @@ from util.geometry import (
     offset_edge,
 )
 from util.graph import (
+    approximate_steiner_tree,
     get_closest_pair,
     get_longest_simple_paths,
     get_shortest_path_between,
@@ -111,7 +112,6 @@ def add_ports_to_hex_node(G, node, data, side_length=0.25):
     # find neighbors and replace center edges with physical edges to ports
     neighbors = list(nx.neighbors(G, node))
     for neighbor in neighbors:
-        G.remove_edge(node, neighbor)
         # use physically closest port for any neighbor
         neighbor_pos = G.nodes[neighbor]["pos"]
         port = get_closest_point(neighbor_pos, hex_sides)
@@ -232,7 +232,6 @@ def add_ports_to_sqr_node(G, node, data, side_length=0.25):
     # find neighbors and replace center edges with physical edges to ports
     neighbors = list(nx.neighbors(G, node))
     for neighbor in neighbors:
-        G.remove_edge(node, neighbor)
         # use physically closest port for any neighbor
         neighbor_pos = G.nodes[neighbor]["pos"]
         port = get_closest_point(neighbor_pos, sqr_corners)
@@ -303,11 +302,12 @@ def get_routing_graph(lattice_type, lattice_size):
             G = make_sqr_graph(m, n)
         case _:
             raise Exception(f"unknown lattice type {lattice_type}")
-
     return G
 
 
 def add_glyphs_to_nodes(instance, G):
+    for n in G.nodes():
+        G.nodes[n]["occupied"] = False
     for i, glyph in enumerate(instance["glyph_ids"]):
         logpos = instance["glyph_positions"][i]
         if G.nodes[logpos]["node"] != NodeType.CENTER:
@@ -321,7 +321,37 @@ def route_set_lines(instance, G):
     # steps:
     # 1. identify intersection groups: elements that belong to the same sets
     intersection_groups = get_elements_in_same_lists(instance["set_system"])
-    print(intersection_groups)
+
+    sorted_intersection_groups = sorted(
+        zip(intersection_groups.keys(), intersection_groups.values()),
+        key=lambda x: len(x[1]),
+        reverse=True,
+    )
+
+    G_ = nx.subgraph_view(
+        G, filter_edge=lambda u, v, k: G.edges[(u, v, k)]["edge"] == EdgeType.PHYSICAL
+    )
+
+    for elements, sets in sorted_intersection_groups:
+        S = [
+            n
+            for n, d in G_.nodes(data=True)
+            if d["node"] == NodeType.CENTER and d["occupied"] and d["glyph"] in elements
+        ]
+
+        # close edges to all center nodes not belonging to elements
+        G__ = nx.Graph(incoming_graph_data=G_)
+        for u, v, d in G__.edges(data=True):
+            un = G__.nodes[u]["node"]
+            vn = G__.nodes[v]["node"]
+            if un == NodeType.CENTER or vn == NodeType.CENTER:
+                center = G__.nodes[u] if un == NodeType.CENTER else G__.nodes[v]
+                if center["occupied"] and center["glyph"] not in S:
+                    G__.edges[(u, v)]["weight"] = math.inf
+
+        steiner = approximate_steiner_tree(G__, S)
+        print(S, steiner)
+
     # 2. then process from biggest to smallest group. for each:
     # 3. determine approximated steiner tree acc. to kou1981 / wu1986. add those edges to current support F and mark elements as processed. if F is not connected, find cut and fix it by connecting via shortest path
     # 4. update host graph: lighten weight on edges in F as suggested in castermans2019, penalize crossing dual edges as suggested by bast2020
@@ -358,7 +388,7 @@ def geometrize(instance, M):
                     y1,
                     x2,
                     y2,
-                    z=w,
+                    z=-w,
                     stroke=color.get(w, "gray"),
                     stroke_width=1,
                 )
@@ -490,7 +520,7 @@ def draw_svg(geometries):
 
 
 INSTANCE = {
-    "lattice_type": "hex",
+    "lattice_type": "sqr",
     "glyph_ids": [
         "A",
         "B",
@@ -534,11 +564,13 @@ INSTANCE = {
 
 
 if __name__ == "__main__":
-    m = 5
-    n = 5
+    m = 3
+    n = 3
     lattice_type = INSTANCE["lattice_type"]
     G = get_routing_graph(lattice_type, (m, n))
+
     G = add_glyphs_to_nodes(INSTANCE, G)
+
     G = route_set_lines(INSTANCE, G)
     # G = embed_to_routing_graph(INSTANCE, G)
     # G = render_line(INSTANCE, G, DEFAULT_PARAMS)
