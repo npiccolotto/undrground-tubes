@@ -7,7 +7,7 @@ import drawsvg as svg
 import networkx as nx
 import numpy as np
 
-from util.collections import merge_alternating
+from util.collections import merge_alternating, get_elements_in_same_lists
 from util.geometry import (
     are_faces_adjacent,
     centroid,
@@ -318,7 +318,15 @@ def add_glyphs_to_nodes(instance, G):
 
 
 def route_set_lines(instance, G):
-    pass
+    # steps:
+    # 1. identify intersection groups: elements that belong to the same sets
+    intersection_groups = get_elements_in_same_lists(instance["set_system"])
+    print(intersection_groups)
+    # 2. then process from biggest to smallest group. for each:
+    # 3. determine approximated steiner tree acc. to kou1981 / wu1986. add those edges to current support F and mark elements as processed. if F is not connected, find cut and fix it by connecting via shortest path
+    # 4. update host graph: lighten weight on edges in F as suggested in castermans2019, penalize crossing dual edges as suggested by bast2020
+    # 5. stop when all elements have been processed
+    return G
 
 
 def geometrize(instance, M):
