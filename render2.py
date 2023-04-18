@@ -1,30 +1,31 @@
+import math
+from collections import defaultdict
+from enum import IntEnum
+from itertools import combinations, pairwise, product
+
+import drawsvg as svg
 import networkx as nx
 import numpy as np
-from collections import defaultdict
-from itertools import combinations, pairwise, product
-import math
-from enum import IntEnum
-import drawsvg as svg
 
 from util.collections import merge_alternating
 from util.geometry import (
-    get_side,
-    dist_euclidean,
-    get_closest_point,
-    centroid,
-    logical_coords_to_physical,
     are_faces_adjacent,
-    interpolate_biarcs,
+    centroid,
+    dist_euclidean,
     get_angle,
-    offset_edge,
-    is_point_inside_circle,
+    get_closest_point,
     get_segment_circle_intersection,
+    get_side,
+    interpolate_biarcs,
+    is_point_inside_circle,
+    logical_coords_to_physical,
+    offset_edge,
 )
 from util.graph import (
-    incident_edges,
-    get_longest_simple_paths,
     get_closest_pair,
+    get_longest_simple_paths,
     get_shortest_path_between,
+    incident_edges,
 )
 
 
@@ -36,15 +37,13 @@ class BendPenalty(IntEnum):
 
 
 class EdgeType(IntEnum):
-    PHYSICAL = -1
+    PHYSICAL = -1  # physical edge that is actually drawn
     CENTER = 0  # center to center edge
-    DRAW = 1  # physical edge that is actually drawn
 
 
 class NodeType(IntEnum):
     CENTER = 0
     PORT = 1
-    CORNER = 2
 
 
 DEFAULT_PARAMS = {
@@ -58,7 +57,7 @@ DEFAULT_PARAMS = {
 
 
 def add_ports_to_hex_node(G, node, data, side_length=0.25):
-    hex_corners = [
+    hex_ports = [
         (0, side_length),  # N
         (side_length * math.sqrt(3) / 2, side_length / 2),  # NE
         (side_length * math.sqrt(3) / 2, -side_length / 2),  # SE
@@ -67,13 +66,13 @@ def add_ports_to_hex_node(G, node, data, side_length=0.25):
         (-side_length * math.sqrt(3) / 2, side_length / 2),  # NW
     ]
     pos = data["pos"]
-    hex_corners = [(x + pos[0], y + pos[1]) for x, y in hex_corners]
+    hex_ports = [(x + pos[0], y + pos[1]) for x, y in hex_ports]
     dirs = ["n", "ne", "se", "s", "sw", "nw"]
-    hex_corners = list(zip(dirs, hex_corners))
-    for dir, corner in hex_corners:
-        G.add_node(corner, node=NodeType.CORNER, belongs_to=node, pos=corner, port=dir)
+    hex_ports = list(zip(dirs, hex_ports))
+    for dir, corner in hex_ports:
+        G.add_node(corner, node=NodeType.PORT, belongs_to=node, pos=corner, port=dir)
 
-    sides = pairwise(hex_corners + [hex_corners[0]])
+    sides = pairwise(hex_ports + [hex_ports[0]])
     hex_sides = []
     for c1, c2 in sides:
         d1, p1 = c1
@@ -214,13 +213,6 @@ def add_ports_to_sqr_node(G, node, data, side_length=0.25):
         n1 = sqr_corners[i]
         for j in range(i + 1, len(sqr_corners)):
             n2 = sqr_corners[j]
-            # ports on the diagonals don't have 90deg edges as they overlap with the 45 deg edges
-            if (
-                G.nodes[n1]["port"] in ["ne", "se", "sw", "nw"]
-                and penalties[p] == BendPenalty.NINETY
-            ):
-                p += 1
-                continue
 
             G.add_edge(
                 n1, n2, EdgeType.PHYSICAL, edge=EdgeType.PHYSICAL, weight=penalties[p]
@@ -315,6 +307,20 @@ def get_routing_graph(lattice_type, lattice_size):
     return G
 
 
+def add_glyphs_to_nodes(instance, G):
+    for i, glyph in enumerate(instance["glyph_ids"]):
+        logpos = instance["glyph_positions"][i]
+        if G.nodes[logpos]["node"] != NodeType.CENTER:
+            raise Exception("node to position glyph on is somehow not a glyph center")
+        G.nodes[logpos]["occupied"] = True
+        G.nodes[logpos]["glyph"] = glyph
+    return G
+
+
+def route_set_lines(instance, G):
+    pass
+
+
 def geometrize(instance, M):
     one_unit_px = DEFAULT_PARAMS["unit_size_in_px"]
     margins = np.array((0.5, 0.5)) * one_unit_px
@@ -326,43 +332,6 @@ def geometrize(instance, M):
     for i in M.nodes():
         (x, y) = M.nodes[i]["pos"]
         M.nodes[i]["pos"] = (x * factor + mx, -y * factor + my)
-
-    # glyph nodes
-    for i, n in M.nodes(data=True):
-        if n["node"] == NodeType.CENTER:
-            corners = [
-                m
-                for m in nx.subgraph_view(
-                    M,
-                    filter_node=lambda p: G.nodes[p]["node"] == NodeType.PORT
-                    and G.nodes[p]["belongs_to"] == i,
-                )
-            ]
-            for corner in corners:
-                cx, cy = M.nodes[corner]["pos"]
-                """
-                color = {
-                    "n": "red",
-                    "ne": "orange",
-                    "se": "green",
-                    "s": "blue",
-                    "sw": "magenta",
-                    "nw": "pink",
-                }"""
-                geometries.append(svg.Circle(cx=cx, cy=cy, r=2, fill="black", z=1000))
-            xs, ys = zip(*map(lambda m: M.nodes[m]["pos"], corners))
-            # so if we wanted to render to something else than svg, we could
-            # replace the drawsvg elements with some dicts and make drawsvg
-            # elements in draw_svg function. convert to something else in
-            # draw_smth_else.
-            # for now it saves time to not do that
-            glyph = svg.Lines(
-                *merge_alternating(xs, ys),
-                close=True,
-                fill="transparent",
-                stroke="black",
-            )
-            # geometries.append(glyph)
 
     for u, v, k in M.edges(keys=True):
         x1, y1 = M.nodes[u]["pos"]
@@ -513,7 +482,7 @@ def draw_svg(geometries):
 
 
 INSTANCE = {
-    "lattice_type": "sqr",
+    "lattice_type": "hex",
     "glyph_ids": [
         "A",
         "B",
@@ -561,6 +530,8 @@ if __name__ == "__main__":
     n = 5
     lattice_type = INSTANCE["lattice_type"]
     G = get_routing_graph(lattice_type, (m, n))
+    G = add_glyphs_to_nodes(INSTANCE, G)
+    G = route_set_lines(INSTANCE, G)
     # G = embed_to_routing_graph(INSTANCE, G)
     # G = render_line(INSTANCE, G, DEFAULT_PARAMS)
     geometries = geometrize(INSTANCE, G)
