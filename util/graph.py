@@ -1,6 +1,7 @@
 import numpy as np
 import networkx as nx
 from util.geometry import dist_euclidean
+from util.perf import timing
 from itertools import product, pairwise, combinations
 
 
@@ -55,16 +56,23 @@ def get_longest_simple_paths(G, src, tgt, visited=[], current_path=[]):
     )
 
 
-def calculate_path_length(G, path):
+def calculate_path_length(G, path, weight=None):
     # path is a list of edges
     if len(path) == 0:
         return float("inf")
 
-    length = 0
+    total = 0
     for e in path:
         a, b = e
-        length += dist_euclidean(G.nodes[a]["pos"], G.nodes[b]["pos"])
-    return length
+
+        length = 0
+        if weight:
+            length = G.edges[(a, b)][weight]
+        else:
+            length = dist_euclidean(G.nodes[a]["pos"], G.nodes[b]["pos"])
+
+        total += length
+    return total
 
 
 def distance_matrix(list1, list2, dist):
@@ -83,13 +91,13 @@ def get_closest_pair(list1, list2):
     return m
 
 
-def get_shortest_path_between(G, list1, list2):
+def get_shortest_path_between(G, list1, list2, weight=None):
     shortest = float("inf"), []
     for i in list1:
         for j in list2:
-            p = nx.shortest_path(G, i, j)
+            p = nx.shortest_path(G, i, j, weight=weight)
             p = path_to_edges(p)
-            l = calculate_path_length(G, p)
+            l = calculate_path_length(G, p, weight=weight)
             if l < shortest[0]:
                 shortest = (l, p)
     return shortest
@@ -116,6 +124,11 @@ def shortest_path_graph(G, t=1):
     return S
 
 
+def are_node_sets_connected(G, S, T):
+    cut = nx.cut_size(G, S, T)
+    return cut > 0
+
+
 def approximate_steiner_tree(G, S):
     """G is a metric graph (edge weight is euclidean distance), S is the set of terminal nodes. Returns a tree subgraph of G that is a Steiner tree.
 
@@ -123,36 +136,35 @@ def approximate_steiner_tree(G, S):
     """
     # we assume the majority of nodes are steiner nodes, ie only few terminals
     # step 1: make G1, a complete graph of all the terminals where edge weight is shortest path length. pick any shortest path if it's not unique
-    G1 = nx.Graph(incoming_graph_data=nx.subgraph_view(G, filter_node=lambda n: n in S))
+    G1 = nx.Graph()
+    G1.add_nodes_from(S)
     for n1, n2 in combinations(S, 2):
-        shortest_path = nx.shortest_path_length(G, n1, n2)
-        G1.add_edge(n1, n2, weight=shortest_path)
+        G1.add_edge(n1, n2, weight=nx.shortest_path_length(G, n1, n2))
 
     # step 2: make G2, a MST on G1
     G2 = nx.minimum_spanning_tree(G1)
 
-    # step 3: make G3 by starting with G nodes and no edges. for every edge in G2 add *all* shortest paths between the endpoints in G
-    G3 = nx.Graph(incoming_graph_data=G)
-    G3.remove_edges_from(list(G.edges()))
+    # step 3: make G3 by starting with G nodes and no edges. for every edge in G2 add a shortest path between the endpoints in G
+    # TODO the next two lines (copying G) is so slow
+    G3 = nx.Graph()
+    G3.add_nodes_from(G)
     for u, v in G2.edges():
-        all_paths = nx.all_shortest_paths(G, u, v)
-        for path in all_paths:
-            for w, x in path_to_edges(path):
-                G3.add_edge(w, x, weight=G.edges[(w, x)]["weight"])
+        shortest_path = nx.shortest_path(G, u, v)
+        for w, x in path_to_edges(shortest_path):
+            G3.add_edge(w, x, weight=G.edges[(w, x)]["weight"])
 
     # step 4: make G4, a MST on G3
     G4 = nx.minimum_spanning_tree(G3)
-    # step 5: make G5 by removing any non-terminal leaves from G4
-    G5 = nx.Graph(incoming_graph_data=G4)
 
+    # step 5: make G5 by removing any non-terminal leaves from G4
     while (
         len(
             non_terminal_leaves := [
-                n for n in G5.nodes() if G5.degree[n] == 1 and n not in S
+                n for n in G4.nodes() if G4.degree[n] == 1 and n not in S
             ]
         )
         > 0
     ):
-        G5.remove_nodes_from(non_terminal_leaves)
+        G4.remove_nodes_from(non_terminal_leaves)
 
-    return G5
+    return G4
