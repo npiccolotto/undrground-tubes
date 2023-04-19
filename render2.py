@@ -47,7 +47,10 @@ class EdgePenalty(float, Enum):
     # To center
     TO_CENTER = 2
 
-    # Using any edge
+    # Using any edge between ports
+    # TODO with zero cost there's no need to make paths short
+    # i feel like we should set this to .1 or .2 or something...
+    # so that an otherwise short path with one 135deg bend isn't more expensive than a very long straight line
     HOP = 0
 
 
@@ -351,25 +354,22 @@ def add_glyphs_to_nodes(instance, G):
     return G
 
 
-def block_center_edges_except_to(G, open_nodes):
-    print("open nodes", open_nodes)
+def block_edges_using(G, closed_nodes):
     for u, v in G.edges():
-        un = G.nodes[u]["node"]
-        vn = G.nodes[v]["node"]
-        if un == NodeType.CENTER or vn == NodeType.CENTER:
-            center = u if un == NodeType.CENTER else v
-            if G.nodes[center]["occupied"] and center not in open_nodes:
-                print(f"blocking {u}-{v} ({un},{vn})")
-                G.edges[(u, v)]["weight"] = 1e10
+        if G.nodes[u]["node"] == NodeType.PORT or G.nodes[u]["node"] == NodeType.PORT:
+            parents = set([G.nodes[u]["belongs_to"], G.nodes[v]["belongs_to"]])
+            if len(parents.intersection(set(closed_nodes))) > 0:
+                G.edges[(u, v)]["base_weight"] = G.edges[(u, v)]["weight"]
+                G.edges[(u, v)]["weight"] = float(math.inf)
     return G
 
 
-def unblock_center_edges(G):
+def unblock_edges(G, closed_nodes):
     for u, v in G.edges():
-        un = G.nodes[u]["node"]
-        vn = G.nodes[v]["node"]
-        if un == NodeType.CENTER or vn == NodeType.CENTER:
-            G.edges[(u, v)]["weight"] = 0
+        if G.nodes[u]["node"] == NodeType.PORT or G.nodes[u]["node"] == NodeType.PORT:
+            parents = set([G.nodes[u]["belongs_to"], G.nodes[v]["belongs_to"]])
+            if len(parents.intersection(set(closed_nodes))) > 0:
+                G.edges[(u, v)]["weight"] = G.edges[(u, v)]["base_weight"]
     return G
 
 
@@ -402,19 +402,24 @@ def route_set_lines(instance, G):
         S = [
             n
             for n, d in G_.nodes(data=True)
-            if d["node"] == NodeType.CENTER
-            and d["occupied"] == True
-            and d["glyph"] in elements
+            if d["node"] == NodeType.CENTER and d["occupied"] and d["glyph"] in elements
         ]
         # determine union of all processed elements sharing any set with the current set of sets o_O
         shared_processed_elements = [
             el
             for el in processed_elements
-            if len(set(sets_per_element[el]).intersection(sets)) > 0
+            if len(set(sets_per_element[el]).intersection(set(sets))) > 0
         ]
 
-        # close edges to all center nodes not belonging to elements
-        # G_ = block_center_edges_except_to(G_, S)
+        # close edges to all other occupied nodes
+        S_minus = [
+            n
+            for n, d in G_.nodes(data=True)
+            if d["node"] == NodeType.CENTER
+            and d["occupied"]
+            and d["glyph"] not in list(elements) + shared_processed_elements
+        ]
+
         # 3. determine approximated steiner tree acc. to kou1981 / wu1986.
         with timing("steiner tree"):
             steiner = approximate_steiner_tree(G_, S)
@@ -433,6 +438,7 @@ def route_set_lines(instance, G):
         support = nx.subgraph_view(G, filter_edge=lambda u, v, k: k == EdgeType.SUPPORT)
 
         # if support is not connected but should be, find cut and fix it by connecting via shortest path
+        G_ = block_edges_using(G_, S_minus)
         if len(shared_processed_elements) > 0:
             nodes_of_shared_processed_elements = [
                 n
@@ -445,16 +451,20 @@ def route_set_lines(instance, G):
                 support, S, nodes_of_shared_processed_elements
             ):
                 _, shortest_path_edgelist = get_shortest_path_between(
-                    G, S, nodes_of_shared_processed_elements
+                    G_, nodes_of_shared_processed_elements, S, weight="weight"
+                )
+                print(
+                    "SUPPORT UNCONNECTED",
+                    elements,
+                    shared_processed_elements,
                 )
                 for u, v in shortest_path_edgelist:
                     G.add_edge(
                         u, v, EdgeType.SUPPORT, edge=EdgeType.SUPPORT, sets=set(sets)
                     )
 
-        processed_elements = processed_elements.union(set(S))
-
-        # G_ = unblock_center_edges(G_)
+        G_ = unblock_edges(G_, S_minus)
+        processed_elements = processed_elements.union(set(elements))
 
     # 4. update host graph: lighten weight on edges in F as suggested in castermans2019, penalize crossing dual edges as suggested by bast2020
     # 5. stop when all elements have been processed
@@ -652,7 +662,7 @@ INSTANCE = {
     #  D E F
     # G H I
     "glyph_positions": [
-        (0, 0),
+        (1, 2),
         (10, 0),
         (19, 3),
         (0, 10),
@@ -660,7 +670,7 @@ INSTANCE = {
         (20, 10),
         (0, 20),
         (10, 20),
-        (20, 20),
+        (12, 22),
     ],  # a panda df with two columns (x and y) corresponding to logical grid position
     "set_system": {
         "set0": ["A", "B", "H", "D", "E"],
@@ -691,8 +701,9 @@ if __name__ == "__main__":
     # G = render_line(INSTANCE, G, DEFAULT_PARAMS)
     geometries = geometrize(INSTANCE, G)
 
-    with timing("to svg and write"):
+    with timing("draw svg"):
         img = draw_svg(geometries)
+    with timing("write svg"):
         with open("drawing.svg", "w") as f:
             f.write(img)
             f.flush()

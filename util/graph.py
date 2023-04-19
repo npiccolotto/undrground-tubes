@@ -139,17 +139,16 @@ def approximate_steiner_tree(G, S):
     G1 = nx.Graph()
     G1.add_nodes_from(S)
     for n1, n2 in combinations(S, 2):
-        G1.add_edge(n1, n2, weight=nx.shortest_path_length(G, n1, n2))
+        G1.add_edge(n1, n2, weight=nx.shortest_path_length(G, n1, n2, weight="weight"))
 
     # step 2: make G2, a MST on G1
     G2 = nx.minimum_spanning_tree(G1)
 
     # step 3: make G3 by starting with G nodes and no edges. for every edge in G2 add a shortest path between the endpoints in G
-    # TODO the next two lines (copying G) is so slow
     G3 = nx.Graph()
     G3.add_nodes_from(G)
     for u, v in G2.edges():
-        shortest_path = nx.shortest_path(G, u, v, weight='weight')
+        shortest_path = nx.shortest_path(G, u, v, weight="weight")
         for w, x in path_to_edges(shortest_path):
             G3.add_edge(w, x, weight=G.edges[(w, x)]["weight"])
 
