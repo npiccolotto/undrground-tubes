@@ -1,7 +1,7 @@
 import math
 import time
 from collections import defaultdict
-from enum import IntEnum
+from enum import Enum, IntEnum
 from itertools import combinations, pairwise, product
 
 import drawsvg as svg
@@ -37,11 +37,18 @@ from util.graph import (
 )
 
 
-class BendPenalty(IntEnum):
-    ONE_EIGHTY = 0.5
+class EdgePenalty(float, Enum):
+    # Bends
+    ONE_EIGHTY = 0
     ONE_THIRTY_FIVE = 1
     NINETY = 1.5
     FORTY_FIVE = 2
+
+    # To center
+    TO_CENTER = 2
+
+    # Using any edge
+    HOP = 0
 
 
 class EdgeType(IntEnum):
@@ -91,11 +98,11 @@ def add_ports_to_hex_node(G, node, data, side_length=0.25):
         G.add_node(n, node=NodeType.PORT, belongs_to=node, pos=n, port=(d1, d2))
 
     penalties = [
-        BendPenalty.NINETY,
-        BendPenalty.ONE_THIRTY_FIVE,
-        BendPenalty.ONE_EIGHTY,
-        BendPenalty.ONE_THIRTY_FIVE,
-        BendPenalty.NINETY,
+        EdgePenalty.NINETY,
+        EdgePenalty.ONE_THIRTY_FIVE,
+        EdgePenalty.ONE_EIGHTY,
+        EdgePenalty.ONE_THIRTY_FIVE,
+        EdgePenalty.NINETY,
     ]
     for i in range(len(hex_sides)):
         p = 0
@@ -114,7 +121,7 @@ def add_ports_to_hex_node(G, node, data, side_length=0.25):
             n,
             EdgeType.PHYSICAL,
             edge=EdgeType.PHYSICAL,
-            weight=0,
+            weight=EdgePenalty.TO_CENTER,
         )
 
     # find neighbors and replace center edges with physical edges to ports
@@ -126,7 +133,11 @@ def add_ports_to_hex_node(G, node, data, side_length=0.25):
 
         weight = dist_euclidean(port, neighbor_pos)
         G.add_edge(
-            neighbor, port, EdgeType.PHYSICAL, edge=EdgeType.PHYSICAL, weight=weight
+            neighbor,
+            port,
+            EdgeType.PHYSICAL,
+            edge=EdgeType.PHYSICAL,
+            weight=EdgePenalty.HOP,
         )
     return G
 
@@ -167,7 +178,7 @@ def make_hex_graph(m, n):
                 right_diagonal,
                 EdgeType.CENTER,
                 edge=EdgeType.CENTER,
-                weight=weight,
+                weight=EdgePenalty.HOP,
             )
         if y % 2 == 0 and y > 0 and x > 0:
             # tilting to left in even rows
@@ -180,7 +191,7 @@ def make_hex_graph(m, n):
                 left_diagonal,
                 EdgeType.CENTER,
                 edge=EdgeType.CENTER,
-                weight=weight,
+                weight=EdgePenalty.HOP,
             )
 
     for logpos, hex_center in G.nodes(data=True):
@@ -207,23 +218,24 @@ def add_ports_to_sqr_node(G, node, data, side_length=0.25):
     for dir, corner in sqr_corners_dirs:
         G.add_node(corner, node=NodeType.PORT, belongs_to=node, pos=corner, port=dir)
 
-    penalties = [
-        BendPenalty.FORTY_FIVE,
-        BendPenalty.NINETY,
-        BendPenalty.ONE_THIRTY_FIVE,
-        BendPenalty.ONE_EIGHTY,
-        BendPenalty.ONE_THIRTY_FIVE,
-        BendPenalty.NINETY,
-        BendPenalty.FORTY_FIVE,
+    penalties_cw = [
+        EdgePenalty.FORTY_FIVE,
+        EdgePenalty.NINETY,
+        EdgePenalty.ONE_THIRTY_FIVE,
+        EdgePenalty.ONE_EIGHTY,
+        EdgePenalty.ONE_THIRTY_FIVE,
+        EdgePenalty.NINETY,
+        EdgePenalty.FORTY_FIVE,
     ]
-    for i in range(len(sqr_corners)):
+    for i in range(0, len(sqr_corners) - 1):
         p = 0
-        n1 = sqr_corners[i]
         for j in range(i + 1, len(sqr_corners)):
-            n2 = sqr_corners[j]
-
             G.add_edge(
-                n1, n2, EdgeType.PHYSICAL, edge=EdgeType.PHYSICAL, weight=penalties[p]
+                sqr_corners[i],
+                sqr_corners[j],
+                EdgeType.PHYSICAL,
+                edge=EdgeType.PHYSICAL,
+                weight=penalties_cw[p],
             )
             p += 1
 
@@ -234,18 +246,9 @@ def add_ports_to_sqr_node(G, node, data, side_length=0.25):
             n,
             EdgeType.PHYSICAL,
             edge=EdgeType.PHYSICAL,
-            weight=0,
+            weight=EdgePenalty.TO_CENTER,
         )
 
-    # find neighbors and replace center edges with physical edges to ports
-    neighbors = list(nx.neighbors(G, node))
-    for neighbor in neighbors:
-        # use physically closest port for any neighbor
-        neighbor_pos = G.nodes[neighbor]["pos"]
-        port = get_closest_point(neighbor_pos, sqr_corners)
-
-        weight = dist_euclidean(port, neighbor_pos)
-        G.add_edge(neighbor, port, EdgeType.PHYSICAL, edge=EdgeType.PHYSICAL, weight=1)
     return G
 
 
@@ -268,32 +271,57 @@ def make_sqr_graph(m, n):
         if y > 0 and x < m - 1:
             # tilt to right
             right_diagonal = (x + 1, y - 1)
-            weight = dist_euclidean(
-                G_.nodes[logpos]["pos"], G.nodes[right_diagonal]["pos"]
-            )
             G_.add_edge(
                 logpos,
                 right_diagonal,
                 EdgeType.CENTER,
                 edge=EdgeType.CENTER,
-                weight=1,
             )
         if y > 0 and x > 0:
             # tilt to left
             left_diagonal = (x - 1, y - 1)
-            weight = dist_euclidean(
-                G_.nodes[logpos]["pos"], G.nodes[left_diagonal]["pos"]
-            )
             G_.add_edge(
                 logpos,
                 left_diagonal,
                 EdgeType.CENTER,
                 edge=EdgeType.CENTER,
-                weight=1,
             )
 
     for logpos, center in G.nodes(data=True):
         G_ = add_ports_to_sqr_node(G_, logpos, center, side_length=0.25)
+
+    G_logical = nx.subgraph_view(G_, filter_edge=lambda u, v, k: k == EdgeType.CENTER)
+    G_physical = nx.subgraph_view(
+        G_, filter_edge=lambda u, v, k: k == EdgeType.PHYSICAL
+    )
+
+    for node in list(G_.nodes()):
+        if G_.nodes[node]["node"] != NodeType.CENTER:
+            continue
+
+        ports = list(nx.neighbors(G_physical, node))
+
+        # find neighbors and add physical edges to ports
+        neighbors = list(
+            nx.neighbors(
+                G_logical,
+                node,
+            )
+        )
+        for neighbor in neighbors:
+            ports_nb = list(nx.neighbors(G_physical, neighbor))
+            # use physically closest port for any neighbor
+            port_nb = get_closest_point(G_.nodes[node]["pos"], ports_nb)
+            port_self = get_closest_point(G_.nodes[neighbor]["pos"], ports)
+
+            # weight = dist_euclidean(port_nb, port_self)
+            G_.add_edge(
+                port_self,
+                port_nb,
+                EdgeType.PHYSICAL,
+                edge=EdgeType.PHYSICAL,
+                weight=EdgePenalty.HOP,
+            )
 
     return G_
 
@@ -332,7 +360,7 @@ def block_center_edges_except_to(G, open_nodes):
             center = u if un == NodeType.CENTER else v
             if G.nodes[center]["occupied"] and center not in open_nodes:
                 print(f"blocking {u}-{v} ({un},{vn})")
-                G.edges[(u, v)]["weight"] = math.inf
+                G.edges[(u, v)]["weight"] = 1e10
     return G
 
 
@@ -386,7 +414,7 @@ def route_set_lines(instance, G):
         ]
 
         # close edges to all center nodes not belonging to elements
-        G_ = block_center_edges_except_to(G_, S)
+        # G_ = block_center_edges_except_to(G_, S)
         # 3. determine approximated steiner tree acc. to kou1981 / wu1986.
         with timing("steiner tree"):
             steiner = approximate_steiner_tree(G_, S)
@@ -426,7 +454,7 @@ def route_set_lines(instance, G):
 
         processed_elements = processed_elements.union(set(S))
 
-        G_ = unblock_center_edges(G_)
+        # G_ = unblock_center_edges(G_)
 
     # 4. update host graph: lighten weight on edges in F as suggested in castermans2019, penalize crossing dual edges as suggested by bast2020
     # 5. stop when all elements have been processed
@@ -452,13 +480,19 @@ def geometrize(instance, M):
         x1, y1 = M.nodes[u]["pos"]
         x2, y2 = M.nodes[v]["pos"]
         if M.edges[(u, v, k)]["edge"] == EdgeType.PHYSICAL:
-            w = M.edges[(u, v, k)].get("weight", 1)
+            if (
+                M.nodes[u]["node"] != NodeType.PORT
+                or M.nodes[v]["node"] != NodeType.PORT
+            ):
+                continue
+            w = M.edges[(u, v, k)].get("weight", -1)
             geometries.append(
                 svg.Line(
                     x1,
                     y1,
                     x2,
                     y2,
+                    data_weight=w,
                     stroke="gray",
                     stroke_width=1,
                 )
@@ -620,7 +654,7 @@ INSTANCE = {
     "glyph_positions": [
         (0, 0),
         (10, 0),
-        (20, 0),
+        (19, 3),
         (0, 10),
         (10, 10),
         (20, 10),
@@ -646,19 +680,32 @@ INSTANCE = {
 
 
 if __name__ == "__main__":
-    m = 30
-    n = 30
+    m = 25
+    n = 25
     lattice_type = INSTANCE["lattice_type"]
     G = get_routing_graph(lattice_type, (m, n))
 
     G = add_glyphs_to_nodes(INSTANCE, G)
-
     G = route_set_lines(INSTANCE, G)
     # G = embed_to_routing_graph(INSTANCE, G)
     # G = render_line(INSTANCE, G, DEFAULT_PARAMS)
     geometries = geometrize(INSTANCE, G)
-    img = draw_svg(geometries)
 
-    with open("drawing.svg", "w") as f:
-        f.write(img)
-        f.flush()
+    with timing("to svg and write"):
+        img = draw_svg(geometries)
+        with open("drawing.svg", "w") as f:
+            f.write(img)
+            f.flush()
+
+    if False:
+        import matplotlib.pyplot as plt
+
+        G = nx.subgraph_view(
+            G,
+            filter_edge=lambda u, v, k: k == EdgeType.PHYSICAL
+            # and G.nodes[u]["node"] == NodeType.PORT
+            # and G.nodes[v]["node"] == NodeType.PORT
+            # and G.nodes[u]["belongs_to"] != G.nodes[v]["belongs_to"],
+        )
+        nx.draw(G, pos=nx.get_node_attributes(G, "pos"), node_size=50)
+        plt.show()

@@ -149,7 +149,7 @@ def approximate_steiner_tree(G, S):
     G3 = nx.Graph()
     G3.add_nodes_from(G)
     for u, v in G2.edges():
-        shortest_path = nx.shortest_path(G, u, v)
+        shortest_path = nx.shortest_path(G, u, v, weight='weight')
         for w, x in path_to_edges(shortest_path):
             G3.add_edge(w, x, weight=G.edges[(w, x)]["weight"])
 
