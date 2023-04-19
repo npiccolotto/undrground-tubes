@@ -17,6 +17,7 @@ from util.collections import (
 from util.geometry import (
     are_faces_adjacent,
     centroid,
+    do_lines_intersect_strict,
     dist_euclidean,
     get_angle,
     get_closest_point,
@@ -51,7 +52,9 @@ class EdgePenalty(float, Enum):
     # TODO with zero cost there's no need to make paths short
     # i feel like we should set this to .1 or .2 or something...
     # so that an otherwise short path with one 135deg bend isn't more expensive than a very long straight line
-    HOP = 0
+    HOP = 1
+
+    CROSSING = 2
 
 
 class EdgeType(IntEnum):
@@ -159,7 +162,6 @@ def make_hex_graph(m, n):
     for logpos, n in G.nodes(data=True):
         x, y = logpos
         n["node"] = NodeType.CENTER
-        n["belongs_to"] = logpos
         n["logpos"] = logpos
         n["pos"] = logical_coords_to_physical(x, y, "hex")
         # TODO support glyph spacing in x and y separately
@@ -260,38 +262,37 @@ def make_sqr_graph(m, n):
     G = nx.MultiGraph(incoming_graph_data=G)
     for _1, _2, e in G.edges(data=True):
         e["edge"] = EdgeType.CENTER
-    for logpos, n in G.nodes(data=True):
-        x, y = logpos
+    for node, n in G.nodes(data=True):
+        x, y = node
         n["node"] = NodeType.CENTER
-        n["belongs_to"] = logpos
-        n["logpos"] = logpos
+        n["logpos"] = node
         n["pos"] = logical_coords_to_physical(x, y, "sqr")
 
     G_ = nx.MultiGraph(incoming_graph_data=G)
 
-    for logpos, _ in G.nodes(data=True):
-        x, y = logpos
-        if y > 0 and x < m - 1:
-            # tilt to right
-            right_diagonal = (x + 1, y - 1)
+    for node, _ in G.nodes(data=True):
+        x, y = node
+        can_tilt_right = y > 0 and x < m - 1
+        if can_tilt_right:
+            neighbor_nw = (x + 1, y - 1)
             G_.add_edge(
-                logpos,
-                right_diagonal,
+                node,
+                neighbor_nw,
                 EdgeType.CENTER,
                 edge=EdgeType.CENTER,
             )
-        if y > 0 and x > 0:
-            # tilt to left
-            left_diagonal = (x - 1, y - 1)
+        can_tilt_left = y > 0 and x > 0
+        if can_tilt_left:
+            neighbor_ne = (x - 1, y - 1)
             G_.add_edge(
-                logpos,
-                left_diagonal,
+                node,
+                neighbor_ne,
                 EdgeType.CENTER,
                 edge=EdgeType.CENTER,
             )
 
-    for logpos, center in G.nodes(data=True):
-        G_ = add_ports_to_sqr_node(G_, logpos, center, side_length=0.25)
+    for node, center in G.nodes(data=True):
+        G_ = add_ports_to_sqr_node(G_, node, center, side_length=0.25)
 
     G_logical = nx.subgraph_view(G_, filter_edge=lambda u, v, k: k == EdgeType.CENTER)
     G_physical = nx.subgraph_view(
@@ -355,8 +356,20 @@ def add_glyphs_to_nodes(instance, G):
 
 
 def block_edges_using(G, closed_nodes):
+    # for node in closed_nodes:
+    #    ports = G.neighbors(node)
+    #    for p in ports:
+    #        for e in G.edges(p):
+    #            u, v = e
+    #            if (
+    #                G.nodes[u]["node"] == NodeType.PORT
+    #                and G.nodes[v]["node"] == NodeType.PORT
+    #            ):
+    #                G.edges[e]["base_weight"] = G.edges[e]["weight"]
+    #                G.edges[e]["weight"] = float(math.inf)
+
     for u, v in G.edges():
-        if G.nodes[u]["node"] == NodeType.PORT or G.nodes[u]["node"] == NodeType.PORT:
+        if G.nodes[u]["node"] == NodeType.PORT and G.nodes[v]["node"] == NodeType.PORT:
             parents = set([G.nodes[u]["belongs_to"], G.nodes[v]["belongs_to"]])
             if len(parents.intersection(set(closed_nodes))) > 0:
                 G.edges[(u, v)]["base_weight"] = G.edges[(u, v)]["weight"]
@@ -365,11 +378,77 @@ def block_edges_using(G, closed_nodes):
 
 
 def unblock_edges(G, closed_nodes):
-    for u, v in G.edges():
-        if G.nodes[u]["node"] == NodeType.PORT or G.nodes[u]["node"] == NodeType.PORT:
-            parents = set([G.nodes[u]["belongs_to"], G.nodes[v]["belongs_to"]])
-            if len(parents.intersection(set(closed_nodes))) > 0:
-                G.edges[(u, v)]["weight"] = G.edges[(u, v)]["base_weight"]
+    for node in closed_nodes:
+        ports = G.neighbors(node)
+        for p in ports:
+            for e in G.edges(p):
+                if "base_weight" in G.edges[e]:
+                    G.edges[e]["weight"] = G.edges[e]["base_weight"]
+
+    # for u, v in G.edges():
+    #    if G.nodes[u]["node"] == NodeType.PORT and G.nodes[v]["node"] == NodeType.PORT:
+    #        parents = set([G.nodes[u]["belongs_to"], G.nodes[v]["belongs_to"]])
+    #        if len(parents.intersection(set(closed_nodes))) > 0:
+    #            G.edges[(u, v)]["weight"] = G.edges[(u, v)]["base_weight"]
+    return G
+
+
+def get_port_edge_between_centers(G, u, v):
+    uports = G.neighbors(u)
+
+    for p in uports:
+        for w, x in G.edges(p):
+            if G.nodes[x]["node"] == NodeType.PORT and G.nodes[x]["belongs_to"] == v:
+                return (w, x)
+    raise Exception("no port edge between centers")
+
+
+def update_weights_for_crossing_edges(G, edge, new_weight):
+    u, v = edge
+    un = G.nodes[u]["node"]
+    vn = G.nodes[v]["node"]
+
+    # only care about ports
+    if un != NodeType.PORT or vn != NodeType.PORT:
+        return G
+
+    # is it an edge between nodes?
+    uparent = G.nodes[u]["belongs_to"]
+    vparent = G.nodes[v]["belongs_to"]
+
+    if uparent == vparent and not G.nodes[uparent]["occupied"]:
+        # nope, within a node
+        # get all port edges and find those strictly crossing this one
+        ports = G.neighbors(uparent)
+        port_edges = [G.edges(p) for p in ports]
+        port_edges = list(set([item for sub_list in port_edges for item in sub_list]))
+        port_edges = [
+            (u, v)
+            for u, v in port_edges
+            if G.nodes[u]["node"] == NodeType.PORT
+            and G.nodes[v]["node"] == NodeType.PORT
+        ]
+        crossing_edges = [
+            (w, x) for w, x in port_edges if do_lines_intersect_strict(w, x, u, v)
+        ]
+        for w, x in crossing_edges:
+            G.edges[(w, x)]["weight"] = new_weight
+    elif uparent != vparent:
+        # yep, between nodes
+        uparent, vparent = list(sorted([uparent, vparent], key=lambda x: x[1]))
+        # now u is up
+        ux, uy = uparent
+        vx, vy = vparent
+        is_left_tilt = ux < vx and uy < vy
+        is_right_tilt = ux > vx and uy < vy
+
+        if is_left_tilt:
+            e = get_port_edge_between_centers(G, (ux, uy + 1), (ux + 1, uy))
+            G.edges[e]["weight"] = new_weight
+        if is_right_tilt:
+            e = get_port_edge_between_centers(G, (ux - 1, uy), (ux, uy + 1))
+            G.edges[e]["weight"] = new_weight
+
     return G
 
 
@@ -398,7 +477,7 @@ def route_set_lines(instance, G):
 
     # 2. then process from biggest to smallest group. for each:
     for elements, sets in sorted_intersection_groups:
-        print(sets, elements)
+        new_edges = []
         S = [
             n
             for n, d in G_.nodes(data=True)
@@ -411,21 +490,13 @@ def route_set_lines(instance, G):
             if len(set(sets_per_element[el]).intersection(set(sets))) > 0
         ]
 
-        # close edges to all other occupied nodes
-        S_minus = [
-            n
-            for n, d in G_.nodes(data=True)
-            if d["node"] == NodeType.CENTER
-            and d["occupied"]
-            and d["glyph"] not in list(elements) + shared_processed_elements
-        ]
-
         # 3. determine approximated steiner tree acc. to kou1981 / wu1986.
         with timing("steiner tree"):
             steiner = approximate_steiner_tree(G_, S)
 
         # add those edges to support
         for u, v in steiner.edges():
+            new_edges.append((u, v))
             if not G.has_edge(u, v, EdgeType.SUPPORT):
                 G.add_edge(
                     u, v, EdgeType.SUPPORT, edge=EdgeType.SUPPORT, sets=set(sets)
@@ -436,9 +507,16 @@ def route_set_lines(instance, G):
                 )
 
         support = nx.subgraph_view(G, filter_edge=lambda u, v, k: k == EdgeType.SUPPORT)
-
-        # if support is not connected but should be, find cut and fix it by connecting via shortest path
+        # close edges to all other occupied nodes so as to not route "over" them
+        S_minus = [
+            n
+            for n, d in G_.nodes(data=True)
+            if d["node"] == NodeType.CENTER
+            and d["occupied"]
+            and d["glyph"] not in list(elements) + shared_processed_elements
+        ]
         G_ = block_edges_using(G_, S_minus)
+        # if support is not connected but should be, find cut and fix it by connecting via shortest path
         if len(shared_processed_elements) > 0:
             nodes_of_shared_processed_elements = [
                 n
@@ -447,26 +525,33 @@ def route_set_lines(instance, G):
                 and d["occupied"]
                 and d["glyph"] in shared_processed_elements
             ]
-            if not are_node_sets_connected(
+            is_connected = are_node_sets_connected(
                 support, S, nodes_of_shared_processed_elements
-            ):
-                _, shortest_path_edgelist = get_shortest_path_between(
-                    G_, nodes_of_shared_processed_elements, S, weight="weight"
-                )
-                print(
-                    "SUPPORT UNCONNECTED",
-                    elements,
-                    shared_processed_elements,
-                )
+            )
+            if not is_connected:
+                with timing("connect"):
+                    _, shortest_path_edgelist = get_shortest_path_between(
+                        G_, S, nodes_of_shared_processed_elements, weight="weight"
+                    )
                 for u, v in shortest_path_edgelist:
+                    new_edges.append((u, v))
                     G.add_edge(
-                        u, v, EdgeType.SUPPORT, edge=EdgeType.SUPPORT, sets=set(sets)
+                        u,
+                        v,
+                        EdgeType.SUPPORT,
+                        edge=EdgeType.SUPPORT,
+                        sets=set(sets),
                     )
 
         G_ = unblock_edges(G_, S_minus)
         processed_elements = processed_elements.union(set(elements))
 
-    # 4. update host graph: lighten weight on edges in F as suggested in castermans2019, penalize crossing dual edges as suggested by bast2020
+        # 4. update host graph: lighten weight on edges in F as suggested in castermans2019,
+        # TODO only applicable if EdgePenalty.HOP is greater than zero
+        # penalize crossing dual edges as suggested by bast2020
+        for e in new_edges:
+            u, v = e
+            update_weights_for_crossing_edges(G_, e, EdgePenalty.CROSSING)
     # 5. stop when all elements have been processed
     return G
 
@@ -489,6 +574,7 @@ def geometrize(instance, M):
     for u, v, k in M.edges(keys=True):
         x1, y1 = M.nodes[u]["pos"]
         x2, y2 = M.nodes[v]["pos"]
+        """
         if M.edges[(u, v, k)]["edge"] == EdgeType.PHYSICAL:
             if (
                 M.nodes[u]["node"] != NodeType.PORT
@@ -507,6 +593,7 @@ def geometrize(instance, M):
                     stroke_width=1,
                 )
             )
+        """
         if M.edges[(u, v, k)]["edge"] == EdgeType.SUPPORT:
             geometries.append(
                 svg.Line(
@@ -515,8 +602,9 @@ def geometrize(instance, M):
                     x2,
                     y2,
                     z=1000,
+                    data_sets=M.edges[(u, v, k)]["sets"],
                     stroke="black",
-                    stroke_width=4,
+                    stroke_width=8,
                 )
             )
 

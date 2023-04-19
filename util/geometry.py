@@ -66,7 +66,22 @@ def ccw(a, b, c):
 
 
 def do_lines_intersect(a, b, c, d):
+    # Collinear lines count as intersecting or when they share a point
     return ccw(a, c, d) != ccw(b, c, d) and ccw(a, b, c) != ccw(a, b, d)
+
+
+def do_lines_intersect_strict(a, b, c, d):
+    # collinear lines and idential points do NOT count as intersection
+
+    abc = get_side(a, b, c)
+    abd = get_side(a, b, d)
+    cda = get_side(c, d, a)
+    cdb = get_side(c, d, b)
+
+    ab_separates_cd = abc != abd and abc != 0 and abd != 0
+    cd_separates_ab = cda != cdb and cda != 0 and cdb != 0
+
+    return ab_separates_cd and cd_separates_ab
 
 
 def cart2pol(x, y):
