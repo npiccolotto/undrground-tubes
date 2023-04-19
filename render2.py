@@ -52,7 +52,7 @@ class EdgePenalty(float, Enum):
     # TODO with zero cost there's no need to make paths short
     # i feel like we should set this to .1 or .2 or something...
     # so that an otherwise short path with one 135deg bend isn't more expensive than a very long straight line
-    HOP = 1
+    HOP = 0
 
     CROSSING = 2
 
@@ -355,6 +355,7 @@ def add_glyphs_to_nodes(instance, G):
     return G
 
 
+# TODO could be a context manager
 def block_edges_using(G, closed_nodes):
     # for node in closed_nodes:
     #    ports = G.neighbors(node)
@@ -463,7 +464,7 @@ def route_set_lines(instance, G):
         key=lambda x: len(x[1]),
         reverse=True,
     )
-    processed_elements = set()
+    processed_groups = []
 
     G_ = nx.Graph()
     G_.add_nodes_from([(n, d) for n, d in G.nodes(data=True)])
@@ -477,22 +478,27 @@ def route_set_lines(instance, G):
 
     # 2. then process from biggest to smallest group. for each:
     for elements, sets in sorted_intersection_groups:
+        print(elements, sets)
         new_edges = []
         S = [
             n
             for n, d in G_.nodes(data=True)
             if d["node"] == NodeType.CENTER and d["occupied"] and d["glyph"] in elements
         ]
-        # determine union of all processed elements sharing any set with the current set of sets o_O
-        shared_processed_elements = [
-            el
-            for el in processed_elements
-            if len(set(sets_per_element[el]).intersection(set(sets))) > 0
+
+        # close edges to all other occupied nodes so as to not route "over" them
+        S_minus = [
+            n
+            for n, d in G_.nodes(data=True)
+            if d["node"] == NodeType.CENTER
+            and d["occupied"]
+            and d["glyph"] not in list(elements)
         ]
+        G_ = block_edges_using(G_, S_minus)
 
         # 3. determine approximated steiner tree acc. to kou1981 / wu1986.
-        with timing("steiner tree"):
-            steiner = approximate_steiner_tree(G_, S)
+        # with timing("steiner tree"):
+        steiner = approximate_steiner_tree(G_, S)
 
         # add those edges to support
         for u, v in steiner.edges():
@@ -507,44 +513,73 @@ def route_set_lines(instance, G):
                 )
 
         support = nx.subgraph_view(G, filter_edge=lambda u, v, k: k == EdgeType.SUPPORT)
-        # close edges to all other occupied nodes so as to not route "over" them
-        S_minus = [
-            n
-            for n, d in G_.nodes(data=True)
-            if d["node"] == NodeType.CENTER
-            and d["occupied"]
-            and d["glyph"] not in list(elements) + shared_processed_elements
-        ]
-        G_ = block_edges_using(G_, S_minus)
-        # if support is not connected but should be, find cut and fix it by connecting via shortest path
-        if len(shared_processed_elements) > 0:
-            nodes_of_shared_processed_elements = [
-                n
-                for n, d in G_.nodes(data=True)
-                if d["node"] == NodeType.CENTER
-                and d["occupied"]
-                and d["glyph"] in shared_processed_elements
-            ]
-            is_connected = are_node_sets_connected(
-                support, S, nodes_of_shared_processed_elements
-            )
-            if not is_connected:
-                with timing("connect"):
-                    _, shortest_path_edgelist = get_shortest_path_between(
-                        G_, S, nodes_of_shared_processed_elements, weight="weight"
-                    )
-                for u, v in shortest_path_edgelist:
-                    new_edges.append((u, v))
-                    G.add_edge(
-                        u,
-                        v,
-                        EdgeType.SUPPORT,
-                        edge=EdgeType.SUPPORT,
-                        sets=set(sets),
-                    )
 
         G_ = unblock_edges(G_, S_minus)
-        processed_elements = processed_elements.union(set(elements))
+        # if support is not connected but should be, find cut and fix it by connecting via shortest path
+
+        # TODO wrong to go by processed intersection group
+        # because the code will connect to I to D-E (shared set4) although D-E and I are already connected to A (also in set4)
+        # reason: it connects to A because shared sets 1, 4 and then again to D-E because shared set 4
+        # so maybe we need to find for each of our sets the already processed elements and connect to those
+        # then I needs to connect to A for set1, set4 and to A-D-E for set4, which it did in the previous step
+        for pelements, psets in processed_groups:
+            processed_shared_sets = set(psets).intersection(set(sets))
+            if len(processed_shared_sets) > 0:
+                nodes_of_shared_processed_elements = [
+                    n
+                    for n, d in G_.nodes(data=True)
+                    if d["node"] == NodeType.CENTER
+                    and d["occupied"]
+                    and d["glyph"] in pelements
+                ]
+
+                is_connected = are_node_sets_connected(
+                    support, S, nodes_of_shared_processed_elements
+                )
+
+                if not is_connected:
+                    print(
+                        "support not connected",
+                        pelements,
+                        processed_shared_sets,
+                    )
+                    S_minus = list(
+                        set(instance["glyph_ids"]).difference(
+                            set(elements).union(set(pelements))
+                        )
+                    )
+                    S_minus = [
+                        n
+                        for n, d in G_.nodes(data=True)
+                        if d["node"] == NodeType.CENTER
+                        and d["occupied"]
+                        and d["glyph"] in S_minus
+                    ]
+                    G_ = block_edges_using(
+                        G_,
+                        S_minus,
+                    )
+                    with timing("connect"):
+                        _, shortest_path_edgelist = get_shortest_path_between(
+                            G_, S, nodes_of_shared_processed_elements, weight="weight"
+                        )
+                    for u, v in shortest_path_edgelist:
+                        new_edges.append((u, v))
+                        if not G.has_edge(u, v, EdgeType.SUPPORT):
+                            G.add_edge(
+                                u,
+                                v,
+                                EdgeType.SUPPORT,
+                                edge=EdgeType.SUPPORT,
+                                sets=set(processed_shared_sets),
+                            )
+                        else:
+                            G.edges[(u, v, EdgeType.SUPPORT)]["sets"] = set(
+                                processed_shared_sets
+                            ).union(G.edges[(u, v, EdgeType.SUPPORT)]["sets"])
+
+                    G_ = unblock_edges(G_, S_minus)
+        processed_groups.append((elements, sets))
 
         # 4. update host graph: lighten weight on edges in F as suggested in castermans2019,
         # TODO only applicable if EdgePenalty.HOP is greater than zero
@@ -604,7 +639,7 @@ def geometrize(instance, M):
                     z=1000,
                     data_sets=M.edges[(u, v, k)]["sets"],
                     stroke="black",
-                    stroke_width=8,
+                    stroke_width=16,
                 )
             )
 
