@@ -410,7 +410,7 @@ def get_port_edge_between_centers(G, u, v):
     raise Exception("no port edge between centers")
 
 
-def update_weights_for_crossing_edges(G, edge):
+def update_weights_for_support_edge(G, edge):
     u, v = edge
     un = G.nodes[u]["node"]
     vn = G.nodes[v]["node"]
@@ -419,13 +419,17 @@ def update_weights_for_crossing_edges(G, edge):
     if un != NodeType.PORT or vn != NodeType.PORT:
         return G
 
+    # make this edge cheaper so future routes will use it more
+    G.edges[edge]["weight"] += EdgePenalty.IN_SUPPORT
+
+    # penalize other edges crossing this one
     # is it an edge between nodes?
     uparent = G.nodes[u]["belongs_to"]
     vparent = G.nodes[v]["belongs_to"]
 
     if uparent == vparent and not G.nodes[uparent]["occupied"]:
         # nope, within a node
-        # get all port edges and find those strictly crossing this one
+        # get all port edges and find those crossing this one
         ports = G.neighbors(uparent)
         port_edges = [G.edges(p) for p in ports]
         port_edges = list(set([item for sub_list in port_edges for item in sub_list]))
@@ -508,8 +512,8 @@ def route_set_lines(instance, G):
 
         # add those edges to support
         for u, v in steiner.edges():
-            new_edges.append((u, v))
             if not G.has_edge(u, v, EdgeType.SUPPORT):
+                new_edges.append((u, v))
                 G.add_edge(
                     u, v, EdgeType.SUPPORT, edge=EdgeType.SUPPORT, sets=set(sets)
                 )
@@ -558,13 +562,12 @@ def route_set_lines(instance, G):
                         G_,
                         S_minus,
                     )
-                    with timing("connect"):
-                        shortest_path_edgelist = get_shortest_path_between_sets(
-                            G_, S, nodes_of_processed_elements_for_s
-                        )
+                    shortest_path_edgelist = get_shortest_path_between_sets(
+                        G_, S, nodes_of_processed_elements_for_s
+                    )
                     for u, v in shortest_path_edgelist:
-                        new_edges.append((u, v))
                         if not G.has_edge(u, v, EdgeType.SUPPORT):
+                            new_edges.append((u, v))
                             G.add_edge(
                                 u,
                                 v,
@@ -585,7 +588,7 @@ def route_set_lines(instance, G):
         # penalize crossing dual edges as suggested by bast2020
         for e in new_edges:
             u, v = e
-            update_weights_for_crossing_edges(G_, e)
+            update_weights_for_support_edge(G_, e)
     # 5. stop when all elements have been processed
     return G
 
