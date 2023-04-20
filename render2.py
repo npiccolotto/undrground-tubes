@@ -54,7 +54,7 @@ class EdgePenalty(float, Enum):
     # so that an otherwise short path with one 135deg bend isn't more expensive than a very long straight line
     HOP = 2
 
-    CROSSING = 1  # must be <= 2*135deg as otherwise it can simulate a cross by sharing the blocking edge via two 45 deg turns
+    CROSSING = 1
 
 
 class EdgeType(IntEnum):
@@ -116,7 +116,11 @@ def add_ports_to_hex_node(G, node, data, side_length=0.25):
         for j in range(i + 1, len(hex_sides)):
             n2 = hex_sides[j]
             G.add_edge(
-                n1, n2, EdgeType.PHYSICAL, edge=EdgeType.PHYSICAL, weight=penalties[p]
+                n1,
+                n2,
+                EdgeType.PHYSICAL,
+                edge=EdgeType.PHYSICAL,
+                weight=EdgePenalty.HOP + penalties[p],
             )
             p += 1
 
@@ -127,7 +131,7 @@ def add_ports_to_hex_node(G, node, data, side_length=0.25):
             n,
             EdgeType.PHYSICAL,
             edge=EdgeType.PHYSICAL,
-            weight=EdgePenalty.TO_CENTER,
+            weight=EdgePenalty.HOP + EdgePenalty.TO_CENTER,
         )
 
     # find neighbors and replace center edges with physical edges to ports
@@ -240,7 +244,7 @@ def add_ports_to_sqr_node(G, node, data, side_length=0.25):
                 sqr_corners[j],
                 EdgeType.PHYSICAL,
                 edge=EdgeType.PHYSICAL,
-                weight=penalties_cw[p],
+                weight=EdgePenalty.HOP + penalties_cw[p],
             )
             p += 1
 
@@ -251,7 +255,7 @@ def add_ports_to_sqr_node(G, node, data, side_length=0.25):
             n,
             EdgeType.PHYSICAL,
             edge=EdgeType.PHYSICAL,
-            weight=EdgePenalty.TO_CENTER,
+            weight=EdgePenalty.HOP + EdgePenalty.TO_CENTER,
         )
 
     return G
@@ -404,7 +408,7 @@ def get_port_edge_between_centers(G, u, v):
     raise Exception("no port edge between centers")
 
 
-def update_weights_for_crossing_edges(G, edge, new_weight):
+def update_weights_for_crossing_edges(G, edge):
     u, v = edge
     un = G.nodes[u]["node"]
     vn = G.nodes[v]["node"]
@@ -433,7 +437,7 @@ def update_weights_for_crossing_edges(G, edge, new_weight):
             (w, x) for w, x in port_edges if do_lines_intersect_strict(w, x, u, v)
         ]
         for w, x in crossing_edges:
-            G.edges[(w, x)]["weight"] = new_weight
+            G.edges[(w, x)]["weight"] = G.edges[(w, x)]["weight"] + EdgePenalty.CROSSING
     elif uparent != vparent:
         # yep, between nodes
         uparent, vparent = list(sorted([uparent, vparent], key=lambda x: x[1]))
@@ -445,10 +449,10 @@ def update_weights_for_crossing_edges(G, edge, new_weight):
 
         if is_left_tilt:
             e = get_port_edge_between_centers(G, (ux, uy + 1), (ux + 1, uy))
-            G.edges[e]["weight"] = new_weight
+            G.edges[e]["weight"] = G.edges[e]["weight"] + EdgePenalty.CROSSING
         if is_right_tilt:
             e = get_port_edge_between_centers(G, (ux - 1, uy), (ux, uy + 1))
-            G.edges[e]["weight"] = new_weight
+            G.edges[e]["weight"] = G.edges[e]["weight"] + EdgePenalty.CROSSING
 
     return G
 
@@ -579,7 +583,7 @@ def route_set_lines(instance, G):
         # penalize crossing dual edges as suggested by bast2020
         for e in new_edges:
             u, v = e
-            update_weights_for_crossing_edges(G_, e, EdgePenalty.CROSSING)
+            update_weights_for_crossing_edges(G_, e)
     # 5. stop when all elements have been processed
     return G
 
