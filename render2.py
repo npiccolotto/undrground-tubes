@@ -42,19 +42,19 @@ class EdgePenalty(float, Enum):
     # Bends
     ONE_EIGHTY = 0
     ONE_THIRTY_FIVE = 1
-    NINETY = 1.5
-    FORTY_FIVE = 2
+    NINETY = 2
+    FORTY_FIVE = 3
 
     # To center
-    TO_CENTER = 2
+    TO_CENTER = 3
 
     # Using any edge between ports
     # TODO with zero cost there's no need to make paths short
     # i feel like we should set this to .1 or .2 or something...
     # so that an otherwise short path with one 135deg bend isn't more expensive than a very long straight line
-    HOP = 0
+    HOP = 2
 
-    CROSSING = 2
+    CROSSING = 1  # must be <= 2*135deg as otherwise it can simulate a cross by sharing the blocking edge via two 45 deg turns
 
 
 class EdgeType(IntEnum):
@@ -464,7 +464,7 @@ def route_set_lines(instance, G):
         key=lambda x: len(x[1]),
         reverse=True,
     )
-    processed_groups = []
+    processed_elements = set()
 
     G_ = nx.Graph()
     G_.add_nodes_from([(n, d) for n, d in G.nodes(data=True)])
@@ -512,40 +512,33 @@ def route_set_lines(instance, G):
                     G.edges[(u, v, EdgeType.SUPPORT)]["sets"]
                 )
 
-        support = nx.subgraph_view(G, filter_edge=lambda u, v, k: k == EdgeType.SUPPORT)
-
         G_ = unblock_edges(G_, S_minus)
-        # if support is not connected but should be, find cut and fix it by connecting via shortest path
 
-        # TODO wrong to go by processed intersection group
-        # because the code will connect to I to D-E (shared set4) although D-E and I are already connected to A (also in set4)
-        # reason: it connects to A because shared sets 1, 4 and then again to D-E because shared set 4
-        # so maybe we need to find for each of our sets the already processed elements and connect to those
-        # then I needs to connect to A for set1, set4 and to A-D-E for set4, which it did in the previous step
-        for pelements, psets in processed_groups:
-            processed_shared_sets = set(psets).intersection(set(sets))
-            if len(processed_shared_sets) > 0:
-                nodes_of_shared_processed_elements = [
+        for s in sets:
+            processed_elements_for_s = set(instance["set_system"][s]).intersection(
+                processed_elements
+            )
+            if len(processed_elements_for_s) > 0:
+                nodes_of_processed_elements_for_s = [
                     n
                     for n, d in G_.nodes(data=True)
                     if d["node"] == NodeType.CENTER
                     and d["occupied"]
-                    and d["glyph"] in pelements
+                    and d["glyph"] in processed_elements_for_s
                 ]
 
+                # if support is not connected but should be, find cut and fix it by connecting via shortest path
+                support = nx.subgraph_view(
+                    G, filter_edge=lambda u, v, k: k == EdgeType.SUPPORT
+                )
                 is_connected = are_node_sets_connected(
-                    support, S, nodes_of_shared_processed_elements
+                    support, S, nodes_of_processed_elements_for_s
                 )
 
                 if not is_connected:
-                    print(
-                        "support not connected",
-                        pelements,
-                        processed_shared_sets,
-                    )
                     S_minus = list(
                         set(instance["glyph_ids"]).difference(
-                            set(elements).union(set(pelements))
+                            set(elements).union(set(processed_elements_for_s))
                         )
                     )
                     S_minus = [
@@ -561,7 +554,7 @@ def route_set_lines(instance, G):
                     )
                     with timing("connect"):
                         _, shortest_path_edgelist = get_shortest_path_between(
-                            G_, S, nodes_of_shared_processed_elements, weight="weight"
+                            G_, S, nodes_of_processed_elements_for_s, weight="weight"
                         )
                     for u, v in shortest_path_edgelist:
                         new_edges.append((u, v))
@@ -571,15 +564,15 @@ def route_set_lines(instance, G):
                                 v,
                                 EdgeType.SUPPORT,
                                 edge=EdgeType.SUPPORT,
-                                sets=set(processed_shared_sets),
+                                sets=set([s]),
                             )
                         else:
-                            G.edges[(u, v, EdgeType.SUPPORT)]["sets"] = set(
-                                processed_shared_sets
-                            ).union(G.edges[(u, v, EdgeType.SUPPORT)]["sets"])
+                            G.edges[(u, v, EdgeType.SUPPORT)]["sets"] = set([s]).union(
+                                G.edges[(u, v, EdgeType.SUPPORT)]["sets"]
+                            )
 
                     G_ = unblock_edges(G_, S_minus)
-        processed_groups.append((elements, sets))
+        processed_elements = processed_elements.union(set(elements))
 
         # 4. update host graph: lighten weight on edges in F as suggested in castermans2019,
         # TODO only applicable if EdgePenalty.HOP is greater than zero
@@ -609,7 +602,7 @@ def geometrize(instance, M):
     for u, v, k in M.edges(keys=True):
         x1, y1 = M.nodes[u]["pos"]
         x2, y2 = M.nodes[v]["pos"]
-        """
+        # """
         if M.edges[(u, v, k)]["edge"] == EdgeType.PHYSICAL:
             if (
                 M.nodes[u]["node"] != NodeType.PORT
@@ -628,7 +621,7 @@ def geometrize(instance, M):
                     stroke_width=1,
                 )
             )
-        """
+        # """
         if M.edges[(u, v, k)]["edge"] == EdgeType.SUPPORT:
             geometries.append(
                 svg.Line(
@@ -639,7 +632,7 @@ def geometrize(instance, M):
                     z=1000,
                     data_sets=M.edges[(u, v, k)]["sets"],
                     stroke="black",
-                    stroke_width=16,
+                    stroke_width=4,
                 )
             )
 

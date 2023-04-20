@@ -125,8 +125,15 @@ def shortest_path_graph(G, t=1):
 
 
 def are_node_sets_connected(G, S, T):
-    cut = nx.cut_size(G, S, T)
-    return cut > 0
+    # take any node as source
+    src = S[0]
+    # keep track of nodes we must eventually find
+    # assume that S is already connected
+    N = set(T)
+    for n in nx.dfs_preorder_nodes(G, src):
+        if n in N:
+            N = N.difference([n])
+    return len(N) == 0
 
 
 def approximate_steiner_tree(G, S):
