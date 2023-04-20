@@ -103,6 +103,29 @@ def get_shortest_path_between(G, list1, list2, weight=None):
     return shortest
 
 
+def get_shortest_path_between_sets(G, S, T):
+    # idea: add temp nodes s (connected with cost 0 to all S) and t (analog)
+    # then run dijkstra and remove s and t from shortest path and graph
+    s = "s"
+    t = "t"
+    temp_edges = []
+    G.add_node(s)
+    for i in S:
+        G.add_edge(s, i, weight=0)
+        temp_edges.append((s, i))
+    for j in T:
+        G.add_edge(t, j, weight=0)
+        temp_edges.append((t, j))
+    sp = nx.shortest_path(G, s, t, weight="weight")
+    sp = [node for node in sp if node != s and node != t]
+    # cleanup
+    for u, v in temp_edges:
+        G.remove_edge(u, v)
+    G.remove_node(s)
+    G.remove_node(t)
+    return path_to_edges(sp)
+
+
 def shortest_path_graph(G, t=1):
     """Meulemans et al., 2013: Kelpfusion: A Hybrid Set Visualization Technique"""
     S = nx.Graph(incoming_graph_data=G)

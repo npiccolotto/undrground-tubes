@@ -33,12 +33,14 @@ from util.graph import (
     are_node_sets_connected,
     get_closest_pair,
     get_longest_simple_paths,
-    get_shortest_path_between,
+    get_shortest_path_between_sets,
     incident_edges,
 )
 
 
 class EdgePenalty(float, Enum):
+    IN_SUPPORT = -1
+
     # Bends
     ONE_EIGHTY = 0
     ONE_THIRTY_FIVE = 1
@@ -531,7 +533,7 @@ def route_set_lines(instance, G):
                     and d["glyph"] in processed_elements_for_s
                 ]
 
-                # if support is not connected but should be, find cut and fix it by connecting via shortest path
+                # if support is not connected but should be, fix it by connecting via shortest path
                 support = nx.subgraph_view(
                     G, filter_edge=lambda u, v, k: k == EdgeType.SUPPORT
                 )
@@ -557,8 +559,8 @@ def route_set_lines(instance, G):
                         S_minus,
                     )
                     with timing("connect"):
-                        _, shortest_path_edgelist = get_shortest_path_between(
-                            G_, S, nodes_of_processed_elements_for_s, weight="weight"
+                        shortest_path_edgelist = get_shortest_path_between_sets(
+                            G_, S, nodes_of_processed_elements_for_s
                         )
                     for u, v in shortest_path_edgelist:
                         new_edges.append((u, v))
