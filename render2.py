@@ -363,24 +363,24 @@ def add_glyphs_to_nodes(instance, G):
 
 # TODO could be a context manager
 def block_edges_using(G, closed_nodes):
-    # for node in closed_nodes:
-    #    ports = G.neighbors(node)
-    #    for p in ports:
-    #        for e in G.edges(p):
-    #            u, v = e
-    #            if (
-    #                G.nodes[u]["node"] == NodeType.PORT
-    #                and G.nodes[v]["node"] == NodeType.PORT
-    #            ):
-    #                G.edges[e]["base_weight"] = G.edges[e]["weight"]
-    #                G.edges[e]["weight"] = float(math.inf)
+    for node in closed_nodes:
+        ports = G.neighbors(node)
+        for p in ports:
+            for e in G.edges(p):
+                u, v = e
+                if (
+                    G.nodes[u]["node"] == NodeType.PORT
+                    and G.nodes[v]["node"] == NodeType.PORT
+                ):
+                    G.edges[e]["base_weight"] = G.edges[e]["weight"]
+                    G.edges[e]["weight"] = float(math.inf)
 
-    for u, v in G.edges():
-        if G.nodes[u]["node"] == NodeType.PORT and G.nodes[v]["node"] == NodeType.PORT:
-            parents = set([G.nodes[u]["belongs_to"], G.nodes[v]["belongs_to"]])
-            if len(parents.intersection(set(closed_nodes))) > 0:
-                G.edges[(u, v)]["base_weight"] = G.edges[(u, v)]["weight"]
-                G.edges[(u, v)]["weight"] = float(math.inf)
+    # for u, v in G.edges():
+    #    if G.nodes[u]["node"] == NodeType.PORT and G.nodes[v]["node"] == NodeType.PORT:
+    #        parents = set([G.nodes[u]["belongs_to"], G.nodes[v]["belongs_to"]])
+    #        if len(parents.intersection(set(closed_nodes))) > 0:
+    #            G.edges[(u, v)]["base_weight"] = G.edges[(u, v)]["weight"]
+    #            G.edges[(u, v)]["weight"] = float(math.inf)
     return G
 
 
@@ -467,7 +467,6 @@ def route_set_lines(instance, G):
     # steps:
     # 1. identify intersection groups: elements that belong to the same sets
     intersection_groups = get_elements_in_same_lists(instance["set_system"])
-    sets_per_element = invert_dict_of_lists(instance["set_system"])
 
     sorted_intersection_groups = sorted(
         zip(intersection_groups.keys(), intersection_groups.values()),
@@ -476,6 +475,7 @@ def route_set_lines(instance, G):
     )
     processed_elements = set()
 
+    # TODO 100ms spent here
     G_ = nx.Graph()
     G_.add_nodes_from([(n, d) for n, d in G.nodes(data=True)])
     G_.add_edges_from(
@@ -507,6 +507,7 @@ def route_set_lines(instance, G):
         G_ = block_edges_using(G_, S_minus)
 
         # 3. determine approximated steiner tree acc. to kou1981 / wu1986.
+        # TODO this is like half of time we spent on routing
         # with timing("steiner tree"):
         steiner = approximate_steiner_tree(G_, S)
 
@@ -821,7 +822,8 @@ if __name__ == "__main__":
     G = get_routing_graph(lattice_type, (m, n))
 
     G = add_glyphs_to_nodes(INSTANCE, G)
-    G = route_set_lines(INSTANCE, G)
+    with timing("routing"):
+        G = route_set_lines(INSTANCE, G)
     # G = embed_to_routing_graph(INSTANCE, G)
     # G = render_line(INSTANCE, G, DEFAULT_PARAMS)
     geometries = geometrize(INSTANCE, G)

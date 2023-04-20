@@ -175,6 +175,8 @@ def approximate_steiner_tree(G, S):
     G2 = nx.minimum_spanning_tree(G1)
 
     # step 3: make G3 by starting with G nodes and no edges. for every edge in G2 add a shortest path between the endpoints in G
+    # TODO i guess these shortest paths are the same as above so could compute once instead of twice
+    # or change algorithm entirely
     G3 = nx.Graph()
     G3.add_nodes_from(G)
     for u, v in G2.edges():
