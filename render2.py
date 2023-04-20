@@ -17,7 +17,7 @@ from util.collections import (
 from util.geometry import (
     are_faces_adjacent,
     centroid,
-    do_lines_intersect_strict,
+    do_lines_intersect,
     dist_euclidean,
     get_angle,
     get_closest_point,
@@ -434,7 +434,7 @@ def update_weights_for_crossing_edges(G, edge):
             and G.nodes[v]["node"] == NodeType.PORT
         ]
         crossing_edges = [
-            (w, x) for w, x in port_edges if do_lines_intersect_strict(w, x, u, v)
+            (w, x) for w, x in port_edges if do_lines_intersect(w, x, u, v)
         ]
         for w, x in crossing_edges:
             G.edges[(w, x)]["weight"] = G.edges[(w, x)]["weight"] + EdgePenalty.CROSSING
