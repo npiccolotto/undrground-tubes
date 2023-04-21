@@ -160,28 +160,31 @@ def are_node_sets_connected(G, S, T):
 
 
 def approximate_steiner_tree(G, S):
-    """G is a metric graph (edge weight is euclidean distance), S is the set of terminal nodes. Returns a tree subgraph of G that is a Steiner tree.
+    """G is a weighted graph, S is the set of terminal nodes. Returns a tree subgraph of G that is a Steiner tree.
 
     Wu et al., 1986: A faster approximation algorithm for the Steiner problem in graphs
     """
-    # we assume the majority of nodes are steiner nodes, ie only few terminals
     # step 1: make G1, a complete graph of all the terminals where edge weight is shortest path length. pick any shortest path if it's not unique
+    shortest_paths_dict = {}
     G1 = nx.Graph()
     G1.add_nodes_from(S)
     for n1, n2 in combinations(S, 2):
-        G1.add_edge(n1, n2, weight=nx.shortest_path_length(G, n1, n2, weight="weight"))
+        sp = nx.shortest_path(G, n1, n2, weight="weight")
+        sp_edgelist = path_to_edges(sp)
+        spl = calculate_path_length(G, sp_edgelist, weight="weight")
+        shortest_paths_dict[(n1, n2)] = (spl, sp_edgelist)
+        shortest_paths_dict[(n2, n1)] = (spl, sp_edgelist)
+        G1.add_edge(n1, n2, weight=spl)
 
     # step 2: make G2, a MST on G1
     G2 = nx.minimum_spanning_tree(G1)
 
     # step 3: make G3 by starting with G nodes and no edges. for every edge in G2 add a shortest path between the endpoints in G
-    # TODO i guess these shortest paths are the same as above so could compute once instead of twice
-    # or change algorithm entirely
     G3 = nx.Graph()
     G3.add_nodes_from(G)
     for u, v in G2.edges():
-        shortest_path = nx.shortest_path(G, u, v, weight="weight")
-        for w, x in path_to_edges(shortest_path):
+        spl, sp = shortest_paths_dict[(u, v)]
+        for w, x in sp:
             G3.add_edge(w, x, weight=G.edges[(w, x)]["weight"])
 
     # step 4: make G4, a MST on G3
