@@ -5,6 +5,7 @@ from itertools import combinations, pairwise, product
 import math
 from enum import IntEnum
 import drawsvg as svg
+import random
 
 from util.collections import merge_alternating
 from util.geometry import (
@@ -847,6 +848,95 @@ def render_kelpfusion(instance, G, p):
     #   SOMEHOW render faces and edges
     pass
 
+def compute_cost(cost, positions):
+    C = 0
+    for i in range(positions.shape[0]):
+        for j in range(positions.shape[1]):
+            g1 = positions[i][j]
+
+            for i2 in range(positions.shape[0]):
+                for j2 in range(positions.shape[1]):
+                    g2 = positions[i2][j2]
+
+                    c = cost[g1][g2]
+                    C += c * (abs(i - i2) + abs(j - j2))
+
+    return C
+
+def optimize_position(instance, dimension):
+    """
+    optimize the positions of glyphs
+    """
+
+    glyph_list = instance['glyph_ids']
+    sets = instance['set_system']
+
+    n = len(glyph_list)
+    m = len(sets)
+
+    glyphs = {}
+
+    for glyph in glyph_list:
+        membership = set()
+
+        for key, s in sets.items():
+            if glyph in s:
+                membership.add(key)
+
+        glyphs[glyph] = membership
+
+    cost = {}
+
+    for i, g1 in enumerate(glyph_list):
+        c = {}
+        for j, g2 in enumerate(glyph_list):
+            intersection = glyphs[g1].intersection(glyphs[g2])
+            c[g2] = len(intersection) / m
+
+        cost[g1] = c
+
+    positions = np.empty(dimension, dtype=object)
+
+    for i in range(dimension[0]):
+        for j in range(dimension[1]):
+            positions[i][j] = glyph_list[i * dimension[1] + j]
+
+
+    old_C = compute_cost(cost, positions)
+
+    for _ in range(1000):
+
+        x1 = random.randint(0, dimension[0] - 1)
+        y1 = random.randint(0, dimension[1] - 1)
+        x2 = random.randint(0, dimension[0] - 1)
+        y2 = random.randint(0, dimension[1] - 1)
+        
+        if x1 == x2 and y1 == y2:
+            continue
+
+        new_pos = np.copy(positions)
+
+        new_pos[x1][y1] = positions[x2][y2]
+        new_pos[x2][y2] = positions[x1][y1]
+
+        C = compute_cost(cost, new_pos)
+        
+
+        if C < old_C:
+            print(C)
+            positions = new_pos
+            old_C = C
+
+    pos_list = []
+    for glyph in glyph_list:
+        idx = np.where(positions==glyph)[0][0]
+        idy = np.where(positions==glyph)[1][0]
+
+        pos_list.append((idx,idy))
+
+    instance['glyph_positions'] = pos_list
+
+    return instance
 
 INSTANCE = {
     "lattice_type": "hex",
@@ -895,6 +985,7 @@ if __name__ == "__main__":
     m = 3
     n = 3
     lattice_type = INSTANCE["lattice_type"]
+    INSTANCE = optimize_position(INSTANCE, (m, n))
     G = get_routing_graph(lattice_type, (m, n))
     G = embed_to_routing_graph(INSTANCE, G)
     G = render_line(INSTANCE, G, DEFAULT_PARAMS)
