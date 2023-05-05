@@ -2,7 +2,7 @@
 
 JSON File enthält 5 Keys: EA, E, S, SA und SR.
 
-E: Haltestellen (proper UTF8 pending) als Liste
+E: Haltestellen als Liste
 
 EA: Distance matrix von Haltestellen ie. müssten ungefähr kilometer sein. Habe keine geo library genutzt (siehe ipynb). Index entspricht position in E.
 
