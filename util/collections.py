@@ -71,3 +71,12 @@ def get_elements_in_same_lists(d: Dict):
         inv[k] = tuple(sorted(inv[k]))
     inv = invert_dict(inv)
     return inv
+
+
+def list_of_lists_to_set_system_dict(elements, lol):
+    d = defaultdict(list)
+    for i, element in enumerate(elements):
+        sets_i = lol[i]
+        for s in sets_i:
+            d[s].append(element)
+    return d

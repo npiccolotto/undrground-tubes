@@ -1,3 +1,4 @@
+import json
 import math
 import time
 from collections import defaultdict
@@ -9,8 +10,10 @@ import networkx as nx
 import numpy as np
 
 from util.perf import timing
+from util.layout import layout_gsap
 from util.collections import (
     get_elements_in_same_lists,
+    list_of_lists_to_set_system_dict,
     merge_alternating,
     invert_dict_of_lists,
 )
@@ -607,12 +610,16 @@ def geometrize(instance, M):
         nx, ny = (x * factor + mx, -y * factor + my)
         M.nodes[i]["pos"] = (nx, ny)
         if M.nodes[i]["node"] == NodeType.CENTER and M.nodes[i]["occupied"]:
-            geometries.append(svg.Circle(cx=nx, cy=ny, r=one_unit_px / 4))
+            geometries.append(
+                svg.Circle(
+                    cx=nx, cy=ny, r=one_unit_px / 4, data_name=M.nodes[i]["glyph"]
+                )
+            )
 
     for u, v, k in M.edges(keys=True):
         x1, y1 = M.nodes[u]["pos"]
         x2, y2 = M.nodes[v]["pos"]
-        # """
+        """
         if M.edges[(u, v, k)]["edge"] == EdgeType.PHYSICAL:
             if (
                 M.nodes[u]["node"] != NodeType.PORT
@@ -631,7 +638,7 @@ def geometrize(instance, M):
                     stroke_width=1,
                 )
             )
-        # """
+        """
         if M.edges[(u, v, k)]["edge"] == EdgeType.SUPPORT:
             geometries.append(
                 svg.Line(
@@ -771,62 +778,43 @@ def draw_svg(geometries):
     return d.as_svg()
 
 
-INSTANCE = {
-    "lattice_type": "sqr",
-    "glyph_ids": [
-        "A",
-        "B",
-        "C",
-        "D",
-        "E",
-        "F",
-        "G",
-        "H",
-        "I",
-    ],  # list of strings (could be file urls)
-    # A B C
-    #  D E F
-    # G H I
-    "glyph_positions": [
-        (1, 2),
-        (10, 0),
-        (19, 3),
-        (0, 10),
-        (10, 10),
-        (20, 10),
-        (0, 20),
-        (10, 20),
-        (12, 22),
-    ],  # a panda df with two columns (x and y) corresponding to logical grid position
-    "set_system": {
-        "set0": ["A", "B", "H", "D", "E"],
-        "set1": ["A", "I"],
-        "set2": ["G", "C", "D", "E"],
-        "set3": ["A", "F", "D", "E"],
-        "set4": ["A", "I", "D", "E"],
-    },
-    "set_ftb_order": [
-        "set4",
-        "set3",
-        "set2",
-        "set1",
-        "set0",
-    ],  # a list of set ids that defines front to back ordering (index = 0 is most front)
-}
+def read_instance(name):
+    with open(f"data/{name}.json") as f:
+        data = json.load(f)
+    elements = data["E"]
+    sets = data["S"]
+    return {
+        "glyph_ids": elements,
+        "sets": sets,
+        "set_system": list_of_lists_to_set_system_dict(elements, data["SR"]),
+        "D_EA": data["EA"],
+        "D_SR": data["SA"],
+        "set_ftb_order": list(sorted(sets)),
+    }
 
 
 if __name__ == "__main__":
-    m = 25
-    n = 25
-    lattice_type = INSTANCE["lattice_type"]
-    G = get_routing_graph(lattice_type, (m, n))
+    m = 5
+    n = 5
+    instance = read_instance("wienerlinien/wienerlinien_sm")
+    lattice_type = "sqr"
 
-    G = add_glyphs_to_nodes(INSTANCE, G)
+    with timing("layout"):
+        instance["glyph_positions"] = layout_gsap(
+            instance["glyph_ids"],
+            instance["D_EA"],
+            instance["D_SR"],
+            m=m,
+            n=n,
+            weight=0.5,
+        )
+
     with timing("routing"):
-        G = route_set_lines(INSTANCE, G)
-    # G = embed_to_routing_graph(INSTANCE, G)
-    # G = render_line(INSTANCE, G, DEFAULT_PARAMS)
-    geometries = geometrize(INSTANCE, G)
+        G = get_routing_graph(lattice_type, (m, n))
+        G = add_glyphs_to_nodes(instance, G)
+        G = route_set_lines(instance, G)
+
+    geometries = geometrize(instance, G)
 
     with timing("draw svg"):
         img = draw_svg(geometries)
