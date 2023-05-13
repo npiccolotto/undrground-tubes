@@ -10,7 +10,7 @@ import networkx as nx
 import numpy as np
 
 from util.perf import timing
-from util.layout import layout_gsap
+from util.layout import layout_qsap
 from util.collections import (
     get_elements_in_same_lists,
     list_of_lists_to_set_system_dict,
@@ -800,7 +800,7 @@ if __name__ == "__main__":
     lattice_type = "sqr"
 
     with timing("layout"):
-        instance["glyph_positions"] = layout_gsap(
+        instance["glyph_positions"] = layout_qsap(
             instance["glyph_ids"],
             instance["D_EA"],
             instance["D_SR"],

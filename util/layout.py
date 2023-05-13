@@ -5,7 +5,7 @@ import scipy.spatial.distance as scidist
 from itertools import permutations, product
 
 
-def solve_gsap_linearized(a, A, b, B):
+def solve_qsap_linearized(a, A, b, B):
     import gurobipy as gp
     from gurobipy import GRB
 
@@ -20,7 +20,7 @@ def solve_gsap_linearized(a, A, b, B):
     print(d)
     mapping, diff = gp.multidict(d)
 
-    model = gp.Model("gsap")
+    model = gp.Model("qsap")
     # model.params.nonConvex = 2
     model.params.timeLimit = 60
     model.params.MIPGap = 0.5
@@ -57,7 +57,7 @@ def solve_gsap_linearized(a, A, b, B):
     return result
 
 
-def layout_gsap(elements, D_EA, D_SR, m=10, n=10, weight=0.5):
+def layout_qsap(elements, D_EA, D_SR, m=10, n=10, weight=0.5):
     """Quadratic assignment onto grid, for now assuming constant space between cells."""
 
     # 1) make distance matrix D by combining D_EA and D_SR using weight
@@ -88,7 +88,7 @@ def layout_gsap(elements, D_EA, D_SR, m=10, n=10, weight=0.5):
     # 3) put D and H into QAP
     # TODO always puts actual elements in circular shape in center of the grid
     # res = quadratic_assignment(D, H, method="faq")  # '2opt' is too slow
-    pos = solve_gsap_linearized(elements, D, grid, H)
+    pos = solve_qsap_linearized(elements, D, grid, H)
     # col_ind has the indices in grid to match elements
     # pos = [grid[res.col_ind[i]] for i, el in enumerate(elements)]
     return pos
