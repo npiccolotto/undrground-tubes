@@ -8,6 +8,7 @@ from itertools import combinations, pairwise, product
 import drawsvg as svg
 import networkx as nx
 import numpy as np
+import matplotlib.pyplot as plt
 
 from util.perf import timing
 from util.layout import layout_qsap
@@ -806,7 +807,7 @@ if __name__ == "__main__":
             instance["D_SR"],
             m=m,
             n=n,
-            weight=0.5,
+            weight=0,
         )
 
     with timing("routing"):
@@ -824,8 +825,6 @@ if __name__ == "__main__":
             f.flush()
 
     if False:
-        import matplotlib.pyplot as plt
-
         G = nx.subgraph_view(
             G,
             filter_edge=lambda u, v, k: k == EdgeType.PHYSICAL
