@@ -1,19 +1,109 @@
+import math
 import numpy as np
-from scipy.optimize import quadratic_assignment
 from sklearn.preprocessing import normalize
 import scipy.spatial.distance as scidist
-from itertools import permutations, product
+from itertools import pairwise, product
 import gurobipy as gp
 from gurobipy import GRB
 
 
-def gridify(P, width, height):
+def get_bounds(P):
+    xmin = np.min(P[:, 0])
+    xmax = np.max(P[:, 0])
+    ymin = np.min(P[:, 1])
+    ymax = np.max(P[:, 1])
+
+    return {"x0": xmin, "width": xmax - xmin, "y0": ymin, "height": ymax - ymin}
+
+
+def remap_point(p, bbox1, bbox2, do_round=False):
+    x, y = p
+    x1, y1, w1, h1 = bbox1
+    x2, y2, w2, h2 = bbox2
+
+    fun = lambda x: round(x) if do_round else x
+
+    return [fun((x - x1) / w1 * w2 + x2), fun((y - y1) / h1 * h2 + y2)]
+
+
+def hilbert_encode(p, size):
+    px, py = p
+    n = 0
+    s = size // 2
+    while s > 0:
+        rx = (px & s) > 0
+        ry = (py & s) > 0
+        n += (s**2) * ((3 * rx) ^ ry)
+        s = s // 2
+    return n
+
+
+def rotate(size, px, py, rx, ry):
+    if ry == 0:
+        if rx == 1:
+            px = size - 1 - px
+            py = size - 1 - py
+        return py, px
+    return px, py
+
+
+def hilbert_decode(p, size):
+    t = p
+    px, py = (0, 0)
+    s = 1
+    while s < size:
+        rx = 1 & (t // 2)
+        ry = 1 & (t ^ rx)
+        px, py = rotate(s, px, py, rx, ry)
+        px = px + s * rx
+        py = py + s * ry
+        s = s * 2
+        t = t >> 2
+
+    return px, py
+
+
+def gridify_square(P, level="auto"):
     # TODO translate code in these files:
     #   https://github.com/saehm/hagrid/blob/master/src/gridify.js
     #   https://github.com/saehm/hagrid/blob/master/src/hilbert.js
     # using `solve_hagrid_optimal` functions below to avoid ordering issues and non-optimal assignments like in Hagrid paper
+    n, m = P.shape
+    if m != 2:
+        raise Exception("only 2D, sorry")
+    if level == "auto":
+        level = math.ceil(math.log2(n) / math.log2(4))
+    size = 2**level
+    bounds = get_bounds(P)
+    original_bbox = [
+        bounds["x0"],
+        bounds["y0"],
+        bounds["width"],
+        bounds["height"],
+    ]
+    grid_bbox = [0, 0, size - 1, size - 1]
 
-    raise Exception("not implemented")
+    Pr = np.array(
+        [
+            remap_point(P[i, :], original_bbox, grid_bbox, do_round=True)
+            for i in range(n)
+        ]
+    )
+    curve_length = 4**level
+
+    Ph = [hilbert_encode(Pr[i, :], size) for i in range(n)]
+
+    collision_detected = False
+    for p1, p2 in pairwise(sorted(Ph)):
+        if p1 == p2:
+            collision_detected = True
+            break
+    if collision_detected:
+        Ph = solve_hagrid_optimal(curve_length, Ph)
+
+    result = np.array([hilbert_decode(p, size) for p in Ph])
+
+    return result
 
 
 def solve_qsap_linearized(a, A, b, B):
@@ -208,6 +298,8 @@ def solve_hagrid_optimal(max_domain, pos):
             ")",
         )
 
+    return [int(model.getVarByName(f"p[{i}]").X) for i in rle]
+
 
 if __name__ == "__main__":
-    print(solve_hagrid_optimal(4, [2.5, 1.05, 0.9]))
+    print(gridify_square(np.array([[0.2, 0.1], [0.1, 0.3], [4, 1.2]]), level=5))
