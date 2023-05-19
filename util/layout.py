@@ -65,10 +65,11 @@ def hilbert_decode(p, size):
 
 
 def gridify_square(P, level="auto"):
-    # TODO translate code in these files:
-    #   https://github.com/saehm/hagrid/blob/master/src/gridify.js
-    #   https://github.com/saehm/hagrid/blob/master/src/hilbert.js
-    # using `solve_hagrid_optimal` functions below to avoid ordering issues and non-optimal assignments like in Hagrid paper
+    """
+    Hagrid from Cutura et al. [1] using Hilbert curve and optimal collision resolution.
+
+    R. Cutura, C. Morariu, Z. Cheng, Y. Wang, D. Weiskopf, and M. Sedlmair, “Hagrid — Gridify Scatterplots with Hilbert and Gosper Curves,” in The 14th International Symposium on Visual Information Communication and Interaction, Potsdam Germany: ACM, Sep. 2021, pp. 1–8. doi: 10.1145/3481549.3481569.
+    """
     n, m = P.shape
     if m != 2:
         raise Exception("only 2D, sorry")
@@ -94,11 +95,8 @@ def gridify_square(P, level="auto"):
 
     Ph = [hilbert_encode(Pr[i, :], size) for i in range(n)]
 
-    collision_detected = False
-    for p1, p2 in pairwise(sorted(Ph)):
-        if p1 == p2:
-            collision_detected = True
-            break
+    cntr = Counter(Ph)
+    collision_detected = any([v > 1 for v in cntr.values()])
     if collision_detected:
         Ph = solve_hagrid_optimal(curve_length, Ph)
 
