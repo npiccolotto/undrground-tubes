@@ -3,6 +3,7 @@ import numpy as np
 from sklearn.preprocessing import normalize
 import scipy.spatial.distance as scidist
 from itertools import pairwise, product
+from collections import Counter, defaultdict
 import gurobipy as gp
 from gurobipy import GRB
 
@@ -258,6 +259,7 @@ def solve_hagrid_optimal(max_domain, pos):
         ub=max_domain - 1,
         name="p",
     )
+    model._p = p
 
     #  diff p - x
     diff = model.addVars(rle, vtype=GRB.CONTINUOUS, lb=-10 * max_domain, name="diff")
@@ -267,7 +269,37 @@ def solve_hagrid_optimal(max_domain, pos):
         model.addConstr(diff[i] == x - p[i])
         model.addConstr(abs_diff[i] == gp.abs_(diff[i]))
 
+    model.Params.LazyConstraints = 1
+
+    def addViolatedConstraints(m, pValues):
+        d = defaultdict(list)
+        for i, p in pValues.items():
+            d[p].append(i)
+        for p, indices in d.items():
+            if len(indices) > 1:
+                for i in indices:
+                    for j in indices:
+                        if j <= i:
+                            continue
+                        diffvar = m.getVarByName(f"diff_abs_p{i}_p{j}")
+                        m.cbLazy(diffvar >= 1)
+
+    def callback(m, where):
+        if where == GRB.Callback.MIPSOL:
+            # get solution values for variables x
+            pValues = m.cbGetSolution(m._p)
+            addViolatedConstraints(m, pValues)
+        # check fractional solutions to find violated CECs/DCCs to strengthen the bound
+        elif (
+            where == GRB.Callback.MIPNODE
+            and m.cbGet(GRB.Callback.MIPNODE_STATUS) == GRB.OPTIMAL
+        ):
+            # get solution values for variables x
+            pValues = m.cbGetNodeRel(m._p)
+            addViolatedConstraints(m, pValues)
+
     # no double assignment
+    # inequality constraints are lazily added, but need the variables already
     for i in rle:
         for j in rle:
             if j <= i:
@@ -280,13 +312,12 @@ def solve_hagrid_optimal(max_domain, pos):
             )
             model.addConstr(p_between == (p[i] - p[j]))
             model.addConstr(p_between_abs == gp.abs_(p_between))
-            model.addConstr(p_between_abs >= 1)
 
     model.setObjective(gp.quicksum(abs_diff), sense=GRB.MINIMIZE)
 
     model.update()
     model.write("hagrid.lp")
-    model.optimize()
+    model.optimize(callback)
 
     for i in rle:
         print(
@@ -302,4 +333,4 @@ def solve_hagrid_optimal(max_domain, pos):
 
 
 if __name__ == "__main__":
-    print(gridify_square(np.array([[0.2, 0.1], [0.1, 0.3], [4, 1.2]]), level=5))
+    print(gridify_square(np.array([[0.2, 0.1], [0.1, 0.3], [4, 1.2]]), level=1))
