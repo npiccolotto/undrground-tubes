@@ -1,14 +1,16 @@
 import math
-import numpy as np
-from sklearn.manifold import MDS
-from sklearn.preprocessing import normalize, MinMaxScaler
-import scipy.spatial.distance as scidist
-from itertools import pairwise, product
 from collections import Counter, defaultdict
+from itertools import pairwise, product
+
 import gurobipy as gp
-from gurobipy import GRB
-import seaborn as sns
 import matplotlib.pyplot as plt
+import numpy as np
+import scipy.spatial.distance as scidist
+import seaborn as sns
+from gurobipy import GRB
+from sklearn.manifold import MDS
+from sklearn.preprocessing import MinMaxScaler, normalize
+
 from util.DGrid import DGrid
 
 
@@ -339,36 +341,38 @@ def layout_dr(elements, D_EA, D_SR, m=10, n=10, weight=0.5):
 
     # 1) make distance matrix D by combining D_EA and D_SR using weight
     # TODO try what ranking instead of minmax norm does
-    DE = (D_EA-np.min(D_EA))/(np.max(D_EA)-np.min(D_EA))
+    DE = (D_EA - np.min(D_EA)) / (np.max(D_EA) - np.min(D_EA))
     DS = np.array(D_SR)
     D = (1 - weight) * DE + weight * DS
 
-    mds = MDS(n_components=2, metric=True, random_state=2, dissimilarity='precomputed')
+    mds = MDS(n_components=2, metric=True, random_state=2, dissimilarity="precomputed")
     H_mds = mds.fit_transform(D)
 
-    #sns.scatterplot(x=H_mds[:,0], y=H_mds[:,1], palette='Set1')
-    #plt.show()
+    # sns.scatterplot(x=H_mds[:,0], y=H_mds[:,1], palette='Set1')
+    # plt.show()
 
+    x_min = np.min(H_mds[:, 0])
+    y_min = np.min(H_mds[:, 1])
+    x_max = np.max(H_mds[:, 0])
+    y_max = np.max(H_mds[:, 1])
 
-    x_min = np.min(H_mds[:,0])
-    y_min = np.min(H_mds[:,1])
-    x_max = np.max(H_mds[:,0])
-    y_max = np.max(H_mds[:,1])
-    
     w = x_max - x_min
     h = y_max - y_min
-    
-    H_mds[:,0] = ((H_mds[:,0] - x_min) / w) * (n)
-    H_mds[:,1] = ((H_mds[:,1] - y_min) / h) * (m)
 
-    h_overlap_removed = DGrid(glyph_width=1, glyph_height=1, delta=1).fit_transform(H_mds)
+    H_mds[:, 0] = ((H_mds[:, 0] - x_min) / w) * (n)
+    H_mds[:, 1] = ((H_mds[:, 1] - y_min) / h) * (m)
+
+    h_overlap_removed = DGrid(glyph_width=1, glyph_height=1, delta=1).fit_transform(
+        H_mds
+    )
 
     pos = []
-    
+
     for i in range(len(DE)):
-        pos.append((int(h_overlap_removed[i,0]), int(h_overlap_removed[i,1])))
+        pos.append((int(h_overlap_removed[i, 0]), int(h_overlap_removed[i, 1])))
 
     return pos
+
 
 if __name__ == "__main__":
     print(gridify_square(np.array([[0.2, 0.1], [0.1, 0.3], [4, 1.2]]), level=1))
