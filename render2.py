@@ -762,9 +762,9 @@ def read_instance(name):
 
 
 if __name__ == "__main__":
-    m = 10
-    n = 10
-    instance = read_instance("wienerlinien/wienerlinien_sm")
+    m = 25
+    n = 25
+    instance = read_instance("wienerlinien/wienerlinien")
     lattice_type = "sqr"
 
     with timing("layout"):
