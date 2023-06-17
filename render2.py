@@ -470,7 +470,7 @@ def route_set_lines(instance, G, element_set_partition, support_type="steiner-tr
             for n, d in G_.nodes(data=True)
             if d["node"] == NodeType.CENTER
             and d["occupied"]
-            and d["glyph"] not in list(elements)
+            and d["glyph"] not in elements
         ]
         G_ = block_edges_using(G_, S_minus)
 
@@ -623,7 +623,18 @@ def geometrize(instance, M):
 
     # uncomment to draw edge-bundled lines
 
-    set_colors = ["red", "blue", "orange", "green", "magenta"]
+    set_colors = [
+        "#1f78b4",
+        "#33a02c",
+        "#e31a1c",
+        "#ff7f00",
+        "#6a3d9a",
+        "#ffff99",
+        "#b15928",
+        "#a6cee3",
+        "#b2df8a",
+        "#fb9a99",
+    ]
     uniq_edges = list(set(M.edges()))
     for u, v in uniq_edges:
         ks = [k for w, x, k in M.edges(keys=True) if (w, x) == (u, v)]
@@ -714,12 +725,11 @@ def geometrize(instance, M):
             "close": False,
             "stroke_width": 2,
             "fill": "none",
-            "stroke": set_colors[k],
+            "stroke": set_colors[k - 1],
             "z": k,
         }
         line = interpolate_biarcs(keypoints, **kwargs)
         geometries.append(line)
-
 
     if False:
         hubs = [n for n in M.nodes() if M.degree[n] > 0]
@@ -762,9 +772,9 @@ def read_instance(name):
 
 
 if __name__ == "__main__":
-    m = 25
-    n = 25
-    instance = read_instance("wienerlinien/wienerlinien")
+    m = 10
+    n = 10
+    instance = read_instance("wienerlinien/wienerlinien_sm")
     lattice_type = "sqr"
 
     with timing("layout"):
@@ -790,8 +800,8 @@ if __name__ == "__main__":
     G = convert_to_bundleable(instance, G)
     # after this we have a multigraph, with `set_id` property
     G = order_bundles(instance, G)
-    #M.add_edges_from(list(G.edges(keys=True,data=True)))
-    #print(list([(u,v,k,d) for u,v,k,d in M.edges(keys=True,data=True) if 'edge' not in d]))
+    # M.add_edges_from(list(G.edges(keys=True,data=True)))
+    # print(list([(u,v,k,d) for u,v,k,d in M.edges(keys=True,data=True) if 'edge' not in d]))
 
     geometries = geometrize(instance, G)
 

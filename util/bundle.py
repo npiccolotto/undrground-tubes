@@ -81,13 +81,9 @@ def find_edge_ordering(G, p1, p2, u, v, initial_edge, exploring_other_way=False)
     # find edges from u to any node but v. G contains two paths, that were up until now
     # coincident, so either we find 0 edges (paths end) or 2 edges (paths continue).
     edges = incident_edges(G, u, avoid_node=v)
-    print('start', edges)
-    print(G.nodes[u], G.nodes[v])
     order = 0
     while len(edges) > 0:
         edges = dict((k, v) for u, v, k in edges)
-        print('dict', edges)
-        print(list( (G.nodes[x]) for k,x in edges.items() ) )
 
         # TODO
         # ok so it breaks here in the following two lines. because i removed the
@@ -98,6 +94,9 @@ def find_edge_ordering(G, p1, p2, u, v, initial_edge, exploring_other_way=False)
         # we can't just post-process the terminals and replace P-C-P edges with
         # P-P because it can be ambiguous what to do...
 
+        if p1 not in edges or p2 not in edges:
+            # ok, one ends - quick fix just don't decide
+            break
 
         next_p1 = edges[p1]
         next_p2 = edges[p2]
@@ -136,7 +135,6 @@ def find_edge_ordering(G, p1, p2, u, v, initial_edge, exploring_other_way=False)
                 return order
 
         edges = incident_edges(G, next_p1, avoid_node=u)
-        print('update', edges)
         u = next_p1
         v = u
     # if 0: both paths end at u. repeat process from v and exclude u
@@ -184,7 +182,7 @@ def order_bundles(instance, M):
             M_ = nx.subgraph_view(
                 M, filter_edge=lambda w, x, k: k in [k1, k2]
             )
-            print(k1, k2, list(M_.edges(keys=True, data=True)))
+            # print(k1, k2, list(M_.edges(keys=True, data=True)))
             # filter here to path ids identified earlier so that we don't deal here with the path itself forking
             order = find_edge_ordering(M_, k1, k2, u, v, (u, v))
             # print((u, v), p1, p2, order)
