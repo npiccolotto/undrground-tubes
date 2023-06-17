@@ -11,3 +11,4 @@ TODO
 - implement path support
 - implement bundle ordering for trees
 - add other test datasets
+- finally get rid of pygame dependency, which screws the upstart time of our scripts

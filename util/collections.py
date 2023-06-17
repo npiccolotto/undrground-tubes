@@ -80,3 +80,19 @@ def list_of_lists_to_set_system_dict(elements, lol):
         for s in sets_i:
             d[s].append(element)
     return d
+
+
+def group_by_intersection_group(set_system_dict):
+    intersection_groups = get_elements_in_same_lists(set_system_dict)
+    sorted_intersection_groups = sorted(
+        zip(intersection_groups.keys(), intersection_groups.values()),
+        key=lambda x: len(x[1]),
+        reverse=True,
+    )
+    return sorted_intersection_groups
+
+
+def group_by_set(set_system_dict):
+    sets,elements = zip(*set_system_dict.items())
+
+    return sorted(zip(elements,sets), key=lambda s: len(s[0]), reverse=True)

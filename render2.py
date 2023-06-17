@@ -1,28 +1,27 @@
 import json
 import math
 import time
-from collections import defaultdict
-from enum import Enum, IntEnum
+from util.enums import NodeType, EdgeType, EdgePenalty
 from itertools import combinations, pairwise, product
 
 import drawsvg as svg
+import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-import matplotlib.pyplot as plt
 
-from util.perf import timing
-from util.layout import layout_qsap
 from util.collections import (
     get_elements_in_same_lists,
+    group_by_intersection_group,
+    group_by_set,
+    invert_dict_of_lists,
     list_of_lists_to_set_system_dict,
     merge_alternating,
-    invert_dict_of_lists,
 )
 from util.geometry import (
     are_faces_adjacent,
     centroid,
-    do_lines_intersect,
     dist_euclidean,
+    do_lines_intersect,
     get_angle,
     get_closest_point,
     get_segment_circle_intersection,
@@ -31,8 +30,10 @@ from util.geometry import (
     is_point_inside_circle,
     logical_coords_to_physical,
     offset_edge,
+    get_linear_order,
 )
 from util.graph import (
+    approximate_tsp_tour,
     approximate_steiner_tree,
     are_node_sets_connected,
     get_closest_pair,
@@ -40,38 +41,9 @@ from util.graph import (
     get_shortest_path_between_sets,
     incident_edges,
 )
-
-
-class EdgePenalty(float, Enum):
-    IN_SUPPORT = -1
-
-    # Bends
-    ONE_EIGHTY = 0
-    ONE_THIRTY_FIVE = 1
-    NINETY = 2
-    FORTY_FIVE = 3
-
-    # To center
-    TO_CENTER = 3
-
-    # Using any edge between ports
-    # TODO with zero cost there's no need to make paths short
-    # i feel like we should set this to .1 or .2 or something...
-    # so that an otherwise short path with one 135deg bend isn't more expensive than a very long straight line
-    HOP = 2
-
-    CROSSING = 1
-
-
-class EdgeType(IntEnum):
-    SUPPORT = -2  # edge in hypergraph support
-    PHYSICAL = -1  # physical edge that is actually drawn
-    CENTER = 0  # center to center edge
-
-
-class NodeType(IntEnum):
-    CENTER = 0
-    PORT = 1
+from util.layout import layout_qsap, layout_dr
+from util.bundle import order_bundles, convert_to_bundleable
+from util.perf import timing
 
 
 DEFAULT_PARAMS = {
@@ -467,16 +439,8 @@ def update_weights_for_support_edge(G, edge):
     return G
 
 
-def route_set_lines(instance, G):
+def route_set_lines(instance, G, element_set_partition, support_type="steiner-tree"):
     # steps:
-    # 1. identify intersection groups: elements that belong to the same sets
-    intersection_groups = get_elements_in_same_lists(instance["set_system"])
-
-    sorted_intersection_groups = sorted(
-        zip(intersection_groups.keys(), intersection_groups.values()),
-        key=lambda x: len(x[1]),
-        reverse=True,
-    )
     processed_elements = set()
 
     # TODO 100ms spent here
@@ -491,7 +455,7 @@ def route_set_lines(instance, G):
     )
 
     # 2. then process from biggest to smallest group. for each:
-    for elements, sets in sorted_intersection_groups:
+    for elements, sets in element_set_partition:
         print(elements, sets)
         new_edges = []
         S = [
@@ -511,12 +475,15 @@ def route_set_lines(instance, G):
         G_ = block_edges_using(G_, S_minus)
 
         # 3. determine approximated steiner tree acc. to kou1981 / wu1986.
-        # TODO this is like half of time we spent on routing
-        # with timing("steiner tree"):
-        steiner = approximate_steiner_tree(G_, S)
+        # or TSP path
+        set_support_edges = (
+            approximate_steiner_tree(G_, S).edges()
+            if support_type == "steiner-tree"
+            else path_to_edges(approximate_tsp_tour(G_, S))
+        )
 
         # add those edges to support
-        for u, v in steiner.edges():
+        for u, v in set_support_edges:
             if not G.has_edge(u, v, EdgeType.SUPPORT):
                 new_edges.append((u, v))
                 G.add_edge(
@@ -608,19 +575,19 @@ def geometrize(instance, M):
     # project nodes
     for i in M.nodes():
         (x, y) = M.nodes[i]["pos"]
-        nx, ny = (x * factor + mx, -y * factor + my)
-        M.nodes[i]["pos"] = (nx, ny)
+        px, py = (x * factor + mx, -y * factor + my)
+        M.nodes[i]["pos"] = (px, py)
         if M.nodes[i]["node"] == NodeType.CENTER and M.nodes[i]["occupied"]:
             geometries.append(
                 svg.Circle(
-                    cx=nx, cy=ny, r=one_unit_px / 4, data_name=M.nodes[i]["glyph"]
+                    cx=px, cy=py, r=one_unit_px / 4, data_name=M.nodes[i]["glyph"]
                 )
             )
 
     for u, v, k in M.edges(keys=True):
         x1, y1 = M.nodes[u]["pos"]
         x2, y2 = M.nodes[v]["pos"]
-        """
+
         if M.edges[(u, v, k)]["edge"] == EdgeType.PHYSICAL:
             if (
                 M.nodes[u]["node"] != NodeType.PORT
@@ -639,7 +606,7 @@ def geometrize(instance, M):
                     stroke_width=1,
                 )
             )
-        """
+
         if M.edges[(u, v, k)]["edge"] == EdgeType.SUPPORT:
             geometries.append(
                 svg.Line(
@@ -648,14 +615,14 @@ def geometrize(instance, M):
                     x2,
                     y2,
                     z=1000,
-                    data_sets=M.edges[(u, v, k)]["sets"],
+                    # data_sets=M.edges[(u, v, k)]["sets"],
                     stroke="black",
                     stroke_width=4,
                 )
             )
 
     # uncomment to draw edge-bundled lines
-    """
+
     set_colors = ["red", "blue", "orange", "green", "magenta"]
     uniq_edges = list(set(M.edges()))
     for u, v in uniq_edges:
@@ -674,25 +641,20 @@ def geometrize(instance, M):
         paths_at_edge = M.edges[(u, v, ks[0])]["oeb_order"][(u, v)]
         offset = factor / 30  # TODO idk some pixels
         centering_offset = ((len(paths_at_edge) - 1) / 2) * -offset
-        for i, path_id in enumerate(paths_at_edge):
-            set_id, _ = path_id.split("-")  # TODO meh
-            set_idx = instance["set_ftb_order"].index(set_id)
+        for i, k in enumerate(paths_at_edge):
             offset_dir = math.pi / 2
             offset_length = centering_offset + i * offset
             o_u, o_v = offset_edge((src, tgt), edge_angle - offset_dir, offset_length)
 
-            M.edges[(u, v, set_idx + 1)]["edge_pos"] = {
+            M.edges[(u, v, k)]["edge_pos"] = {
                 (u, v): (o_u, o_v),
                 (v, u): (o_v, o_u),
             }
 
-    paths = list(set([d["path_id"] for u, v, k, d in M.edges(keys=True, data=True)]))
-    for path_id in paths:
-        set_id, _ = path_id.split("-")  # TODO meh
-        set_idx = instance["set_ftb_order"].index(set_id)
-        M_ = nx.subgraph_view(
-            M, filter_edge=lambda u, v, k: M.edges[(u, v, k)]["path_id"] == path_id
-        )
+    paths = list(set([k for u, v, k, d in M.edges(keys=True, data=True)]))
+
+    for k in paths:
+        M_ = nx.subgraph_view(M, filter_edge=lambda u, v, k_: k == k_)
         endpoints = [n for n in M_.nodes() if M_.degree(n) == 1]
         path = nx.shortest_path(M_, endpoints[0], endpoints[1])
         # idk, like keyframe... find better word
@@ -713,7 +675,7 @@ def geometrize(instance, M):
             vhub_center = (vx, vy)
             vhub_circle = (vhub_center, hub_radius)
 
-            edge = M_.edges[(u, v, set_idx + 1)]["edge_pos"][(u, v)]
+            edge = M_.edges[(u, v, k)]["edge_pos"][(u, v)]
             a, b = edge
 
             if is_point_inside_circle(a, uhub_circle):
@@ -752,12 +714,12 @@ def geometrize(instance, M):
             "close": False,
             "stroke_width": 2,
             "fill": "none",
-            "stroke": set_colors[set_idx],
-            "z": set_idx,
+            "stroke": set_colors[k],
+            "z": k,
         }
         line = interpolate_biarcs(keypoints, **kwargs)
         geometries.append(line)
-    """
+
 
     if False:
         hubs = [n for n in M.nodes() if M.degree[n] > 0]
@@ -791,17 +753,22 @@ def read_instance(name):
         "D_EA": data["EA"],
         "D_SR": data["SA"],
         "set_ftb_order": list(sorted(sets)),
+        # pipeline config
+        "dr_method": "mds",
+        "dr_gridification": "hagrid",  #  'hagrid' or 'dgrid'
+        "support_type": "path",  #  'path' or 'steiner-tree'
+        "support_partition_by": "intersection-group",  #  'set' or 'intersection-group'
     }
 
 
 if __name__ == "__main__":
-    m = 5
-    n = 5
+    m = 10
+    n = 10
     instance = read_instance("wienerlinien/wienerlinien_sm")
     lattice_type = "sqr"
 
     with timing("layout"):
-        instance["glyph_positions"] = layout_qsap(
+        instance["glyph_positions"] = layout_dr(
             instance["glyph_ids"],
             instance["D_EA"],
             instance["D_SR"],
@@ -813,7 +780,18 @@ if __name__ == "__main__":
     with timing("routing"):
         G = get_routing_graph(lattice_type, (m, n))
         G = add_glyphs_to_nodes(instance, G)
-        G = route_set_lines(instance, G)
+        element_set_partition = (
+            group_by_intersection_group(instance["set_system"])
+            if instance["support_partition_by"] == "intersection-group"
+            else group_by_set(instance["set_system"])
+        )
+        M = route_set_lines(instance, G, element_set_partition)
+
+    G = convert_to_bundleable(instance, G)
+    # after this we have a multigraph, with `set_id` property
+    G = order_bundles(instance, G)
+    #M.add_edges_from(list(G.edges(keys=True,data=True)))
+    #print(list([(u,v,k,d) for u,v,k,d in M.edges(keys=True,data=True) if 'edge' not in d]))
 
     geometries = geometrize(instance, G)
 

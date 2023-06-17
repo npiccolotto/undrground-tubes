@@ -202,3 +202,9 @@ def approximate_steiner_tree(G, S):
         G4.remove_nodes_from(non_terminal_leaves)
 
     return G4
+
+
+def approximate_tsp_tour(G, S):
+    """Returns an approximation of the shortest tour in G visiting all nodes S exactly once"""
+    path = nx.traveling_salesman_problem(G, nodes=S, cycle=False)
+    return path

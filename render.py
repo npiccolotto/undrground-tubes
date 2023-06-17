@@ -435,31 +435,6 @@ def find_edge_ordering(G, p1, p2, u, v, initial_edge, exploring_other_way=False)
     return order
 
 
-def get_linear_order(O):
-    n, _ = O.shape
-    # "dependency" graph. edge (i,j) means i must precede j
-    G = nx.DiGraph()
-    G.add_nodes_from(range(n))
-    triu = list(zip(*np.triu_indices(n, 1)))
-    for u, v in triu:
-        if O[u, v] > 0:
-            G.add_edge(u, v)
-        if O[u, v] < 0:
-            G.add_edge(v, u)
-    linearized = []
-    for comp in nx.connected_components(nx.Graph(incoming_graph_data=G)):
-        # start at the node with no in-edges
-        # hopefully there is only one
-        num_in_edges = [(n, len(G.in_edges(nbunch=n))) for n in comp]
-        num_in_edges = list(sorted(num_in_edges, key=lambda x: x[1]))
-        src, l_src = num_in_edges[0]
-        if l_src > 0:
-            raise Exception("cyclellelellele")
-        dep_order = nx.dfs_postorder_nodes(G, src)
-        for n in dep_order:
-            linearized.append(n)
-
-    return linearized
 
 
 def order_bundles(instance, M):
@@ -910,7 +885,7 @@ def optimize_position(instance, dimension):
         y1 = random.randint(0, dimension[1] - 1)
         x2 = random.randint(0, dimension[0] - 1)
         y2 = random.randint(0, dimension[1] - 1)
-        
+
         if x1 == x2 and y1 == y2:
             continue
 
@@ -920,7 +895,7 @@ def optimize_position(instance, dimension):
         new_pos[x2][y2] = positions[x1][y1]
 
         C = compute_cost(cost, new_pos)
-        
+
 
         if C < old_C:
             print(C)

@@ -1,9 +1,50 @@
 import math
+import networkx as nx
 import numpy as np
-from collections import Counter
-from itertools import pairwise
+from collections import Counter, defaultdict
+from itertools import pairwise, combinations
+from statistics import mean
 from pygame.math import Vector2
 import drawsvg as svg
+
+
+def get_linear_order(O):
+    n, _ = O.shape
+    # "dependency" graph. edge (i,j) means i must precede j
+    G = nx.DiGraph()
+    G.add_nodes_from(range(n))
+    triu = list(zip(*np.triu_indices(n, 1)))
+    for u, v in triu:
+        if O[u, v] > 0:
+            G.add_edge(u, v)
+        if O[u, v] < 0:
+            G.add_edge(v, u)
+    linearized = []
+    for comp in nx.connected_components(nx.Graph(incoming_graph_data=G)):
+        # start at the node with no in-edges
+        # hopefully there is only one
+        num_in_edges = [(n, len(G.in_edges(nbunch=n))) for n in comp]
+        num_in_edges = list(sorted(num_in_edges, key=lambda x: x[1]))
+        src, l_src = num_in_edges[0]
+        if l_src > 0:
+            raise Exception("cyclellelellele")
+        dep_order = nx.dfs_postorder_nodes(G, src)
+        for n in dep_order:
+            linearized.append(n)
+
+    return linearized
+
+
+def get_center_of_mass(center, points, categories):
+    # point = (x,y)
+    angles = defaultdict(list)
+    for i, p in enumerate(points):
+        angles[categories[i]].append(get_angle(center, p))
+    result = dict()
+    for k, v in angles.values():
+        result[k] = mean(v)
+
+    return result
 
 
 def dist_euclidean(p1, p2):
