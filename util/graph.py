@@ -1,5 +1,6 @@
 import numpy as np
 import networkx as nx
+import networkx.algorithms.approximation.traveling_salesman as tsp
 from util.geometry import dist_euclidean
 from util.perf import timing
 from itertools import product, pairwise, combinations
@@ -206,5 +207,6 @@ def approximate_steiner_tree(G, S):
 
 def approximate_tsp_tour(G, S):
     """Returns an approximation of the shortest tour in G visiting all nodes S exactly once"""
-    path = nx.traveling_salesman_problem(G, nodes=S, cycle=False)
+    print(len(G.edges()), len(G.nodes()), len(S))
+    path = tsp.traveling_salesman_problem(G, nodes=S, cycle=False)
     return path

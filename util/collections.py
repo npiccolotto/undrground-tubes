@@ -95,4 +95,6 @@ def group_by_intersection_group(set_system_dict):
 def group_by_set(set_system_dict):
     sets,elements = zip(*set_system_dict.items())
 
+    sets = list(map(lambda s: s if isinstance(s, list) or isinstance(s, set) else [s], sets))
+
     return sorted(zip(elements,sets), key=lambda s: len(s[0]), reverse=True)

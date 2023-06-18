@@ -2,7 +2,7 @@ import json
 import math
 import time
 from util.enums import NodeType, EdgeType, EdgePenalty
-from itertools import combinations, pairwise, product
+from itertools import combinations, pairwise, product, chain
 
 import drawsvg as svg
 import matplotlib.pyplot as plt
@@ -40,6 +40,7 @@ from util.graph import (
     get_longest_simple_paths,
     get_shortest_path_between_sets,
     incident_edges,
+    path_to_edges,
 )
 from util.layout import layout_qsap, layout_dr
 from util.bundle import order_bundles, convert_to_bundleable
@@ -476,11 +477,15 @@ def route_set_lines(instance, G, element_set_partition, support_type="steiner-tr
 
         # 3. determine approximated steiner tree acc. to kou1981 / wu1986.
         # or TSP path
-        set_support_edges = (
-            approximate_steiner_tree(G_, S).edges()
-            if support_type == "steiner-tree"
-            else path_to_edges(approximate_tsp_tour(G_, S))
-        )
+        if len(S) > 1:
+            set_support_edges = (
+                approximate_steiner_tree(G_, S).edges()
+                if support_type == "steiner-tree"
+                else path_to_edges(approximate_tsp_tour(G_, S))
+            )
+        else:
+            set_support_edges = []
+        # print([(G.nodes[u], G.nodes[v]) for u,v in set_support_edges])
 
         # add those edges to support
         for u, v in set_support_edges:
@@ -578,11 +583,9 @@ def geometrize(instance, M):
         px, py = (x * factor + mx, -y * factor + my)
         M.nodes[i]["pos"] = (px, py)
         if M.nodes[i]["node"] == NodeType.CENTER and M.nodes[i]["occupied"]:
-            geometries.append(
-                svg.Circle(
-                    cx=px, cy=py, r=one_unit_px / 4, data_name=M.nodes[i]["glyph"]
-                )
-            )
+            c = svg.Circle(cx=px, cy=py, r=one_unit_px / 4)
+            c.append_title(M.nodes[i]["glyph"])
+            geometries.append(c)
 
     for u, v, k in M.edges(keys=True):
         x1, y1 = M.nodes[u]["pos"]
@@ -662,74 +665,88 @@ def geometrize(instance, M):
                 (v, u): (o_v, o_u),
             }
 
-    paths = list(set([k for u, v, k, d in M.edges(keys=True, data=True)]))
+    sets = list(map(lambda x: instance["set_ftb_order"].index(x) + 1, instance["sets"]))
 
-    for k in paths:
+    for k in sets:
         M_ = nx.subgraph_view(M, filter_edge=lambda u, v, k_: k == k_)
         endpoints = [n for n in M_.nodes() if M_.degree(n) == 1]
-        path = nx.shortest_path(M_, endpoints[0], endpoints[1])
-        # idk, like keyframe... find better word
-        keypoints = [
-            # (type of connection to following point, keypoint coordinates)
-        ]
+        if len(endpoints) < 1:
+            print('wtf', instance["sets"][k-1])
+            continue
+        start = endpoints[0]
+        start_nb = list(nx.neighbors(M_, start))
+        if len(start_nb) < 1:
+            continue
+        paths = get_longest_simple_paths(
+            M_, endpoints[0], start_nb[0]
+        )
+        for path in paths:
+            # idk, like keyframe... find better word
+            keypoints = [
+                # (type of connection to following point, keypoint coordinates)
+            ]
 
-        for i, pair in enumerate(pairwise(path)):
-            u, v = pair
-            ux, uy = M_.nodes[u]["pos"]
-            vx, vy = M_.nodes[v]["pos"]
+            for i, pair in enumerate(pairwise(path)):
+                u, v = pair
+                ux, uy = M_.nodes[u]["pos"]
+                vx, vy = M_.nodes[v]["pos"]
 
-            # at each node, we find segments from the last key point to the next node's hub circle
-            hub_radius = 1 / 16 * factor
-            uhub_center = (ux, uy)
-            uhub_circle = (uhub_center, hub_radius)
+                # at each node, we find segments from the last key point to the next node's hub circle
+                hub_radius = 1 / 16 * factor
+                uhub_center = (ux, uy)
+                uhub_circle = (uhub_center, hub_radius)
 
-            vhub_center = (vx, vy)
-            vhub_circle = (vhub_center, hub_radius)
+                vhub_center = (vx, vy)
+                vhub_circle = (vhub_center, hub_radius)
 
-            edge = M_.edges[(u, v, k)]["edge_pos"][(u, v)]
-            a, b = edge
+                edge = M_.edges[(u, v, k)]["edge_pos"][(u, v)]
+                a, b = edge
 
-            if is_point_inside_circle(a, uhub_circle):
-                # if start point of edge is inside hub circle,
-                # we want a straight line from the hub circle circumference to the following point
-                keypoints.append(
-                    ("L", get_segment_circle_intersection((a, b), uhub_circle))
-                )
-            else:
-                # start point of edge is not inside the hub circle
-                # so we need an arc from the hub circle circumference to the edge start
-                keypoints.append(
-                    (
-                        "B",
-                        get_segment_circle_intersection((uhub_center, a), uhub_circle),
-                    ),
-                )
-                # and then a straight line
-                keypoints.append(("L", a))
+                if is_point_inside_circle(a, uhub_circle):
+                    # if start point of edge is inside hub circle,
+                    # we want a straight line from the hub circle circumference to the following point
+                    keypoints.append(
+                        ("L", get_segment_circle_intersection((a, b), uhub_circle))
+                    )
+                else:
+                    # start point of edge is not inside the hub circle
+                    # so we need an arc from the hub circle circumference to the edge start
+                    keypoints.append(
+                        (
+                            "B",
+                            get_segment_circle_intersection(
+                                (uhub_center, a), uhub_circle
+                            ),
+                        ),
+                    )
+                    # and then a straight line
+                    keypoints.append(("L", a))
 
-            if is_point_inside_circle(b, vhub_circle):
-                keypoints.append(
-                    ("B", get_segment_circle_intersection((a, b), vhub_circle))
-                )
-            else:
-                # edge to hub
-                keypoints.append(("B", b))
-                keypoints.append(
-                    (
-                        "B" if i + 1 < len(path) - 1 else "L",
-                        get_segment_circle_intersection((vhub_center, b), vhub_circle),
-                    ),
-                )
+                if is_point_inside_circle(b, vhub_circle):
+                    keypoints.append(
+                        ("B", get_segment_circle_intersection((a, b), vhub_circle))
+                    )
+                else:
+                    # edge to hub
+                    keypoints.append(("B", b))
+                    keypoints.append(
+                        (
+                            "B" if i + 1 < len(path) - 1 else "L",
+                            get_segment_circle_intersection(
+                                (vhub_center, b), vhub_circle
+                            ),
+                        ),
+                    )
 
-        kwargs = {
-            "close": False,
-            "stroke_width": 2,
-            "fill": "none",
-            "stroke": set_colors[k - 1],
-            "z": k,
-        }
-        line = interpolate_biarcs(keypoints, **kwargs)
-        geometries.append(line)
+            kwargs = {
+                "close": False,
+                "stroke_width": 2,
+                "fill": "none",
+                "stroke": set_colors[k - 1],
+                "z": k,
+            }
+            line = interpolate_biarcs(keypoints, **kwargs)
+            geometries.append(line)
 
     if False:
         hubs = [n for n in M.nodes() if M.degree[n] > 0]
@@ -766,8 +783,8 @@ def read_instance(name):
         # pipeline config
         "dr_method": "mds",
         "dr_gridification": "hagrid",  #  'hagrid' or 'dgrid'
-        "support_type": "path",  #  'path' or 'steiner-tree'
-        "support_partition_by": "intersection-group",  #  'set' or 'intersection-group'
+        "support_type": "steiner-tree",  #  'path' or 'steiner-tree'
+        "support_partition_by": "set",  #  'set' or 'intersection-group'
     }
 
 
@@ -795,7 +812,10 @@ if __name__ == "__main__":
             if instance["support_partition_by"] == "intersection-group"
             else group_by_set(instance["set_system"])
         )
-        M = route_set_lines(instance, G, element_set_partition)
+        element_set_partition = sorted(
+            element_set_partition, key=lambda x: len(x[1]), reverse=True
+        )
+        M = route_set_lines(instance, G, element_set_partition, support_type=instance['support_type'])
 
     G = convert_to_bundleable(instance, G)
     # after this we have a multigraph, with `set_id` property
