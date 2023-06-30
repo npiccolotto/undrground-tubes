@@ -207,6 +207,8 @@ def approximate_steiner_tree(G, S):
 
 def approximate_tsp_tour(G, S):
     """Returns an approximation of the shortest tour in G visiting all nodes S exactly once"""
-    print(len(G.edges()), len(G.nodes()), len(S))
-    path = tsp.traveling_salesman_problem(G, nodes=S, cycle=False)
+    # getting really weird results with `christofides`` method? like, moving twice on the same edge etc.
+    path = tsp.traveling_salesman_problem(
+        G, nodes=S, cycle=False, weight="weight", method=tsp.greedy_tsp
+    )
     return path

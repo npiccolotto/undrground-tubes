@@ -478,10 +478,15 @@ def route_set_lines(instance, G, element_set_partition, support_type="steiner-tr
         # 3. determine approximated steiner tree acc. to kou1981 / wu1986.
         # or TSP path
         if len(S) > 1:
-            set_support_edges = (
-                approximate_steiner_tree(G_, S).edges()
+            set_support = (
+                approximate_steiner_tree(G_, S)
                 if support_type == "steiner-tree"
-                else path_to_edges(approximate_tsp_tour(G_, S))
+                else approximate_tsp_tour(G_, S)
+            )
+            set_support_edges = (
+                set_support.edges()
+                if support_type == "steiner-tree"
+                else path_to_edges(set_support)
             )
         else:
             set_support_edges = []
@@ -671,15 +676,13 @@ def geometrize(instance, M):
         M_ = nx.subgraph_view(M, filter_edge=lambda u, v, k_: k == k_)
         endpoints = [n for n in M_.nodes() if M_.degree(n) == 1]
         if len(endpoints) < 1:
-            print('wtf', instance["sets"][k-1])
+            print("wtf", instance["sets"][k - 1])
             continue
         start = endpoints[0]
         start_nb = list(nx.neighbors(M_, start))
         if len(start_nb) < 1:
             continue
-        paths = get_longest_simple_paths(
-            M_, endpoints[0], start_nb[0]
-        )
+        paths = get_longest_simple_paths(M_, endpoints[0], start_nb[0])
         for path in paths:
             # idk, like keyframe... find better word
             keypoints = [
@@ -783,7 +786,7 @@ def read_instance(name):
         # pipeline config
         "dr_method": "mds",
         "dr_gridification": "hagrid",  #  'hagrid' or 'dgrid'
-        "support_type": "steiner-tree",  #  'path' or 'steiner-tree'
+        "support_type": "path",  #  'path' or 'steiner-tree'
         "support_partition_by": "set",  #  'set' or 'intersection-group'
     }
 
@@ -815,7 +818,9 @@ if __name__ == "__main__":
         element_set_partition = sorted(
             element_set_partition, key=lambda x: len(x[1]), reverse=True
         )
-        M = route_set_lines(instance, G, element_set_partition, support_type=instance['support_type'])
+        M = route_set_lines(
+            instance, G, element_set_partition, support_type=instance["support_type"]
+        )
 
     G = convert_to_bundleable(instance, G)
     # after this we have a multigraph, with `set_id` property
