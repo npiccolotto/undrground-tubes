@@ -598,7 +598,7 @@ def route_set_lines(instance, G):
     return G
 
 
-def geometrize(instance, M):
+def geometrize(instance, M, draw_labels=False):
     one_unit_px = DEFAULT_PARAMS["unit_size_in_px"]
     margins = np.array((0.5, 0.5)) * one_unit_px
     factor = one_unit_px
@@ -654,8 +654,20 @@ def geometrize(instance, M):
                 )
             )
 
+    #Labeling
+
+    if draw_labels:
+        for i, data in M.nodes(data=True):
+            x, y = data["pos"]
+
+            if "glyph" in data:
+                label = data["glyph"]
+                geometries.append(
+                    svg.Text(text=label, x=x, y=y, font_size=14, fill="purple", text_anchor="middle")
+                )
+
     # uncomment to draw edge-bundled lines
-    """
+    '''
     set_colors = ["red", "blue", "orange", "green", "magenta"]
     uniq_edges = list(set(M.edges()))
     for u, v in uniq_edges:
@@ -757,8 +769,8 @@ def geometrize(instance, M):
         }
         line = interpolate_biarcs(keypoints, **kwargs)
         geometries.append(line)
-    """
-
+    
+    '''
     if False:
         hubs = [n for n in M.nodes() if M.degree[n] > 0]
         for hub in hubs:
@@ -817,7 +829,7 @@ if __name__ == "__main__":
             instance["D_SR"],
             m=m,
             n=n,
-            weight=0.75,
+            weight=0.0,
         )
 
     with timing("routing"):
@@ -825,7 +837,7 @@ if __name__ == "__main__":
         G = add_glyphs_to_nodes(instance, G)
         G = route_set_lines(instance, G)
 
-    geometries = geometrize(instance, G)
+    geometries = geometrize(instance, G, draw_labels=True)
 
     with timing("draw svg"):
         img = draw_svg(geometries)
