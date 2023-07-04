@@ -10,7 +10,7 @@ class EdgePenalty(float, Enum):
     FORTY_FIVE = 3
 
     # To center
-    TO_CENTER = 3
+    TO_CENTER = 10e6
 
     # Using any edge between ports
     # TODO with zero cost there's no need to make paths short

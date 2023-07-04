@@ -596,7 +596,7 @@ def geometrize(instance, M):
         x1, y1 = M.nodes[u]["pos"]
         x2, y2 = M.nodes[v]["pos"]
 
-        if M.edges[(u, v, k)]["edge"] == EdgeType.PHYSICAL:
+        if False and M.edges[(u, v, k)]["edge"] == EdgeType.PHYSICAL:
             if (
                 M.nodes[u]["node"] != NodeType.PORT
                 or M.nodes[v]["node"] != NodeType.PORT
@@ -630,7 +630,7 @@ def geometrize(instance, M):
             )
 
     # uncomment to draw edge-bundled lines
-
+    '''
     set_colors = [
         "#1f78b4",
         "#33a02c",
@@ -750,8 +750,8 @@ def geometrize(instance, M):
             }
             line = interpolate_biarcs(keypoints, **kwargs)
             geometries.append(line)
-
-    if False:
+    '''
+    if True:
         hubs = [n for n in M.nodes() if M.degree[n] > 0]
         for hub in hubs:
             cx, cy = M.nodes[hub]["pos"]
@@ -762,8 +762,8 @@ def geometrize(instance, M):
     return geometries
 
 
-def draw_svg(geometries):
-    d = svg.Drawing(3000, 3000, origin=(0, 0))
+def draw_svg(geometries,width,height):
+    d = svg.Drawing(width,height, origin=(0, 0))
 
     for e in geometries:
         d.append(e)
@@ -786,15 +786,15 @@ def read_instance(name):
         # pipeline config
         "dr_method": "mds",
         "dr_gridification": "hagrid",  #  'hagrid' or 'dgrid'
-        "support_type": "path",  #  'path' or 'steiner-tree'
+        "support_type": "steiner-tree",  #  'path' or 'steiner-tree'
         "support_partition_by": "set",  #  'set' or 'intersection-group'
     }
 
 
 if __name__ == "__main__":
-    m = 10
-    n = 10
-    instance = read_instance("wienerlinien/wienerlinien_sm")
+    m = 50
+    n = 50
+    instance = read_instance("wienerlinien/wienerlinien_ring")
     lattice_type = "sqr"
 
     with timing("layout"):
@@ -822,16 +822,19 @@ if __name__ == "__main__":
             instance, G, element_set_partition, support_type=instance["support_type"]
         )
 
-    G = convert_to_bundleable(instance, G)
+    # bundling
+    #
+
+    #G = convert_to_bundleable(instance, G)
     # after this we have a multigraph, with `set_id` property
-    G = order_bundles(instance, G)
+    #G = order_bundles(instance, G)
     # M.add_edges_from(list(G.edges(keys=True,data=True)))
     # print(list([(u,v,k,d) for u,v,k,d in M.edges(keys=True,data=True) if 'edge' not in d]))
 
     geometries = geometrize(instance, G)
 
     with timing("draw svg"):
-        img = draw_svg(geometries)
+        img = draw_svg(geometries, m*100,n*100)
     with timing("write svg"):
         with open("drawing.svg", "w") as f:
             f.write(img)
