@@ -335,8 +335,44 @@ def solve_hagrid_optimal(max_domain, pos):
 
     return [int(model.getVarByName(f"p[{i}]").X) for i in rle]
 
+def compute_error(L1, L2):
+    error = 0
+    for i in range(len(L1)):
+        for j in range(i + 1, len(L2)):
+            x_d = L1[i][0] - L2[j][0]
+            y_d = L1[i][1] - L2[j][1]
 
-def layout_dr(elements, D_EA, D_SR, m=10, n=10, weight=0.5):
+            error += x_d**2 + y_d**2
+            
+    return error
+
+def naive_matching(L1, L2):
+    
+    rot = 0
+    scale = 0
+    
+    error = 10000000000000000000000000
+    for _ in range(1000):
+        
+        rot = np.random.uniform(0.0, 2 * np.pi)
+        scale = np.random.uniform(0.1, 2)
+        
+        L2_new = []
+        
+        for l in L2:
+            continue
+        
+        new_error = compute_error(L1, L2)
+        
+        if new_error < error:
+            error = new_error
+            best_rot = rot
+            best_scale = scale
+        
+    
+    return rot, scale
+
+def layout_dr(elements, D_EA, D_SR, m=10, n=10, weight=0.5, skip_overlap_removal=False):
     """dimensionality reduction onto grid, for now assuming constant space between cells."""
 
     # 1) make distance matrix D by combining D_EA and D_SR using weight
@@ -351,25 +387,30 @@ def layout_dr(elements, D_EA, D_SR, m=10, n=10, weight=0.5):
     # sns.scatterplot(x=H_mds[:,0], y=H_mds[:,1], palette='Set1')
     # plt.show()
 
-    x_min = np.min(H_mds[:, 0])
-    y_min = np.min(H_mds[:, 1])
-    x_max = np.max(H_mds[:, 0])
-    y_max = np.max(H_mds[:, 1])
+    if not skip_overlap_removal:
+        x_min = np.min(H_mds[:, 0])
+        y_min = np.min(H_mds[:, 1])
+        x_max = np.max(H_mds[:, 0])
+        y_max = np.max(H_mds[:, 1])
 
-    w = x_max - x_min
-    h = y_max - y_min
+        w = x_max - x_min
+        h = y_max - y_min
 
-    H_mds[:, 0] = ((H_mds[:, 0] - x_min) / w) * (n)
-    H_mds[:, 1] = ((H_mds[:, 1] - y_min) / h) * (m)
+        H_mds[:, 0] = ((H_mds[:, 0] - x_min) / w) * (n)
+        H_mds[:, 1] = ((H_mds[:, 1] - y_min) / h) * (m)
 
-    h_overlap_removed = DGrid(glyph_width=1, glyph_height=1, delta=1).fit_transform(
-        H_mds
-    )
+        h_overlap_removed = DGrid(glyph_width=1, glyph_height=1, delta=1).fit_transform(
+            H_mds
+        )
 
-    pos = []
+        pos = []
+        for i in range(len(DE)):
+            pos.append((int(h_overlap_removed[i, 0]), int(h_overlap_removed[i, 1])))
+    else:
+        pos = []
+        for i in range(len(DE)):
+            pos.append((H_mds[i, 0], H_mds[i, 1]))
 
-    for i in range(len(DE)):
-        pos.append((int(h_overlap_removed[i, 0]), int(h_overlap_removed[i, 1])))
 
     return pos
 

@@ -806,9 +806,9 @@ def read_instance(name):
     }
 
 
-if __name__ == "__main__":
-    m = 5
-    n = 5
+def process_single():
+    m = 10
+    n = 10
     instance = read_instance("wienerlinien/wienerlinien_sm")
     lattice_type = "sqr"
 
@@ -829,7 +829,7 @@ if __name__ == "__main__":
             instance["D_SR"],
             m=m,
             n=n,
-            weight=0.0,
+            weight=1.0,
         )
 
     with timing("routing"):
@@ -856,3 +856,69 @@ if __name__ == "__main__":
         )
         nx.draw(G, pos=nx.get_node_attributes(G, "pos"), node_size=50)
         plt.show()
+        
+def process_series():
+    m = 10
+    n = 10
+    instance = read_instance("wienerlinien/wienerlinien_sm")
+    lattice_type = "sqr"
+
+    # with timing("layout"):
+    #     instance["glyph_positions"] = layout_qsap(
+    #         instance["glyph_ids"],
+    #         instance["D_EA"],
+    #         instance["D_SR"],
+    #         m=m,
+    #         n=n,
+    #         weight=0,
+    #     )
+
+    weights = np.linspace(0, 1, 2)
+    layouts = []
+    for i, weight in enumerate(weights):
+
+        with timing("layout"):
+            instance["glyph_positions"] = layout_dr(
+                instance["glyph_ids"],
+                instance["D_EA"],
+                instance["D_SR"],
+                m=m,
+                n=n,
+                weight=weight,
+                skip_overlap_removal=True
+            )
+            
+            layouts.append(instance["glyph_positions"])
+    print(layouts)
+
+    for i, weight in enumerate(weights):
+
+        with timing("layout"):
+            instance["glyph_positions"] = layout_dr(
+                instance["glyph_ids"],
+                instance["D_EA"],
+                instance["D_SR"],
+                m=m,
+                n=n,
+                weight=weight,
+                skip_overlap_removal=False
+            )
+        with timing("routing"):
+            G = get_routing_graph(lattice_type, (m, n))
+            G = add_glyphs_to_nodes(instance, G)
+            G = route_set_lines(instance, G)
+
+        geometries = geometrize(instance, G, draw_labels=True)
+
+        with timing("draw svg"):
+            img = draw_svg(geometries)
+        with timing("write svg"):
+            with open(f"drawing_{i}.svg", "w") as f:
+                f.write(img)
+                f.flush()
+                
+    
+
+if __name__ == "__main__":
+    process_single()
+    #process_series()
