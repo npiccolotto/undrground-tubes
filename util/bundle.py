@@ -334,16 +334,19 @@ def convert_to_line_graph(G):
     Edges are only between centers."""
     G_ = nx.Graph()
 
-    for u, v, k in G.edges(keys=True):
-        if k != EdgeType.SUPPORT:
-            continue
+    S = nx.subgraph_view(G, filter_edge=lambda u,v,k: k==EdgeType.SUPPORT)
 
+    nodes_and_deg = [(n, S.degree(n)) for n in S.nodes()]
+    deg1_nodes = [n for n,d in nodes_and_deg if d == 1]
+    start_node = deg1_nodes[0]
+
+    for u,v in nx.depth_first_search.dfs_edges(S, start_node):
         utype = G.nodes[u]["node"]
         vtype = G.nodes[v]["node"]
         uparent = G.nodes[u]["belongs_to"] if utype == NodeType.PORT else None
         vparent = G.nodes[v]["belongs_to"] if vtype == NodeType.PORT else None
 
-        sets = G.edges[(u, v, k)]["sets"]
+        sets = S.edges[(u, v, EdgeType.SUPPORT)]["sets"]
 
         if uparent is None and vparent is None:
             # both are centers
