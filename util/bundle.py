@@ -1,5 +1,6 @@
 import networkx as nx
 import numpy as np
+import json
 from itertools import combinations, pairwise
 from collections import defaultdict
 
@@ -28,7 +29,7 @@ def find_edge_ordering_tree(G, k1, k2, u, v, initial_edge, exploring_other_way=F
         # now... we don't care about common edges, except if they already have an ordering
         for w, x in edges_common:
             edges_wx = [
-                (a, b, c,d)
+                (a, b, c, d)
                 for a, b, c, d in G.edges(keys=True, data=True)
                 if (a, b) == (w, x)
             ]
@@ -64,7 +65,9 @@ def find_edge_ordering_tree(G, k1, k2, u, v, initial_edge, exploring_other_way=F
             elif k2 in com:
                 return 1
 
-        further_edges_to_check = list(edges_common) + list(edges_excl_k1) + list(edges_excl_k2)
+        further_edges_to_check = (
+            list(edges_common) + list(edges_excl_k1) + list(edges_excl_k2)
+        )
 
         for w, x in further_edges_to_check:
             o = find_edge_ordering_tree(
@@ -179,9 +182,7 @@ def order_bundles(instance, M):
 
         # for each pair of paths
         for k1, k2 in combinations(p_uv, 2):
-            M_ = nx.subgraph_view(
-                M, filter_edge=lambda w, x, k: k in [k1, k2]
-            )
+            M_ = nx.subgraph_view(M, filter_edge=lambda w, x, k: k in [k1, k2])
             # print(k1, k2, list(M_.edges(keys=True, data=True)))
             # filter here to path ids identified earlier so that we don't deal here with the path itself forking
             order = find_edge_ordering(M_, k1, k2, u, v, (u, v))
@@ -321,6 +322,135 @@ def convert_to_bundleable(instance, G):
         for set_id in d["sets"]:
             set_idx = instance["set_ftb_order"].index(set_id)
             k = set_idx + 1
-            G_.add_edge(u, v, k, set_id=set_id, path_id=f"{set_id}-0", edge=EdgeType.DRAW)
+            G_.add_edge(
+                u, v, k, set_id=set_id, path_id=f"{set_id}-0", edge=EdgeType.DRAW
+            )
 
     return G_
+
+
+def convert_to_line_graph(G):
+    """G is a grid graph with support and physical edges. Construct a new graph without port nodes.
+    Edges are only between centers."""
+    G_ = nx.Graph()
+
+    for u, v, k in G.edges(keys=True):
+        if k != EdgeType.SUPPORT:
+            continue
+
+        utype = G.nodes[u]["node"]
+        vtype = G.nodes[v]["node"]
+        uparent = G.nodes[u]["belongs_to"] if utype == NodeType.PORT else None
+        vparent = G.nodes[v]["belongs_to"] if vtype == NodeType.PORT else None
+
+        sets = G.edges[(u, v, k)]["sets"]
+
+        if uparent is None and vparent is None:
+            # both are centers
+            # this is actually impossible?
+            raise BaseException("support edge connecting two centers?")
+        else:
+            if uparent is not None and vparent is not None:
+                # both are ports
+                # keep their center if they belong to the same port
+                if uparent == vparent:
+                    G_.add_node(vparent, **G.nodes[vparent])
+                else:
+                    G_.add_edge(uparent, vparent, sets=sets)
+            else:
+                # just one is a port, which must belong to the other node (the center)
+                centernode = u if uparent is None else v
+                G_.add_node(centernode, **G.nodes[centernode])
+    return G_
+
+
+def convert_to_geojson(G):
+    """Takes a line graph, converts to fake GeoJSON"""
+    cx = 16.3
+    cy = 48.25
+    dx = 0.05
+    dy = 0.05
+
+    embed_to_fake_geo = lambda p: (cx + p[0] * dx, cy + p[1] * dy)
+
+    stations = []
+    connections = []
+
+    for n in G.nodes():
+        stations.append(
+            {
+                "type": "Feature",
+                "properties": {
+                    "id": str(n),
+                    "station_label": str(n),
+                    "station_id": str(n),
+                },
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": list(embed_to_fake_geo(G.nodes[n]["pos"])),
+                },
+            }
+        )
+
+    for u, v, d in G.edges(data=True):
+        connections.append(
+            {
+                "type": "Feature",
+                "properties": {
+                    "from": str(u),
+                    "to": str(v),
+                    "lines": list(map(lambda s: {"id": s, "label": s}, d["sets"])),
+                },
+                "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                        list(embed_to_fake_geo(G.nodes[u]["pos"])),
+                        list(embed_to_fake_geo(G.nodes[v]["pos"])),
+                    ],
+                },
+            }
+        )
+
+    geojson = {"type": "FeatureCollection", "features": stations + connections}
+
+    return json.dumps(geojson)
+
+
+def str_tuple_to_tuple(s):
+    """Convert  "(1,1)" to (1,1)"""
+    return tuple(map(lambda x: int(x), s[1:-1].split(",")))
+
+
+def read_loom_output(output, G):
+    geojson_dict = json.loads(output)
+
+    points = [
+        (str_tuple_to_tuple(f["properties"]["station_id"]), f)
+        for f in geojson_dict["features"]
+        if f["geometry"]["type"] == "Point"
+    ]
+    points_new_to_old_id_dict = dict(
+        [(f["properties"]["id"], old) for old, f in points]
+    )
+    lines = [
+        (
+            (
+                points_new_to_old_id_dict[f["properties"]["from"]],
+                points_new_to_old_id_dict[f["properties"]["to"]],
+            ),
+            f,
+        )
+        for f in geojson_dict["features"]
+        if f["geometry"]["type"] == "LineString"
+    ]
+
+    # now go through the old graph, find the new data, set the line order
+
+    for lid, feature in lines:
+        u, v = lid
+        line_order = feature["properties"]["dbg_lines"].split(",")
+        G.edges[(u, v)]["oeb_order"] = {
+            (u, v): line_order,
+            (v, u): list(reversed(line_order)),
+        }
+    return G

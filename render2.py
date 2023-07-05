@@ -1,51 +1,35 @@
 import json
 import math
+import subprocess
 import time
-from util.enums import NodeType, EdgeType, EdgePenalty
-from itertools import combinations, pairwise, product, chain
+from itertools import chain, combinations, pairwise, product
 
 import drawsvg as svg
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 
-from util.collections import (
-    get_elements_in_same_lists,
-    group_by_intersection_group,
-    group_by_set,
-    invert_dict_of_lists,
-    list_of_lists_to_set_system_dict,
-    merge_alternating,
-)
-from util.geometry import (
-    are_faces_adjacent,
-    centroid,
-    dist_euclidean,
-    do_lines_intersect,
-    get_angle,
-    get_closest_point,
-    get_segment_circle_intersection,
-    get_side,
-    interpolate_biarcs,
-    is_point_inside_circle,
-    logical_coords_to_physical,
-    offset_edge,
-    get_linear_order,
-)
-from util.graph import (
-    approximate_tsp_tour,
-    approximate_steiner_tree,
-    are_node_sets_connected,
-    get_closest_pair,
-    get_longest_simple_paths,
-    get_shortest_path_between_sets,
-    incident_edges,
-    path_to_edges,
-)
-from util.layout import layout_qsap, layout_dr
-from util.bundle import order_bundles, convert_to_bundleable
+from util.bundle import (convert_to_bundleable, convert_to_geojson,read_loom_output,
+                         convert_to_line_graph, order_bundles)
+from util.collections import (get_elements_in_same_lists,
+                              group_by_intersection_group, group_by_set,
+                              invert_dict_of_lists,
+                              list_of_lists_to_set_system_dict,
+                              merge_alternating)
+from util.enums import EdgePenalty, EdgeType, NodeType
+from util.geometry import (are_faces_adjacent, centroid, dist_euclidean,
+                           do_lines_intersect, get_angle, get_closest_point,
+                           get_linear_order, get_segment_circle_intersection,
+                           get_side, interpolate_biarcs,
+                           is_point_inside_circle, logical_coords_to_physical,
+                           offset_edge)
+from util.graph import (approximate_steiner_tree, approximate_tsp_tour,
+                        are_node_sets_connected, get_closest_pair,
+                        get_longest_simple_paths,
+                        get_shortest_path_between_sets, incident_edges,
+                        path_to_edges)
+from util.layout import layout_dr, layout_qsap
 from util.perf import timing
-
 
 DEFAULT_PARAMS = {
     "render_style": "kelpfusion",  # kelpfusion, line, envelope
@@ -630,7 +614,7 @@ def geometrize(instance, M):
             )
 
     # uncomment to draw edge-bundled lines
-    '''
+    """
     set_colors = [
         "#1f78b4",
         "#33a02c",
@@ -750,7 +734,7 @@ def geometrize(instance, M):
             }
             line = interpolate_biarcs(keypoints, **kwargs)
             geometries.append(line)
-    '''
+    """
     if True:
         hubs = [n for n in M.nodes() if M.degree[n] > 0]
         for hub in hubs:
@@ -762,8 +746,8 @@ def geometrize(instance, M):
     return geometries
 
 
-def draw_svg(geometries,width,height):
-    d = svg.Drawing(width,height, origin=(0, 0))
+def draw_svg(geometries, width, height):
+    d = svg.Drawing(width, height, origin=(0, 0))
 
     for e in geometries:
         d.append(e)
@@ -792,9 +776,9 @@ def read_instance(name):
 
 
 if __name__ == "__main__":
-    m = 50
-    n = 50
-    instance = read_instance("wienerlinien/wienerlinien_ring")
+    m = 10
+    n = 10
+    instance = read_instance("wienerlinien/wienerlinien_sm")
     lattice_type = "sqr"
 
     with timing("layout"):
@@ -823,18 +807,86 @@ if __name__ == "__main__":
         )
 
     # bundling
-    #
+    # LOOM is quite fast in bundling and can handle trees/cycles, so...
+    # 1) from the grid graph with support, make a line graph again (basically keep centers of used nodes, drop ports)
+    # 2) map nodes onto a small geographic area and export as GeoJSON
+    # 3) feed it to LOOM
+    # 4) read result back in - bam we have an ordering
+    G = convert_to_line_graph(M)
+
+    G_for_loom = convert_to_geojson(G)
+
+    loom=subprocess.run(['loom'],input=G_for_loom.encode(),check=True,capture_output=True)
+
+    G= read_loom_output(loom.stdout.decode(),G)
 
     #G = convert_to_bundleable(instance, G)
     # after this we have a multigraph, with `set_id` property
-    #G = order_bundles(instance, G)
+    # G = order_bundles(instance, G)
     # M.add_edges_from(list(G.edges(keys=True,data=True)))
     # print(list([(u,v,k,d) for u,v,k,d in M.edges(keys=True,data=True) if 'edge' not in d]))
 
-    geometries = geometrize(instance, G)
+    #geometries = geometrize(instance, G)
+    geometries=[]
+    uniq_edges = list(set(G.edges()))
+    one_unit_px = DEFAULT_PARAMS["unit_size_in_px"]
+    margins = np.array((0.5, 0.5)) * one_unit_px
+    factor = one_unit_px
+    mx, my = margins
+
+    # project nodes
+    for i in G.nodes():
+        (x, y) = G.nodes[i]["pos"]
+        px, py = (x * factor + mx, -y * factor + my)
+        G.nodes[i]["pos"] = (px, py)
+        if G.nodes[i]["node"] == NodeType.CENTER and G.nodes[i]["occupied"]:
+            c = svg.Circle(cx=px, cy=py, r=one_unit_px / 4)
+            c.append_title(G.nodes[i]["glyph"])
+            geometries.append(c)
+
+    set_colors = [
+        "#1f78b4",
+        "#33a02c",
+        "#e31a1c",
+        "#ff7f00",
+        "#6a3d9a",
+        "#ffff99",
+        "#b15928",
+        "#a6cee3",
+        "#b2df8a",
+        "#fb9a99",
+    ]
+
+    for u, v in uniq_edges:
+        src = G.nodes[u]["pos"]
+        tgt = G.nodes[v]["pos"]
+        edge_angle = get_angle(src, tgt)
+
+        # print normal of edge vector just for debugging
+        # cx1, cy1 = centroid([src, tgt])
+        # cx2, cy2 = offset_point((cx1, cy1), edge_angle + math.pi / 2, 10)
+        # geometries.append(
+        #    svg.Line(cx1, cy1, cx2, cy2, stroke="lightgray", stroke_width=1)
+        # )
+
+        paths_at_edge = G.edges[(u,v)]['oeb_order'][(u,v)]
+        offset = factor / 30  # TODO idk some pixels
+        centering_offset = ((len(paths_at_edge) - 1) / 2) * -offset
+        for i,set_id in enumerate(paths_at_edge):
+            offset_dir = math.pi / 2
+            offset_length = centering_offset + i * offset
+            o_u, o_v = offset_edge((src, tgt), edge_angle - offset_dir, offset_length)
+
+            G.edges[(u, v)]["edge_pos"] = {
+                (u, v): (o_u, o_v),
+                (v, u): (o_v, o_u),
+            }
+            x0,y0=o_u
+            x1,y1=o_v
+            geometries.append(svg.Line(x0,y0,x1,y1,stroke_width=2,fill='none',stroke=set_colors[instance["set_ftb_order"].index(set_id)]))
 
     with timing("draw svg"):
-        img = draw_svg(geometries, m*100,n*100)
+        img = draw_svg(geometries, m * 100, n * 100)
     with timing("write svg"):
         with open("drawing.svg", "w") as f:
             f.write(img)
