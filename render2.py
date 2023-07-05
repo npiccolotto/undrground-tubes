@@ -17,7 +17,7 @@ from util.collections import (get_elements_in_same_lists,
                               list_of_lists_to_set_system_dict,
                               merge_alternating)
 from util.enums import EdgePenalty, EdgeType, NodeType
-from util.geometry import (are_faces_adjacent, centroid, dist_euclidean,
+from util.geometry import (are_faces_adjacent, centroid, dist_euclidean,offset_point,
                            do_lines_intersect, get_angle, get_closest_point,
                            get_linear_order, get_segment_circle_intersection,
                            get_side, interpolate_biarcs,
@@ -776,9 +776,9 @@ def read_instance(name):
 
 
 if __name__ == "__main__":
-    m = 10
-    n = 10
-    instance = read_instance("wienerlinien/wienerlinien_sm")
+    m = 50
+    n = 50
+    instance = read_instance("wienerlinien/wienerlinien_ring")
     lattice_type = "sqr"
 
     with timing("layout"):
@@ -873,7 +873,7 @@ if __name__ == "__main__":
         offset = factor / 30  # TODO idk some pixels
         centering_offset = ((len(paths_at_edge) - 1) / 2) * -offset
         for i,set_id in enumerate(paths_at_edge):
-            offset_dir = math.pi / 2
+            offset_dir = 3*math.pi / 2
             offset_length = centering_offset + i * offset
             o_u, o_v = offset_edge((src, tgt), edge_angle - offset_dir, offset_length)
 
