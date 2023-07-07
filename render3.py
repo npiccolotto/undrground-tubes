@@ -5,13 +5,15 @@ from collections import defaultdict
 from enum import Enum, IntEnum
 from itertools import combinations, pairwise, product
 
+
+
 import drawsvg as svg
 import networkx as nx
 import numpy as np
 import matplotlib.pyplot as plt
 
 from util.perf import timing
-from util.layout import layout_qsap, layout_dr
+from util.layout import layout_qsap, layout_dr, layout_dr_multiple
 from util.collections import (
     get_elements_in_same_lists,
     list_of_lists_to_set_system_dict,
@@ -874,35 +876,21 @@ def process_series():
     #     )
 
     weights = np.linspace(0, 1, 2)
-    layouts = []
-    for i, weight in enumerate(weights):
-
-        with timing("layout"):
-            instance["glyph_positions"] = layout_dr(
-                instance["glyph_ids"],
-                instance["D_EA"],
-                instance["D_SR"],
-                m=m,
-                n=n,
-                weight=weight,
-                skip_overlap_removal=True
-            )
-            
-            layouts.append(instance["glyph_positions"])
+    
+    with timing("layout"):
+        layouts = layout_dr_multiple(
+            instance["D_EA"],
+            instance["D_SR"],
+            m=m,
+            n=n
+        )
+           
     print(layouts)
 
-    for i, weight in enumerate(weights):
+    for i, layout in enumerate(layouts):
 
-        with timing("layout"):
-            instance["glyph_positions"] = layout_dr(
-                instance["glyph_ids"],
-                instance["D_EA"],
-                instance["D_SR"],
-                m=m,
-                n=n,
-                weight=weight,
-                skip_overlap_removal=False
-            )
+        instance["glyph_positions"] = layout
+
         with timing("routing"):
             G = get_routing_graph(lattice_type, (m, n))
             G = add_glyphs_to_nodes(instance, G)
@@ -920,5 +908,5 @@ def process_series():
     
 
 if __name__ == "__main__":
-    process_single()
-    #process_series()
+    #process_single()
+    process_series()
