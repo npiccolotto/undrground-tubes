@@ -1,7 +1,7 @@
 import json
 import math
 import subprocess
-import time
+import sys
 from itertools import chain, combinations, pairwise, product
 
 import drawsvg as svg
@@ -9,25 +9,50 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 
-from util.bundle import (convert_to_bundleable, convert_to_geojson,read_loom_output,
-                         convert_to_line_graph, order_bundles)
-from util.collections import (get_elements_in_same_lists,
-                              group_by_intersection_group, group_by_set,
-                              invert_dict_of_lists,
-                              list_of_lists_to_set_system_dict,
-                              merge_alternating)
+from util.bundle import (
+    convert_to_bundleable,
+    convert_to_geojson,
+    read_loom_output,
+    convert_to_line_graph,
+    order_bundles,
+)
+from util.collections import (
+    get_elements_in_same_lists,
+    group_by_intersection_group,
+    group_by_set,
+    invert_dict_of_lists,
+    list_of_lists_to_set_system_dict,
+    merge_alternating,
+)
 from util.enums import EdgePenalty, EdgeType, NodeType
-from util.geometry import (are_faces_adjacent, centroid, dist_euclidean,offset_point,
-                           do_lines_intersect, get_angle, get_closest_point,
-                           get_linear_order, get_segment_circle_intersection,
-                           get_side, interpolate_biarcs,
-                           is_point_inside_circle, logical_coords_to_physical,
-                           offset_edge)
-from util.graph import (approximate_steiner_tree, approximate_tsp_tour,
-                        are_node_sets_connected, get_closest_pair,
-                        get_longest_simple_paths,
-                        get_shortest_path_between_sets, incident_edges,
-                        path_to_edges)
+from util.geometry import (
+    are_faces_adjacent,
+    centroid,
+    dist_euclidean,
+    offset_point,
+    do_lines_intersect,
+    get_angle,
+    get_closest_point,
+    get_linear_order,
+    get_segment_circle_intersection,
+    get_side,
+    interpolate_biarcs,
+    is_point_inside_circle,
+    logical_coords_to_physical,
+    offset_edge,
+)
+from util.graph import (
+    approximate_steiner_tree,
+    approximate_steiner_tree_nx,
+    calculate_path_length,
+    approximate_tsp_tour,
+    are_node_sets_connected,
+    get_closest_pair,
+    get_longest_simple_paths,
+    get_shortest_path_between_sets,
+    incident_edges,
+    path_to_edges,
+)
 from util.layout import layout_dr, layout_qsap
 from util.perf import timing
 
@@ -39,137 +64,6 @@ DEFAULT_PARAMS = {
     "lattice_type": "sqr",  # hex, tri, sqr
     "lattice_size": "auto",  # counts glyphs, makes square lattice that fits all. otherwise provide [widht,height] array
 }
-
-
-def add_ports_to_hex_node(G, node, data, side_length=0.25):
-    hex_ports = [
-        (0, side_length),  # N
-        (side_length * math.sqrt(3) / 2, side_length / 2),  # NE
-        (side_length * math.sqrt(3) / 2, -side_length / 2),  # SE
-        (0, -side_length),  # S
-        (-side_length * math.sqrt(3) / 2, -side_length / 2),  # SW
-        (-side_length * math.sqrt(3) / 2, side_length / 2),  # NW
-    ]
-    pos = data["pos"]
-    hex_ports = [(x + pos[0], y + pos[1]) for x, y in hex_ports]
-    dirs = ["n", "ne", "se", "s", "sw", "nw"]
-    hex_ports = list(zip(dirs, hex_ports))
-    for dir, corner in hex_ports:
-        G.add_node(corner, node=NodeType.PORT, belongs_to=node, pos=corner, port=dir)
-
-    sides = pairwise(hex_ports + [hex_ports[0]])
-    hex_sides = []
-    for c1, c2 in sides:
-        d1, p1 = c1
-        d2, p2 = c2
-        n = centroid([p1, p2])
-        hex_sides.append(n)
-        G.add_node(n, node=NodeType.PORT, belongs_to=node, pos=n, port=(d1, d2))
-
-    penalties = [
-        EdgePenalty.NINETY,
-        EdgePenalty.ONE_THIRTY_FIVE,
-        EdgePenalty.ONE_EIGHTY,
-        EdgePenalty.ONE_THIRTY_FIVE,
-        EdgePenalty.NINETY,
-    ]
-    for i in range(len(hex_sides)):
-        p = 0
-        n1 = hex_sides[i]
-        for j in range(i + 1, len(hex_sides)):
-            n2 = hex_sides[j]
-            G.add_edge(
-                n1,
-                n2,
-                EdgeType.PHYSICAL,
-                edge=EdgeType.PHYSICAL,
-                weight=EdgePenalty.HOP + penalties[p],
-            )
-            p += 1
-
-    # connect center to sides
-    for n in hex_sides:
-        G.add_edge(
-            node,
-            n,
-            EdgeType.PHYSICAL,
-            edge=EdgeType.PHYSICAL,
-            weight=EdgePenalty.HOP + EdgePenalty.TO_CENTER,
-        )
-
-    # find neighbors and replace center edges with physical edges to ports
-    neighbors = list(nx.neighbors(G, node))
-    for neighbor in neighbors:
-        # use physically closest port for any neighbor
-        neighbor_pos = G.nodes[neighbor]["pos"]
-        port = get_closest_point(neighbor_pos, hex_sides)
-
-        weight = dist_euclidean(port, neighbor_pos)
-        G.add_edge(
-            neighbor,
-            port,
-            EdgeType.PHYSICAL,
-            edge=EdgeType.PHYSICAL,
-            weight=EdgePenalty.HOP,
-        )
-    return G
-
-
-def make_hex_graph(m, n):
-    # each hex is 17 nodes and...  136 edges :zipface:
-    # = 1 center, 6 corners and 6 sides.
-    # fully connect corners, sides and center
-    # neighbor edges run between adjacent sides of hexes
-
-    # start with square graph
-    G = nx.grid_2d_graph(m, n)
-    G = nx.MultiGraph(incoming_graph_data=G)
-    for _1, _2, e in G.edges(data=True):
-        e["edge"] = EdgeType.CENTER
-    for logpos, n in G.nodes(data=True):
-        x, y = logpos
-        n["node"] = NodeType.CENTER
-        n["logpos"] = logpos
-        n["pos"] = logical_coords_to_physical(x, y, "hex")
-        # TODO support glyph spacing in x and y separately
-
-    G_ = nx.MultiGraph(incoming_graph_data=G)
-
-    for logpos, _ in G.nodes(data=True):
-        x, y = logpos
-
-        # add diagonal edges
-        if y % 2 != 0 and y > 0 and x < m - 1:
-            # tilting to right in odd rows
-            right_diagonal = (x + 1, y - 1)
-            weight = dist_euclidean(
-                G_.nodes[logpos]["pos"], G.nodes[right_diagonal]["pos"]
-            )
-            G_.add_edge(
-                logpos,
-                right_diagonal,
-                EdgeType.CENTER,
-                edge=EdgeType.CENTER,
-                weight=EdgePenalty.HOP,
-            )
-        if y % 2 == 0 and y > 0 and x > 0:
-            # tilting to left in even rows
-            left_diagonal = (x - 1, y - 1)
-            weight = dist_euclidean(
-                G_.nodes[logpos]["pos"], G.nodes[left_diagonal]["pos"]
-            )
-            G_.add_edge(
-                logpos,
-                left_diagonal,
-                EdgeType.CENTER,
-                edge=EdgeType.CENTER,
-                weight=EdgePenalty.HOP,
-            )
-
-    for logpos, hex_center in G.nodes(data=True):
-        G_ = add_ports_to_hex_node(G_, logpos, hex_center, side_length=0.25)
-
-    return G_
 
 
 def add_ports_to_sqr_node(G, node, data, side_length=0.25):
@@ -208,6 +102,9 @@ def add_ports_to_sqr_node(G, node, data, side_length=0.25):
                 EdgeType.PHYSICAL,
                 edge=EdgeType.PHYSICAL,
                 weight=EdgePenalty.HOP + penalties_cw[p],
+                efrom=dirs[i],
+                eto=dirs[j],
+                epenalty=penalties_cw[p],
             )
             p += 1
 
@@ -219,6 +116,8 @@ def add_ports_to_sqr_node(G, node, data, side_length=0.25):
             EdgeType.PHYSICAL,
             edge=EdgeType.PHYSICAL,
             weight=EdgePenalty.HOP + EdgePenalty.TO_CENTER,
+            efrom=n,
+            eto="center",
         )
 
     return G
@@ -284,14 +183,14 @@ def make_sqr_graph(m, n):
             # use physically closest port for any neighbor
             port_nb = get_closest_point(G_.nodes[node]["pos"], ports_nb)
             port_self = get_closest_point(G_.nodes[neighbor]["pos"], ports)
+            length_penalty = dist_euclidean(port_nb, port_self)
 
-            # weight = dist_euclidean(port_nb, port_self)
             G_.add_edge(
                 port_self,
                 port_nb,
                 EdgeType.PHYSICAL,
                 edge=EdgeType.PHYSICAL,
-                weight=EdgePenalty.HOP,
+                weight=EdgePenalty.HOP + length_penalty,
             )
 
     return G_
@@ -301,8 +200,6 @@ def get_routing_graph(lattice_type, lattice_size):
     m, n = lattice_size
     G = None
     match lattice_type:
-        case "hex":
-            G = make_hex_graph(m, n)
         case "sqr":
             G = make_sqr_graph(m, n)
         case _:
@@ -325,6 +222,8 @@ def add_glyphs_to_nodes(instance, G):
 # TODO could be a context manager
 def block_edges_using(G, closed_nodes):
     for node in closed_nodes:
+        if G.nodes[node]["node"] != NodeType.CENTER:
+            raise BaseException("trying to block non-center node!")
         ports = G.neighbors(node)
         for p in ports:
             for e in G.edges(p):
@@ -332,7 +231,9 @@ def block_edges_using(G, closed_nodes):
                 if (
                     G.nodes[u]["node"] == NodeType.PORT
                     and G.nodes[v]["node"] == NodeType.PORT
+                    and ('blocked' not in G.edges[e] or not G.edges[e]['blocked'])
                 ):
+                    G.edges[e]["blocked"] = True
                     G.edges[e]["base_weight"] = G.edges[e]["weight"]
                     G.edges[e]["weight"] = float(math.inf)
 
@@ -350,7 +251,8 @@ def unblock_edges(G, closed_nodes):
         ports = G.neighbors(node)
         for p in ports:
             for e in G.edges(p):
-                if "base_weight" in G.edges[e]:
+                if "blocked" in G.edges[e] and G.edges[e]["blocked"]:
+                    G.edges[e]["blocked"] = False
                     G.edges[e]["weight"] = G.edges[e]["base_weight"]
 
     # for u, v in G.edges():
@@ -435,13 +337,12 @@ def route_set_lines(instance, G, element_set_partition, support_type="steiner-tr
         [
             (u, v, d)
             for u, v, k, d in G.edges(keys=True, data=True)
-            if d["edge"] == EdgeType.PHYSICAL
+            if k == EdgeType.PHYSICAL
         ]
     )
 
     # 2. then process from biggest to smallest group. for each:
     for elements, sets in element_set_partition:
-        print(elements, sets)
         new_edges = []
         S = [
             n
@@ -462,11 +363,12 @@ def route_set_lines(instance, G, element_set_partition, support_type="steiner-tr
         # 3. determine approximated steiner tree acc. to kou1981 / wu1986.
         # or TSP path
         if len(S) > 1:
-            set_support = (
-                approximate_steiner_tree(G_, S)
-                if support_type == "steiner-tree"
-                else approximate_tsp_tour(G_, S)
-            )
+            with timing("sub support"):
+                set_support = (
+                    approximate_steiner_tree_nx(G_, S)
+                    if support_type == "steiner-tree"
+                    else approximate_tsp_tour(G_, S)
+                )
             set_support_edges = (
                 set_support.edges()
                 if support_type == "steiner-tree"
@@ -816,18 +718,20 @@ if __name__ == "__main__":
 
     G_for_loom = convert_to_geojson(G)
 
-    loom=subprocess.run(['loom'],input=G_for_loom.encode(),check=True,capture_output=True)
+    loom = subprocess.run(
+        ["loom"], input=G_for_loom.encode(), check=True, capture_output=True
+    )
 
-    G= read_loom_output(loom.stdout.decode(),G)
+    G = read_loom_output(loom.stdout.decode(), G)
 
-    #G = convert_to_bundleable(instance, G)
+    # G = convert_to_bundleable(instance, G)
     # after this we have a multigraph, with `set_id` property
     # G = order_bundles(instance, G)
     # M.add_edges_from(list(G.edges(keys=True,data=True)))
     # print(list([(u,v,k,d) for u,v,k,d in M.edges(keys=True,data=True) if 'edge' not in d]))
 
-    #geometries = geometrize(instance, G)
-    geometries=[]
+    # geometries = geometrize(instance, G)
+    geometries = []
     uniq_edges = list(set(G.edges()))
     one_unit_px = DEFAULT_PARAMS["unit_size_in_px"]
     margins = np.array((0.5, 0.5)) * one_unit_px
@@ -844,6 +748,36 @@ if __name__ == "__main__":
             c.append_title(G.nodes[i]["glyph"])
             geometries.append(c)
 
+    '''
+    for i in M.nodes():
+        (x, y) = M.nodes[i]["pos"]
+        px, py = (x * factor + mx, -y * factor + my)
+        M.nodes[i]["pos"] = (px, py)
+
+    for u, v, k in M.edges(keys=True):
+        x1, y1 = M.nodes[u]["pos"]
+        x2, y2 = M.nodes[v]["pos"]
+
+        if M.edges[(u, v, k)]["edge"] == EdgeType.PHYSICAL and False:
+            if (
+                M.nodes[u]["node"] != NodeType.PORT
+                or M.nodes[v]["node"] != NodeType.PORT
+            ):
+                continue
+            w = M.edges[(u, v, k)].get("weight", -1)
+            geometries.append(
+                svg.Line(
+                    x1,
+                    y1,
+                    x2,
+                    y2,
+                    z=1000,
+                    data_weight=w,
+                    stroke="gray",
+                    stroke_width=1,
+                )
+            )
+    '''
     set_colors = [
         "#1f78b4",
         "#33a02c",
@@ -869,11 +803,11 @@ if __name__ == "__main__":
         #    svg.Line(cx1, cy1, cx2, cy2, stroke="lightgray", stroke_width=1)
         # )
 
-        paths_at_edge = G.edges[(u,v)]['oeb_order'][(u,v)]
+        paths_at_edge = G.edges[(u, v)]["oeb_order"][(u, v)]
         offset = factor / 30  # TODO idk some pixels
         centering_offset = ((len(paths_at_edge) - 1) / 2) * -offset
-        for i,set_id in enumerate(paths_at_edge):
-            offset_dir = 3*math.pi / 2
+        for i, set_id in enumerate(paths_at_edge):
+            offset_dir = 3 * math.pi / 2
             offset_length = centering_offset + i * offset
             o_u, o_v = offset_edge((src, tgt), edge_angle - offset_dir, offset_length)
 
@@ -881,9 +815,20 @@ if __name__ == "__main__":
                 (u, v): (o_u, o_v),
                 (v, u): (o_v, o_u),
             }
-            x0,y0=o_u
-            x1,y1=o_v
-            geometries.append(svg.Line(x0,y0,x1,y1,stroke_width=2,fill='none',stroke=set_colors[instance["set_ftb_order"].index(set_id)]))
+            x0, y0 = o_u
+            x1, y1 = o_v
+            geometries.append(
+                svg.Line(
+                    x0,
+                    y0,
+                    x1,
+                    y1,
+                    data_class="rendered",
+                    stroke_width=2,
+                    fill="none",
+                    stroke=set_colors[instance["set_ftb_order"].index(set_id)],
+                )
+            )
 
     with timing("draw svg"):
         img = draw_svg(geometries, m * 100, n * 100)

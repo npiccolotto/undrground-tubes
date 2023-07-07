@@ -1,16 +1,24 @@
 from enum import IntEnum, Enum
 
+# Bast et al. say about edge cost:
+# hop has to be >= 45 - 135
+# 180 should go unpunished: 0
+# 135 <= 90 <= 45
+# center edges should be at least as expensive as 45 deg
+# crossings edges are set to inf
+
+
 class EdgePenalty(float, Enum):
     IN_SUPPORT = -1
 
     # Bends
     ONE_EIGHTY = 0
     ONE_THIRTY_FIVE = 1
-    NINETY = 2
-    FORTY_FIVE = 3
+    NINETY = 1.5
+    FORTY_FIVE = 2
 
     # To center
-    TO_CENTER = 10e6
+    TO_CENTER = 2
 
     # Using any edge between ports
     # TODO with zero cost there's no need to make paths short
@@ -18,7 +26,7 @@ class EdgePenalty(float, Enum):
     # so that an otherwise short path with one 135deg bend isn't more expensive than a very long straight line
     HOP = 2
 
-    CROSSING = 1
+    CROSSING = float('inf')
 
 
 class EdgeType(IntEnum):
