@@ -231,7 +231,7 @@ def block_edges_using(G, closed_nodes):
                 if (
                     G.nodes[u]["node"] == NodeType.PORT
                     and G.nodes[v]["node"] == NodeType.PORT
-                    and ('blocked' not in G.edges[e] or not G.edges[e]['blocked'])
+                    and ("blocked" not in G.edges[e] or not G.edges[e]["blocked"])
                 ):
                     G.edges[e]["blocked"] = True
                     G.edges[e]["base_weight"] = G.edges[e]["weight"]
@@ -289,7 +289,7 @@ def update_weights_for_support_edge(G, edge):
     # is it an edge between nodes?
     uparent = G.nodes[u]["belongs_to"]
     vparent = G.nodes[v]["belongs_to"]
-
+    '''
     if uparent == vparent and not G.nodes[uparent]["occupied"]:
         # nope, within a node
         # get all port edges and find those crossing this one
@@ -307,7 +307,8 @@ def update_weights_for_support_edge(G, edge):
         ]
         for w, x in crossing_edges:
             G.edges[(w, x)]["weight"] = G.edges[(w, x)]["weight"] + EdgePenalty.CROSSING
-    elif uparent != vparent:
+    '''
+    if uparent != vparent:
         # yep, between nodes
         uparent, vparent = list(sorted([uparent, vparent], key=lambda x: x[1]))
         # now u is up
@@ -748,7 +749,7 @@ if __name__ == "__main__":
             c.append_title(G.nodes[i]["glyph"])
             geometries.append(c)
 
-    '''
+    """
     for i in M.nodes():
         (x, y) = M.nodes[i]["pos"]
         px, py = (x * factor + mx, -y * factor + my)
@@ -777,7 +778,7 @@ if __name__ == "__main__":
                     stroke_width=1,
                 )
             )
-    '''
+    """
     set_colors = [
         "#1f78b4",
         "#33a02c",

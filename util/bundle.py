@@ -336,9 +336,10 @@ def convert_to_line_graph(G):
 
     S = nx.subgraph_view(G, filter_edge=lambda u,v,k: k==EdgeType.SUPPORT)
 
+    max_deg = max(list([d for n,d in S.degree()]))
     nodes_and_deg = [(n, S.degree(n)) for n in S.nodes()]
-    deg1_nodes = [n for n,d in nodes_and_deg if d == 1]
-    start_node = deg1_nodes[0]
+    deg_nodes = [n for n,d in nodes_and_deg if d == max_deg]
+    start_node = deg_nodes[0]
 
     for u,v in nx.depth_first_search.dfs_edges(S, start_node):
         utype = G.nodes[u]["node"]
