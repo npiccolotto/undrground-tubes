@@ -1,6 +1,7 @@
 import networkx as nx
 import numpy as np
 import json
+import subprocess
 from itertools import combinations, pairwise
 from collections import defaultdict
 
@@ -360,7 +361,7 @@ def convert_to_line_graph(G):
                 if uparent == vparent:
                     G_.add_node(vparent, **G.nodes[vparent])
                 else:
-                    G_.add_edge(uparent, vparent, sets=sets)
+                    G_.add_edge(uparent, vparent, sets=sets, uport=u, vport=v)
             else:
                 # just one is a port, which must belong to the other node (the center)
                 centernode = u if uparent is None else v
@@ -457,4 +458,19 @@ def read_loom_output(output, G):
             (u, v): line_order,
             (v, u): list(reversed(line_order)),
         }
+    return G
+
+def bundle_lines(M):
+    # bundling
+    # LOOM is quite fast in bundling and can handle trees/cycles, so...
+    # 1) from the grid graph with support, make a line graph again (basically keep centers of used nodes, drop ports)
+    # 2) map nodes onto a small geographic area and export as GeoJSON
+    # 3) feed it to LOOM
+    # 4) read result back in - bam we have an ordering
+    G = convert_to_line_graph(M)
+    G_for_loom = convert_to_geojson(G)
+    loom = subprocess.run(
+        ["loom"], input=G_for_loom.encode(), check=True, capture_output=True
+    )
+    G = read_loom_output(loom.stdout.decode(), G)
     return G

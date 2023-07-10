@@ -228,3 +228,61 @@ def approximate_tsp_tour(G, S):
         G, nodes=S, cycle=False, weight="weight", method=tsp.greedy_tsp
     )
     return path
+
+def get_node_with_degree(G, deg):
+    nodes_and_deg = [(n, G.degree(n)) for n in G.nodes()]
+    deg_nodes = [n for n, d in nodes_and_deg if d == deg]
+    return deg_nodes[0] if len(deg_nodes) > 0 else None
+
+def visit_edge_pairs_starting_at_node(G, start):
+    # so here the idea is that for drawing we need edge pairs
+    # we find edge pairs by starting at a node
+    edge_pairs = []
+    stack = []
+    current_edge=None
+
+    incident_edges = list(G.edges(start))
+    if len(incident_edges) == 0:
+        return []
+    current_edge = incident_edges.pop()
+    if len(incident_edges) > 0:
+        stack = incident_edges
+
+
+    while True:
+        # not currently looking at an edge
+        if current_edge is None:
+            # is something on the stack? then continue with that
+            if len(stack) > 0:
+                current_edge = stack.pop()
+            # nope. did we find any edge pairs already? if so we assume we're done
+            elif len(edge_pairs) > 0:
+                return edge_pairs
+
+        u,v = current_edge
+        next_edges = list([(w,x) for w,x in G.edges(v) if (w,x) != (v,u)])
+
+        match len(next_edges):
+            case 0:
+                # there is no next edge
+                # we're done for now, let's hope there's something on the stack in the next iteration
+                current_edge = None
+                continue
+            case 1:
+                # there is 1 next edge
+                next_edge =  next_edges[0]
+                edge_pairs.append([current_edge,next_edge])
+                current_edge = next_edge
+                continue
+            case _:
+                next_edge =  next_edges[0]
+                pairs = product([current_edge], next_edges)
+                edge_pairs = edge_pairs + list(pairs)
+                stack = stack + next_edges[1:]
+                current_edge = next_edge
+                continue
+
+
+
+
+    pass
