@@ -6,3 +6,8 @@ __pycache__/**/*
 .ipynb_checkpoints
 
 *.lp
+
+data/imdb/covers/*.jpg
+data/imdb/*.tsv
+
+.DS_Store
