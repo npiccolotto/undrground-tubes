@@ -344,6 +344,7 @@ def get_svg_arc_params(
 
     return (ex, ey, radius, sweep_bit, large_arc_bit)
 
+
 def biarc(ps, p0, p4, pt):
     ps = np.array(ps)
     p0 = np.array(p0)
@@ -362,10 +363,7 @@ def biarc(ps, p0, p4, pt):
         cx1, cy1 = np.array(p0) + tangent_s * d / 4
         cx2, cy2 = np.array(p4) - tangent_e * d / 4
 
-        return {
-            'type': 'C',
-            'args': [cx1, cy1, cx2, cy2, p4[0], p4[1]]
-        }
+        return {"type": "C", "args": [cx1, cy1, cx2, cy2, p4[0], p4[1]]}
 
     v = p0 - p4
     a = 2 * (np.dot(tangent_s, tangent_e) - 1)
@@ -413,23 +411,20 @@ def biarc(ps, p0, p4, pt):
     clockwise2 = is_clockwise_order(angle2a, angle2b)
 
     return {
-        'type': "A",
-        'p': [ps, p0, p4, pt],
-        'arc1': get_svg_arc_params(
-            p0, p2, c1, r1, angle1a, angle1b, clockwise1
-        ),
-        'arc2': get_svg_arc_params(
-            p2, p4, c2, r2, angle2a, angle2b, clockwise2
-        )
+        "type": "A",
+        "p": [ps, p0, p4, pt],
+        "arc1": get_svg_arc_params(p0, p2, c1, r1, angle1a, angle1b, clockwise1),
+        "arc2": get_svg_arc_params(p2, p4, c2, r2, angle2a, angle2b, clockwise2),
     }
 
+
 def draw_biarc(line, barc):
-    if barc['type'] == 'C':
-        line.C(*barc['args'])
+    if barc["type"] == "C":
+        line.C(*barc["args"])
     else:
-        arc1 = barc['arc1']
-        arc2 = barc['arc2']
-        p0 = barc['p'][0]
+        arc1 = barc["arc1"]
+        arc2 = barc["arc2"]
+        p0 = barc["p"][1]
         arc1_x, arc1_y, arc1_r, arc1_sweep, arc1_large = arc1
         arc2_x, arc2_y, arc2_r, arc2_sweep, arc2_large = arc2
 
@@ -438,6 +433,7 @@ def draw_biarc(line, barc):
         line.M(arc1_x, arc1_y)
         line.A(arc2_r, arc2_r, 0, arc2_large, arc2_sweep, arc2_x, arc2_y)
         line.M(arc2_x, arc2_y)
+
 
 def interpolate_biarcs(points, **kwargs):
     if len(points) < 2:
@@ -464,7 +460,6 @@ def interpolate_biarcs(points, **kwargs):
         barc = biarc(ps, p0, p4, pt)
         draw_biarc(line, barc)
 
-
     return line
 
 
@@ -473,4 +468,3 @@ def logical_coords_to_physical(x, y, lattice_type="sqr"):
         if y % 2 == 1:
             return (x + 0.5, -y)
     return (x, -y)
-

@@ -561,7 +561,9 @@ def geometrize(instance, M):
             )
             line.M(*u_intersect)
             line.L(*v_intersect)
-            line.C(*vpos, *vpos, *w_intersect)
+            # line.C(*vpos, *vpos, *w_intersect)
+            barc = biarc(u_intersect, v_intersect, w_intersect, x_intersect)
+            draw_biarc(line, barc)
             line.L(*x_intersect)
 
             geometries.append(line)
