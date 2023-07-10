@@ -8,7 +8,14 @@ BUGS
 
 TODO
 
-- probably need some small test dataset again
+- think about how line graph would look like if we were to apply bast et al 2019
+  - connect port edges to centers, save port data at edge (direction we'll need for ILP later)
+  - delete port-center edges
+  - throw out all nodes and ports with deg = 0 (unused)
+  - that should be it: this graph can be pruned, untangled, cut
+  - then ILP
+  - then rendering
+- probably need some small test dataset again that has actual collinear lines (maybe a subset of WL tramways?)
 - make pipeline and functions configurable
   - support for single set: steiner tree, path
   - DR method: MDS, UMAP, t-SNE, optimal (= QSAP)

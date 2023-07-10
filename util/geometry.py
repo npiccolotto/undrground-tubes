@@ -345,6 +345,96 @@ def get_svg_arc_params(
     return (ex, ey, radius, sweep_bit, large_arc_bit)
 
 
+def biarc(ps, p0, p4, pt):
+    ps = np.array(ps)
+    p0 = np.array(p0)
+    p4 = np.array(p4)
+    pt = np.array(pt)
+    # "Biarc approximation of NURBS curves", Piegl & Tiller, 2002
+    tangent_s = vector(ps, p0, unit=True)
+    tangent_e = vector(p4, pt, unit=True)
+
+    if are_vectors_parallel(tangent_s, tangent_e) or (
+        tangent_s.dot(p4 - p0) <= 0 and tangent_s.dot(tangent_e) <= 0
+    ):
+        # tangents are parallel (or some other bad case happened), but not necessarily collinear
+        # so we draw a bezier curve
+        d = dist_euclidean(p0, p4)
+        cx1, cy1 = np.array(p0) + tangent_s * d / 4
+        cx2, cy2 = np.array(p4) - tangent_e * d / 4
+
+        return {"type": "C", "args": [cx1, cy1, cx2, cy2, p4[0], p4[1]]}
+
+    v = p0 - p4
+    a = 2 * (np.dot(tangent_s, tangent_e) - 1)
+    b = 2 * np.dot(v, tangent_s + tangent_e)
+    c = np.dot(v, v)
+
+    alpha1 = (-b + math.sqrt(b**2 - 4 * a * c)) / (2 * a)
+    alpha2 = (-b - math.sqrt(b**2 - 4 * a * c)) / (2 * a)
+
+    alpha = alpha2 if alpha1 < 0 else alpha1
+
+    p1 = p0 + tangent_s * alpha
+    p3 = p4 + tangent_e * (-alpha)
+    p2 = 1 / 2 * (p1 + p3)
+
+    p1p0_norm = normal_vector(vector(p1, p0))
+    p3p2_norm = normal_vector(vector(p3, p2))
+    p3p4_norm = normal_vector(vector(p3, p4))
+
+    pointOnP1P0Norm = p0 + p1p0_norm
+    pointOnP3P2Norm = p2 + p3p2_norm
+    pointOnP3P4Norm = p4 + p3p4_norm
+
+    c1 = get_line_segment_intersection((p0, pointOnP1P0Norm), (p2, pointOnP3P2Norm))
+    c2 = get_line_segment_intersection((p4, pointOnP3P4Norm), (p2, pointOnP3P2Norm))
+
+    r1 = dist_euclidean(p0, c1)
+    r2 = dist_euclidean(p4, c2)
+
+    assert is_point_on_circle(p0, (c1, r1))
+    assert is_point_on_circle(p2, (c1, r1))
+    assert is_point_on_circle(p2, (c2, r2))
+    assert is_point_on_circle(p4, (c2, r2))
+
+    c1p0 = vector(c1, p0)
+    c1p2 = vector(c1, p2)
+    angle1a = get_angle_vector(c1p0)
+    angle1b = get_angle_vector(c1p2)
+    clockwise1 = is_clockwise_order(angle1a, angle1b)
+
+    c2p2 = vector(c2, p2)
+    c2p4 = vector(c2, p4)
+    angle2a = get_angle_vector(c2p2)
+    angle2b = get_angle_vector(c2p4)
+    clockwise2 = is_clockwise_order(angle2a, angle2b)
+
+    return {
+        "type": "A",
+        "p": [ps, p0, p4, pt],
+        "arc1": get_svg_arc_params(p0, p2, c1, r1, angle1a, angle1b, clockwise1),
+        "arc2": get_svg_arc_params(p2, p4, c2, r2, angle2a, angle2b, clockwise2),
+    }
+
+
+def draw_biarc(line, barc):
+    if barc["type"] == "C":
+        line.C(*barc["args"])
+    else:
+        arc1 = barc["arc1"]
+        arc2 = barc["arc2"]
+        p0 = barc["p"][1]
+        arc1_x, arc1_y, arc1_r, arc1_sweep, arc1_large = arc1
+        arc2_x, arc2_y, arc2_r, arc2_sweep, arc2_large = arc2
+
+        line.M(p0[0], p0[1])
+        line.A(arc1_r, arc1_r, 0, arc1_large, arc1_sweep, arc1_x, arc1_y)
+        line.M(arc1_x, arc1_y)
+        line.A(arc2_r, arc2_r, 0, arc2_large, arc2_sweep, arc2_x, arc2_y)
+        line.M(arc2_x, arc2_y)
+
+
 def interpolate_biarcs(points, **kwargs):
     if len(points) < 2:
         return None
@@ -367,78 +457,8 @@ def interpolate_biarcs(points, **kwargs):
         _, p4 = points[i + 1]
         _, pt = points[i + 2]
 
-        # "Biarc approximation of NURBS curves", Piegl & Tiller, 2002
-        tangent_s = vector(ps, p0, unit=True)
-        tangent_e = vector(p4, pt, unit=True)
-
-        if are_vectors_parallel(tangent_s, tangent_e) or (
-            tangent_s.dot(p4 - p0) <= 0 and tangent_s.dot(tangent_e) <= 0
-        ):
-            # tangents are parallel (or some other bad case happened), but not necessarily collinear
-            # so we draw a bezier curve
-            d = dist_euclidean(p0, p4)
-            cx1, cy1 = np.array(p0) + tangent_s * d / 4
-            cx2, cy2 = np.array(p4) - tangent_e * d / 4
-
-            line.C(cx1, cy1, cx2, cy2, p4[0], p4[1])
-            continue
-
-        v = p0 - p4
-        a = 2 * (np.dot(tangent_s, tangent_e) - 1)
-        b = 2 * np.dot(v, tangent_s + tangent_e)
-        c = np.dot(v, v)
-
-        alpha1 = (-b + math.sqrt(b**2 - 4 * a * c)) / (2 * a)
-        alpha2 = (-b - math.sqrt(b**2 - 4 * a * c)) / (2 * a)
-
-        alpha = alpha2 if alpha1 < 0 else alpha1
-
-        p1 = p0 + tangent_s * alpha
-        p3 = p4 + tangent_e * (-alpha)
-        p2 = 1 / 2 * (p1 + p3)
-
-        p1p0_norm = normal_vector(vector(p1, p0))
-        p3p2_norm = normal_vector(vector(p3, p2))
-        p3p4_norm = normal_vector(vector(p3, p4))
-
-        pointOnP1P0Norm = p0 + p1p0_norm
-        pointOnP3P2Norm = p2 + p3p2_norm
-        pointOnP3P4Norm = p4 + p3p4_norm
-
-        c1 = get_line_segment_intersection((p0, pointOnP1P0Norm), (p2, pointOnP3P2Norm))
-        c2 = get_line_segment_intersection((p4, pointOnP3P4Norm), (p2, pointOnP3P2Norm))
-
-        r1 = dist_euclidean(p0, c1)
-        r2 = dist_euclidean(p4, c2)
-
-        assert is_point_on_circle(p0, (c1, r1))
-        assert is_point_on_circle(p2, (c1, r1))
-        assert is_point_on_circle(p2, (c2, r2))
-        assert is_point_on_circle(p4, (c2, r2))
-
-        c1p0 = vector(c1, p0)
-        c1p2 = vector(c1, p2)
-        angle1a = get_angle_vector(c1p0)
-        angle1b = get_angle_vector(c1p2)
-        clockwise1 = is_clockwise_order(angle1a, angle1b)
-
-        c2p2 = vector(c2, p2)
-        c2p4 = vector(c2, p4)
-        angle2a = get_angle_vector(c2p2)
-        angle2b = get_angle_vector(c2p4)
-        clockwise2 = is_clockwise_order(angle2a, angle2b)
-
-        line.M(p0[0], p0[1])
-        arc1_x, arc1_y, arc1_r, arc1_sweep, arc1_large = get_svg_arc_params(
-            p0, p2, c1, r1, angle1a, angle1b, clockwise1
-        )
-        line.A(arc1_r, arc1_r, 0, arc1_large, arc1_sweep, arc1_x, arc1_y)
-        line.M(arc1_x, arc1_y)
-        arc2_x, arc2_y, arc2_r, arc2_sweep, arc2_large = get_svg_arc_params(
-            p2, p4, c2, r2, angle2a, angle2b, clockwise2
-        )
-        line.A(arc2_r, arc2_r, 0, arc2_large, arc2_sweep, arc2_x, arc2_y)
-        line.M(arc2_x, arc2_y)
+        barc = biarc(ps, p0, p4, pt)
+        draw_biarc(line, barc)
 
     return line
 

@@ -1,9 +1,11 @@
 import numpy as np
 import networkx as nx
 import networkx.algorithms.approximation.traveling_salesman as tsp
+import networkx.algorithms.approximation.steinertree as steinertree
 from util.geometry import dist_euclidean
 from util.perf import timing
 from itertools import product, pairwise, combinations
+from util.enums import NodeType
 
 
 def path_to_edges(path):
@@ -64,12 +66,11 @@ def calculate_path_length(G, path, weight=None):
 
     total = 0
     for e in path:
-        a, b = e
-
         length = 0
         if weight:
-            length = G.edges[(a, b)][weight]
+            length = G.edges[e][weight]
         else:
+            a, b = e
             length = dist_euclidean(G.nodes[a]["pos"], G.nodes[b]["pos"])
 
         total += length
@@ -160,6 +161,22 @@ def are_node_sets_connected(G, S, T):
     return len(N) == 0
 
 
+def count_node_occurrence_in_path(G, S, path):
+    # S are center nodes
+    # count how often we use nodes belonging to these centers in path
+    count = 0
+    for node in path:
+        if G.nodes[node]["node"] == NodeType.CENTER and node in S:
+            count += 1
+        if G.nodes[node]["node"] == NodeType.PORT and G.nodes[node]["belongs_to"] in S:
+            count += 1
+    return count
+
+
+def approximate_steiner_tree_nx(G, S):
+    return steinertree.steiner_tree(G, S, method="mehlhorn")
+
+
 def approximate_steiner_tree(G, S):
     """G is a weighted graph, S is the set of terminal nodes. Returns a tree subgraph of G that is a Steiner tree.
 
@@ -178,7 +195,7 @@ def approximate_steiner_tree(G, S):
         G1.add_edge(n1, n2, weight=spl)
 
     # step 2: make G2, a MST on G1
-    G2 = nx.minimum_spanning_tree(G1)
+    G2 = nx.minimum_spanning_tree(G1, weight="weight", algorithm="prim")
 
     # step 3: make G3 by starting with G nodes and no edges. for every edge in G2 add a shortest path between the endpoints in G
     G3 = nx.Graph()
@@ -189,7 +206,7 @@ def approximate_steiner_tree(G, S):
             G3.add_edge(w, x, weight=G.edges[(w, x)]["weight"])
 
     # step 4: make G4, a MST on G3
-    G4 = nx.minimum_spanning_tree(G3)
+    G4 = nx.minimum_spanning_tree(G3, weight="weight")
 
     # step 5: make G5 by removing any non-terminal leaves from G4
     while (
@@ -207,8 +224,65 @@ def approximate_steiner_tree(G, S):
 
 def approximate_tsp_tour(G, S):
     """Returns an approximation of the shortest tour in G visiting all nodes S exactly once"""
-    # getting really weird results with `christofides`` method? like, moving twice on the same edge etc.
     path = tsp.traveling_salesman_problem(
         G, nodes=S, cycle=False, weight="weight", method=tsp.greedy_tsp
     )
     return path
+
+def get_node_with_degree(G, deg):
+    nodes_and_deg = [(n, G.degree(n)) for n in G.nodes()]
+    deg_nodes = [n for n, d in nodes_and_deg if d == deg]
+    return deg_nodes[0] if len(deg_nodes) > 0 else None
+
+def visit_edge_pairs_starting_at_node(G, start):
+    # so here the idea is that for drawing we need edge pairs
+    # we find edge pairs by starting at a node
+    edge_pairs = []
+    stack = []
+    current_edge=None
+
+    incident_edges = list(G.edges(start))
+    if len(incident_edges) == 0:
+        return []
+    current_edge = incident_edges.pop()
+    if len(incident_edges) > 0:
+        stack = incident_edges
+
+
+    while True:
+        # not currently looking at an edge
+        if current_edge is None:
+            # is something on the stack? then continue with that
+            if len(stack) > 0:
+                current_edge = stack.pop()
+            # nope. did we find any edge pairs already? if so we assume we're done
+            elif len(edge_pairs) > 0:
+                return edge_pairs
+
+        u,v = current_edge
+        next_edges = list([(w,x) for w,x in G.edges(v) if (w,x) != (v,u)])
+
+        match len(next_edges):
+            case 0:
+                # there is no next edge
+                # we're done for now, let's hope there's something on the stack in the next iteration
+                current_edge = None
+                continue
+            case 1:
+                # there is 1 next edge
+                next_edge =  next_edges[0]
+                edge_pairs.append([current_edge,next_edge])
+                current_edge = next_edge
+                continue
+            case _:
+                next_edge =  next_edges[0]
+                pairs = product([current_edge], next_edges)
+                edge_pairs = edge_pairs + list(pairs)
+                stack = stack + next_edges[1:]
+                current_edge = next_edge
+                continue
+
+
+
+
+    pass
