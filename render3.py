@@ -5,13 +5,15 @@ from collections import defaultdict
 from enum import Enum, IntEnum
 from itertools import combinations, pairwise, product
 
+
+
 import drawsvg as svg
 import networkx as nx
 import numpy as np
 import matplotlib.pyplot as plt
 
 from util.perf import timing
-from util.layout import layout_qsap, layout_dr
+from util.layout import layout_qsap, layout_dr, layout_dr_multiple
 from util.collections import (
     get_elements_in_same_lists,
     list_of_lists_to_set_system_dict,
@@ -598,7 +600,7 @@ def route_set_lines(instance, G):
     return G
 
 
-def geometrize(instance, M):
+def geometrize(instance, M, draw_labels=False):
     one_unit_px = DEFAULT_PARAMS["unit_size_in_px"]
     margins = np.array((0.5, 0.5)) * one_unit_px
     factor = one_unit_px
@@ -654,8 +656,20 @@ def geometrize(instance, M):
                 )
             )
 
+    #Labeling
+
+    if draw_labels:
+        for i, data in M.nodes(data=True):
+            x, y = data["pos"]
+
+            if "glyph" in data:
+                label = data["glyph"]
+                geometries.append(
+                    svg.Text(text=label, x=x, y=y, font_size=14, fill="purple", text_anchor="middle")
+                )
+
     # uncomment to draw edge-bundled lines
-    """
+    '''
     set_colors = ["red", "blue", "orange", "green", "magenta"]
     uniq_edges = list(set(M.edges()))
     for u, v in uniq_edges:
@@ -757,8 +771,8 @@ def geometrize(instance, M):
         }
         line = interpolate_biarcs(keypoints, **kwargs)
         geometries.append(line)
-    """
-
+    
+    '''
     if False:
         hubs = [n for n in M.nodes() if M.degree[n] > 0]
         for hub in hubs:
@@ -794,9 +808,9 @@ def read_instance(name):
     }
 
 
-if __name__ == "__main__":
-    m = 5
-    n = 5
+def process_single():
+    m = 10
+    n = 10
     instance = read_instance("wienerlinien/wienerlinien_sm")
     lattice_type = "sqr"
 
@@ -817,7 +831,7 @@ if __name__ == "__main__":
             instance["D_SR"],
             m=m,
             n=n,
-            weight=0.75,
+            weight=1.0,
         )
 
     with timing("routing"):
@@ -825,7 +839,7 @@ if __name__ == "__main__":
         G = add_glyphs_to_nodes(instance, G)
         G = route_set_lines(instance, G)
 
-    geometries = geometrize(instance, G)
+    geometries = geometrize(instance, G, draw_labels=True)
 
     with timing("draw svg"):
         img = draw_svg(geometries)
@@ -844,3 +858,55 @@ if __name__ == "__main__":
         )
         nx.draw(G, pos=nx.get_node_attributes(G, "pos"), node_size=50)
         plt.show()
+        
+def process_series():
+    m = 10
+    n = 10
+    instance = read_instance("wienerlinien/wienerlinien_sm")
+    lattice_type = "sqr"
+
+    # with timing("layout"):
+    #     instance["glyph_positions"] = layout_qsap(
+    #         instance["glyph_ids"],
+    #         instance["D_EA"],
+    #         instance["D_SR"],
+    #         m=m,
+    #         n=n,
+    #         weight=0,
+    #     )
+
+    weights = np.linspace(0, 1, 2)
+    
+    with timing("layout"):
+        layouts = layout_dr_multiple(
+            instance["D_EA"],
+            instance["D_SR"],
+            m=m,
+            n=n
+        )
+           
+    print(layouts)
+
+    for i, layout in enumerate(layouts):
+
+        instance["glyph_positions"] = layout
+
+        with timing("routing"):
+            G = get_routing_graph(lattice_type, (m, n))
+            G = add_glyphs_to_nodes(instance, G)
+            G = route_set_lines(instance, G)
+
+        geometries = geometrize(instance, G, draw_labels=True)
+
+        with timing("draw svg"):
+            img = draw_svg(geometries)
+        with timing("write svg"):
+            with open(f"drawing_{i}.svg", "w") as f:
+                f.write(img)
+                f.flush()
+                
+    
+
+if __name__ == "__main__":
+    #process_single()
+    process_series()
