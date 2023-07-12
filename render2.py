@@ -486,6 +486,103 @@ def edge_filter_ports(G, u, v, same_centers=False):
                     return True
 
 
+def get_port_edges(M, node):
+    all_ports = [
+        p for p in nx.neighbors(M, node) if M.nodes[p]["node"] == NodeType.PORT
+    ]
+    all_edges_at_ports = set()
+    port_dirs = ["n", "ne", "e", "se", "s", "sw", "w", "nw"]
+    for port in all_ports:
+        edges_at_port = [
+            (a, b)
+            if port_dirs.index(M.nodes[a]["port"]) < port_dirs.index(M.nodes[b]["port"])
+            else (b, a)
+            for a, b, k in M.edges(nbunch=port, keys=True)
+            if k == EdgeType.PHYSICAL
+            and M.nodes[a]["node"] == NodeType.PORT
+            and M.nodes[b]["node"] == NodeType.PORT
+            and M.nodes[a]["belongs_to"] == node
+            and M.nodes[b]["belongs_to"] == node
+        ]
+
+        all_edges_at_ports = all_edges_at_ports.union(set(edges_at_port))
+    return list(all_edges_at_ports)
+
+
+def are_port_edges_crossing(us, ut, vs, vt):
+    cw_dirs = ["n", "ne", "e", "se", "s", "sw", "w", "nw"] + [
+        "n",
+        "ne",
+        "e",
+        "se",
+        "s",
+        "sw",
+        "w",
+        "nw",
+    ]
+    ccw_dirs = ["n", "nw", "w", "sw", "s", "se", "e", "ne"] + [
+        "n",
+        "nw",
+        "w",
+        "sw",
+        "s",
+        "se",
+        "e",
+        "ne",
+    ]
+
+    # start at us and go clockwise to ut, collect all ports in between
+    cw_set = []
+    i = cw_dirs.index(us["port"]) + 1
+    j = cw_dirs.index(ut["port"])
+    if j > i:
+        cw_set = cw_dirs[i:j]
+
+    # then start at us and go ccw to ut, collect all ports in between
+    ccw_set = []
+    i = ccw_dirs.index(ut["port"]) + 1
+    j = ccw_dirs.index(us["port"])
+    if j > i:
+        ccw_set = ccw_dirs[i:j]
+
+    # edges cross iff vs in former and vt in latter set (or vice versa)
+    port1 = vs["port"]
+    port2 = vt["port"]
+
+    are_crossing = True
+    if port1 in cw_set and port2 in cw_set and port1 in ccw_set and port2 in ccw_set:
+        are_crossing = False
+    if port1 in [ut["port"], us["port"]] or port2 in [ut["port"], us["port"]]:
+        are_crossing = False
+    return are_crossing
+
+
+def get_crossing_port_edges(G):
+    # assuming G consinsts only of port edges of one node
+    port_dirs = ["n", "ne", "e", "se", "s", "sw", "w", "nw"]
+
+    edges = list(
+        [
+            (u, v)
+            if port_dirs.index(M.nodes[u]["port"]) < port_dirs.index(M.nodes[v]["port"])
+            else (v, u)
+            for (u, v) in G.edges()
+        ]
+    )
+    edges = list(sorted(edges, key=lambda e: port_dirs.index(G.nodes[e[0]]["port"])))
+    crossings = []
+
+    for i, e1 in enumerate(edges):
+        u, v = e1
+        for j, e2 in enumerate(edges):
+            if j <= i:
+                continue
+            w, x = e2
+            if are_port_edges_crossing(G.nodes[u], G.nodes[v], G.nodes[w], G.nodes[x]):
+                crossings.append((e1, e2))
+    return crossings
+
+
 def geometrize(instance, M):
     geometries = []
     one_unit_px = DEFAULT_PARAMS["unit_size_in_px"]
@@ -658,8 +755,6 @@ def geometrize(instance, M):
             # we statically identify and penalize (possibly via block function?) crossing edges
             # and on this graph we do a minimum spanning tree, which should result in the optimal line-routing=
 
-            # TODO can't do it like that
-            # need to filter used ports for ports used for the set we are currently looking at
             all_used_ports = set(
                 [
                     b
@@ -669,10 +764,16 @@ def geometrize(instance, M):
             )
             used_ports = set()
             for port in all_used_ports:
-                p_adjacent = list([ x for w, x,k in M.edges(nbunch=[port], keys=True) if k == EdgeType.SUPPORT and M.nodes[x]['node']==NodeType.PORT ])
+                p_adjacent = list(
+                    [
+                        x
+                        for w, x, k in M.edges(nbunch=[port], keys=True)
+                        if k == EdgeType.SUPPORT and M.nodes[x]["node"] == NodeType.PORT
+                    ]
+                )
                 for x in p_adjacent:
-                    edge = M.edges[(port,x,EdgeType.SUPPORT)]
-                    if 'sets' in edge and set_id in edge['sets']:
+                    edge = M.edges[(port, x, EdgeType.SUPPORT)]
+                    if "sets" in edge and set_id in edge["sets"]:
                         used_ports = used_ports.union(set([port]))
 
             if len(used_ports) < 1:
@@ -682,42 +783,44 @@ def geometrize(instance, M):
                 # this is a deg 1 node for this set, maybe don't do anything for now
                 continue
 
-            all_ports = [
-                p for p in nx.neighbors(M, node) if M.nodes[p]["node"] == NodeType.PORT
+            all_edges_at_ports = get_port_edges(M, node)
+            port_port_edges = [
+                (a, b, M.edges[(a, b, EdgeType.PHYSICAL)]["weight"])
+                for a, b in all_edges_at_ports
+                if a in used_ports and b in used_ports
             ]
-            all_edges_at_ports = set()
-            port_dirs = ["n", "ne", "e", "se", "s", "sw", "w", "nw"]
-            for port in all_ports:
-                edges_at_port = [
-                    (a, b)
-                    if port_dirs.index(M.nodes[a]["port"])
-                    < port_dirs.index(M.nodes[b]["port"])
-                    else (b, a)
-                    for a, b, k in M.edges(nbunch=port, keys=True)
-                    if k == EdgeType.PHYSICAL
-                    and M.nodes[a]["node"] == NodeType.PORT
-                    and M.nodes[b]["node"] == NodeType.PORT
-                    and M.nodes[a]["belongs_to"] == node
-                    and M.nodes[b]["belongs_to"] == node
-                ]
-
-                all_edges_at_ports = all_edges_at_ports.union(set(edges_at_port))
-            port_port_edges = [(a,b, M.edges[(a,b,EdgeType.PHYSICAL)]['weight']) for a,b in all_edges_at_ports if a in used_ports and b in used_ports]
 
             G_node = nx.Graph()
             G_node.add_weighted_edges_from(port_port_edges)
-            within_node_connections = nx.minimum_spanning_tree(G_node, weight='weight')
-            for a,b in within_node_connections.edges():
+            for a, b, w in port_port_edges:
+                G_node.add_node(a, **M.nodes[a])
+                G_node.add_node(b, **M.nodes[b])
+
+            # identify crossing edges and penalize the one with more weight
+            for e1, e2 in get_crossing_port_edges(G_node):
+                u, v = e1
+                w, x = e2
+                weight_uv = G_node.edges[u, v]["weight"]
+                weight_wx = G_node.edges[w, x]["weight"]
+                edge_to_penalize = e1
+                if weight_wx > weight_uv:
+                    edge_to_penalize = e2
+                a, b = edge_to_penalize
+                G_node.edges[a, b]["weight"] = float("inf")
+
+            within_node_connections = nx.minimum_spanning_tree(G_node, weight="weight")
+            for a, b in within_node_connections.edges():
                 line = svg.Path(
                     **{
                         "close": False,
                         "stroke_width": 2,
                         "fill": "none",
+                        "data_weight": G_node.edges[a, b]["weight"],
                         "stroke": set_colors[instance["set_ftb_order"].index(set_id)],
                     }
                 )
-                apos = M.nodes[a]['pos']
-                bpos = M.nodes[b]['pos']
+                apos = M.nodes[a]["pos"]
+                bpos = M.nodes[b]["pos"]
                 line.M(*apos)
                 line.L(*bpos)
                 geometries.append(line)
@@ -793,10 +896,11 @@ if __name__ == "__main__":
             instance, G, element_set_partition, support_type=instance["support_type"]
         )
 
-    M = bundle_lines(instance, M)
-    geometries = geometrize(instance, M)
+    with timing("bundle lines"):
+        M = bundle_lines(instance, M)
 
     with timing("draw svg"):
+        geometries = geometrize(instance, M)
         img = draw_svg(geometries, m * 100, n * 100)
     with timing("write svg"):
         with open("drawing.svg", "w") as f:
