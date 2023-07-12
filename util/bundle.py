@@ -335,14 +335,14 @@ def convert_to_line_graph(G):
     Edges are only between centers."""
     G_ = nx.Graph()
 
-    S = nx.subgraph_view(G, filter_edge=lambda u,v,k: k==EdgeType.SUPPORT)
+    S = nx.subgraph_view(G, filter_edge=lambda u, v, k: k == EdgeType.SUPPORT)
 
-    max_deg = max(list([d for n,d in S.degree()]))
+    max_deg = max(list([d for n, d in S.degree()]))
     nodes_and_deg = [(n, S.degree(n)) for n in S.nodes()]
-    deg_nodes = [n for n,d in nodes_and_deg if d == max_deg]
+    deg_nodes = [n for n, d in nodes_and_deg if d == max_deg]
     start_node = deg_nodes[0]
 
-    for u,v in nx.depth_first_search.dfs_edges(S, start_node):
+    for u, v in nx.depth_first_search.dfs_edges(S, start_node):
         utype = G.nodes[u]["node"]
         vtype = G.nodes[v]["node"]
         uparent = G.nodes[u]["belongs_to"] if utype == NodeType.PORT else None
@@ -460,7 +460,8 @@ def read_loom_output(output, G):
         }
     return G
 
-def bundle_lines(M):
+
+def bundle_lines(instance, M):
     # bundling
     # LOOM is quite fast in bundling and can handle trees/cycles, so...
     # 1) from the grid graph with support, make a line graph again (basically keep centers of used nodes, drop ports)
@@ -473,4 +474,11 @@ def bundle_lines(M):
         ["loom"], input=G_for_loom.encode(), check=True, capture_output=True
     )
     G = read_loom_output(loom.stdout.decode(), G)
-    return G
+
+    for u, v, d in G.edges(data=True):
+        w = d["uport"]
+        x = d["vport"]
+        order = {(w, x): d["oeb_order"][(u, v)], (x, w): d["oeb_order"][(v, u)]}
+
+        M.edges[(w, x, EdgeType.SUPPORT)]["oeb_order"] = order
+    return M

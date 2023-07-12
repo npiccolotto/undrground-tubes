@@ -363,7 +363,7 @@ def biarc(ps, p0, p4, pt):
         cx1, cy1 = np.array(p0) + tangent_s * d / 4
         cx2, cy2 = np.array(p4) - tangent_e * d / 4
 
-        return {"type": "C", "args": [cx1, cy1, cx2, cy2, p4[0], p4[1]]}
+        return {"type": "C", "p": [ps, p0, p4, pt], "args": [cx1, cy1, cx2, cy2, p4[0], p4[1]]}
 
     v = p0 - p4
     a = 2 * (np.dot(tangent_s, tangent_e) - 1)
@@ -419,16 +419,17 @@ def biarc(ps, p0, p4, pt):
 
 
 def draw_biarc(line, barc):
+    p0 = barc["p"][1]
+    line.M(p0[0], p0[1])
+
     if barc["type"] == "C":
-        line.C(*barc["args"])
+        line.C(*barc['args'])
     else:
         arc1 = barc["arc1"]
         arc2 = barc["arc2"]
-        p0 = barc["p"][1]
         arc1_x, arc1_y, arc1_r, arc1_sweep, arc1_large = arc1
         arc2_x, arc2_y, arc2_r, arc2_sweep, arc2_large = arc2
 
-        line.M(p0[0], p0[1])
         line.A(arc1_r, arc1_r, 0, arc1_large, arc1_sweep, arc1_x, arc1_y)
         line.M(arc1_x, arc1_y)
         line.A(arc2_r, arc2_r, 0, arc2_large, arc2_sweep, arc2_x, arc2_y)
