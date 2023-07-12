@@ -763,6 +763,7 @@ def geometrize(instance, M):
                 ]
             )
             used_ports = set()
+            outward_edge_at_port = dict()
             for port in all_used_ports:
                 p_adjacent = list(
                     [
@@ -775,12 +776,31 @@ def geometrize(instance, M):
                     edge = M.edges[(port, x, EdgeType.SUPPORT)]
                     if "sets" in edge and set_id in edge["sets"]:
                         used_ports = used_ports.union(set([port]))
+                        outward_edge_at_port[port] = (port, x)
 
             if len(used_ports) < 1:
                 # cannot happen actually
                 continue
             if len(used_ports) == 1:
-                # this is a deg 1 node for this set, maybe don't do anything for now
+                # this is a deg 1 node for this set
+                # idk, could connect to center
+                # or maybe draw a small mark?
+                a = used_ports.pop()
+                _, b = outward_edge_at_port[a]
+                apos, bpos = M.edges[(a, b, EdgeType.SUPPORT)]["edge_pos"][set_id][
+                    (a, b)
+                ]
+                cx, cy = get_segment_circle_intersection(
+                    (apos, bpos), (M.nodes[node]["pos"], circle_r)
+                )
+                geometries.append(
+                    svg.Circle(
+                        cx=cx,
+                        cy=cy,
+                        r=circle_r / 8,
+                        fill=set_colors[instance["set_ftb_order"].index(set_id)],
+                    )
+                )
                 continue
 
             all_edges_at_ports = get_port_edges(M, node)
@@ -819,10 +839,29 @@ def geometrize(instance, M):
                         "stroke": set_colors[instance["set_ftb_order"].index(set_id)],
                     }
                 )
-                apos = M.nodes[a]["pos"]
-                bpos = M.nodes[b]["pos"]
-                line.M(*apos)
-                line.L(*bpos)
+                _, v = outward_edge_at_port[a]
+                _, x = outward_edge_at_port[b]
+
+                apos, vpos = M.edges[(a, v, EdgeType.SUPPORT)]["edge_pos"][set_id][
+                    (a, v)
+                ]
+                bpos, xpos = M.edges[(b, x, EdgeType.SUPPORT)]["edge_pos"][set_id][
+                    (b, x)
+                ]
+
+                a_intersect = get_segment_circle_intersection(
+                    (vpos, apos), (M.nodes[node]["pos"], circle_r)
+                )
+                b_intersect = get_segment_circle_intersection(
+                    (bpos, xpos), (M.nodes[node]["pos"], circle_r)
+                )
+
+                av_center = centroid([apos, vpos])
+                bx_center = centroid([bpos, xpos])
+
+                barc = biarc(av_center, a_intersect, b_intersect, bx_center)
+                draw_biarc(line, barc)
+
                 geometries.append(line)
 
     if False:
