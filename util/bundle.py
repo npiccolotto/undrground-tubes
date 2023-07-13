@@ -337,18 +337,13 @@ def convert_to_line_graph(G):
 
     S = nx.subgraph_view(G, filter_edge=lambda u, v, k: k == EdgeType.SUPPORT)
 
-    max_deg = max(list([d for n, d in S.degree()]))
-    nodes_and_deg = [(n, S.degree(n)) for n in S.nodes()]
-    deg_nodes = [n for n, d in nodes_and_deg if d == max_deg]
-    start_node = deg_nodes[0]
-
-    for u, v in nx.depth_first_search.dfs_edges(S, start_node):
+    for u, v,k in S.edges(keys=True):
         utype = G.nodes[u]["node"]
         vtype = G.nodes[v]["node"]
         uparent = G.nodes[u]["belongs_to"] if utype == NodeType.PORT else None
         vparent = G.nodes[v]["belongs_to"] if vtype == NodeType.PORT else None
 
-        sets = S.edges[(u, v, EdgeType.SUPPORT)]["sets"]
+        sets = S.edges[(u, v, k)]["sets"]
 
         if uparent is None and vparent is None:
             # both are centers
@@ -361,11 +356,12 @@ def convert_to_line_graph(G):
                 if uparent == vparent:
                     G_.add_node(vparent, **G.nodes[vparent])
                 else:
-                    G_.add_edge(uparent, vparent, sets=sets, uport=u, vport=v)
+                    G_.add_edge(uparent, vparent, sets=sets, port1=u, port2=v)
             else:
                 # just one is a port, which must belong to the other node (the center)
                 centernode = u if uparent is None else v
                 G_.add_node(centernode, **G.nodes[centernode])
+
     return G_
 
 
@@ -373,8 +369,8 @@ def convert_to_geojson(G):
     """Takes a line graph, converts to fake GeoJSON"""
     cx = 16.3
     cy = 48.25
-    dx = 0.05
-    dy = 0.05
+    dx = 0.025
+    dy = 0.025
 
     embed_to_fake_geo = lambda p: (cx + p[0] * dx, cy + p[1] * dy)
 
@@ -470,14 +466,18 @@ def bundle_lines(instance, M):
     # 4) read result back in - bam we have an ordering
     G = convert_to_line_graph(M)
     G_for_loom = convert_to_geojson(G)
-    loom = subprocess.run(
-        ["loom"], input=G_for_loom.encode(), check=True, capture_output=True
-    )
+    with open('loom_input.json','w') as f:
+        f.write(G_for_loom)
+        loom = subprocess.run(
+            ["loom", "-m", "ilp", "--ilp-solver", "glpk"], input=G_for_loom.encode(), check=True, capture_output=True
+        )
     G = read_loom_output(loom.stdout.decode(), G)
+    with open('loom_output.json','w') as f:
+        f.write(loom.stdout.decode())
 
     for u, v, d in G.edges(data=True):
-        w = d["uport"]
-        x = d["vport"]
+        w = d["port1"] if M.nodes[d['port1']]['belongs_to'] == u else d['port2']
+        x = d["port1"] if M.nodes[d['port1']]['belongs_to'] == v else d['port2']
         order = {(w, x): d["oeb_order"][(u, v)], (x, w): d["oeb_order"][(v, u)]}
 
         M.edges[(w, x, EdgeType.SUPPORT)]["oeb_order"] = order

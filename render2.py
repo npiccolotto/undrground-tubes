@@ -606,11 +606,12 @@ def geometrize(instance, M):
         "#e31a1c",
         "#ff7f00",
         "#6a3d9a",
-        "#ffff99",
+        "#ffff33",
         "#b15928",
         "#a6cee3",
         "#b2df8a",
         "#fb9a99",
+        "#666666",
     ]
 
     for u, v, k in M.edges(keys=True):
@@ -632,9 +633,8 @@ def geometrize(instance, M):
         offset = factor / 30  # TODO idk some pixels
         centering_offset = ((len(paths_at_edge) - 1) / 2) * -offset
         M.edges[(u, v, EdgeType.SUPPORT)]["edge_pos"] = {}
-        M.edges[(v, u, EdgeType.SUPPORT)]["edge_pos"] = {}
         for i, set_id in enumerate(paths_at_edge):
-            offset_dir = 3 * math.pi / 2
+            offset_dir =  3*math.pi / 2
             offset_length = centering_offset + i * offset
             o_u, o_v = offset_edge((src, tgt), edge_angle - offset_dir, offset_length)
 
@@ -642,18 +642,18 @@ def geometrize(instance, M):
                 (u, v): (o_u, o_v),
                 (v, u): (o_v, o_u),
             }
-            M.edges[(v, u, EdgeType.SUPPORT)]["edge_pos"][set_id] = {
-                (u, v): (o_u, o_v),
-                (v, u): (o_v, o_u),
-            }
 
+
+    print(instance["set_ftb_order"])
     for set_id in instance["sets"]:
+        print(set_id)
         G_ = nx.subgraph_view(
             M,
             filter_edge=lambda u, v, k: k == EdgeType.SUPPORT
             and edge_filter_ports(M, u, v, same_centers=False)
             and set_id in M.edges[(u, v, EdgeType.SUPPORT)]["sets"],
         )
+        print(G_)
         # this draws straight lines between nodes
         for u, v in G_.edges():
             circle_r = one_unit_px * 0.25
@@ -688,7 +688,7 @@ def geometrize(instance, M):
                 continue
             uparent = M.nodes[u]["belongs_to"]
 
-            u_adjacent = list([x if w == u else w for w, x in M.edges(nbunch=[u])])
+            u_adjacent = list([x if w == u else w for w, x, kk in M.edges(nbunch=[u], keys=True) if kk == EdgeType.SUPPORT])
             uu = None
             for x in u_adjacent:
                 xparent = M.nodes[x].get("belongs_to")
@@ -696,13 +696,17 @@ def geometrize(instance, M):
                     uu = x
                     break
 
-            v_adjacent = list([x if w == v else w for w, x in M.edges(nbunch=[v])])
+            v_adjacent = list([x if w == v else w for w, x, kk in M.edges(nbunch=[v], keys=True) if kk == EdgeType.SUPPORT])
             vv = None
             for x in v_adjacent:
                 xparent = M.nodes[x].get("belongs_to")
                 if xparent is not None and xparent != uparent:
                     vv = x
                     break
+
+            if uu is None or vv is None:
+                print('howw')
+                continue
 
             if (
                 set_id not in M.edges[(uu, u, EdgeType.SUPPORT)]["edge_pos"]
@@ -905,9 +909,9 @@ def read_instance(name):
 
 
 if __name__ == "__main__":
-    m = 50
-    n = 50
-    instance = read_instance("wienerlinien/wienerlinien_ring")
+    m = 75
+    n = 75
+    instance = read_instance("imdb/imdb_250")
     lattice_type = "sqr"
 
     with timing("layout"):
