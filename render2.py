@@ -209,12 +209,14 @@ def get_routing_graph(lattice_type, lattice_size):
 def add_glyphs_to_nodes(instance, G):
     for n in G.nodes():
         G.nodes[n]["occupied"] = False
-    for i, glyph in enumerate(instance["glyph_ids"]):
+    for i, element in enumerate(instance["elements"]):
         logpos = instance["glyph_positions"][i]
         if G.nodes[logpos]["node"] != NodeType.CENTER:
             raise Exception("node to position glyph on is somehow not a glyph center")
         G.nodes[logpos]["occupied"] = True
-        G.nodes[logpos]["glyph"] = glyph
+        G.nodes[logpos]["label"] = element
+        if "glyph_ids" in instance:
+            G.nodes[logpos]["glyph"] = instance["glyph_ids"][i]
     return G
 
 
@@ -347,7 +349,7 @@ def route_set_lines(instance, G, element_set_partition, support_type="steiner-tr
         S = [
             n
             for n, d in G_.nodes(data=True)
-            if d["node"] == NodeType.CENTER and d["occupied"] and d["glyph"] in elements
+            if d["node"] == NodeType.CENTER and d["occupied"] and d["label"] in elements
         ]
 
         # close edges to all other occupied nodes so as to not route "over" them
@@ -356,7 +358,7 @@ def route_set_lines(instance, G, element_set_partition, support_type="steiner-tr
             for n, d in G_.nodes(data=True)
             if d["node"] == NodeType.CENTER
             and d["occupied"]
-            and d["glyph"] not in elements
+            and d["label"] not in elements
         ]
         G_ = block_edges_using(G_, S_minus)
 
@@ -402,7 +404,7 @@ def route_set_lines(instance, G, element_set_partition, support_type="steiner-tr
                     for n, d in G_.nodes(data=True)
                     if d["node"] == NodeType.CENTER
                     and d["occupied"]
-                    and d["glyph"] in processed_elements_for_s
+                    and d["label"] in processed_elements_for_s
                 ]
 
                 # if support is not connected but should be, fix it by connecting via shortest path
@@ -415,7 +417,7 @@ def route_set_lines(instance, G, element_set_partition, support_type="steiner-tr
 
                 if not is_connected:
                     S_minus = list(
-                        set(instance["glyph_ids"]).difference(
+                        set(instance["elements"]).difference(
                             set(elements).union(set(processed_elements_for_s))
                         )
                     )
@@ -424,7 +426,7 @@ def route_set_lines(instance, G, element_set_partition, support_type="steiner-tr
                         for n, d in G_.nodes(data=True)
                         if d["node"] == NodeType.CENTER
                         and d["occupied"]
-                        and d["glyph"] in S_minus
+                        and d["label"] in S_minus
                     ]
                     G_ = block_edges_using(
                         G_,
@@ -596,9 +598,18 @@ def geometrize(instance, M):
         px, py = (x * factor + mx, -y * factor + my)
         M.nodes[i]["pos"] = (px, py)
         if M.nodes[i]["node"] == NodeType.CENTER and M.nodes[i]["occupied"]:
-            c = svg.Circle(cx=px, cy=py, r=one_unit_px / 4)
-            c.append_title(M.nodes[i]["glyph"])
-            geometries.append(c)
+            if "glyph" not in M.nodes[i]:
+                c = svg.Circle(cx=px, cy=py, r=one_unit_px / 4)
+                c.append_title(M.nodes[i]["label"])
+                geometries.append(c)
+            else:
+                w = 60
+                h = 90
+                img = svg.Image(
+                    px - w / 2, py - h / 2, width=w, height=h, path=M.nodes[i]["glyph"]
+                )
+                img.append_title(M.nodes[i]["label"])
+                geometries.append(img)
 
     set_colors = [
         "#1f78b4",
@@ -916,8 +927,8 @@ def read_instance(name):
         data = json.load(f)
     elements = data["E"]
     sets = data["S"]
-    return {
-        "glyph_ids": elements,
+    inst =  {
+        "elements": elements,
         "sets": sets,
         "set_system": list_of_lists_to_set_system_dict(elements, data["SR"]),
         "D_EA": data["EA"],
@@ -929,6 +940,9 @@ def read_instance(name):
         "support_type": "steiner-tree",  #  'path' or 'steiner-tree'
         "support_partition_by": "set",  #  'set' or 'intersection-group'
     }
+    if "glyph_ids" in data:
+        inst["glyph_ids"]= data["glyph_ids"]
+    return inst
 
 
 if __name__ == "__main__":
@@ -939,7 +953,7 @@ if __name__ == "__main__":
 
     with timing("layout"):
         instance["glyph_positions"] = layout_dr(
-            instance["glyph_ids"],
+            instance["elements"],
             instance["D_EA"],
             instance["D_SR"],
             m=m,
