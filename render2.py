@@ -634,7 +634,7 @@ def geometrize(instance, M):
         centering_offset = ((len(paths_at_edge) - 1) / 2) * -offset
         M.edges[(u, v, EdgeType.SUPPORT)]["edge_pos"] = {}
         for i, set_id in enumerate(paths_at_edge):
-            offset_dir =  3*math.pi / 2
+            offset_dir = 3 * math.pi / 2
             offset_length = centering_offset + i * offset
             o_u, o_v = offset_edge((src, tgt), edge_angle - offset_dir, offset_length)
 
@@ -642,7 +642,6 @@ def geometrize(instance, M):
                 (u, v): (o_u, o_v),
                 (v, u): (o_v, o_u),
             }
-
 
     print(instance["set_ftb_order"])
     for set_id in instance["sets"]:
@@ -653,7 +652,6 @@ def geometrize(instance, M):
             and edge_filter_ports(M, u, v, same_centers=False)
             and set_id in M.edges[(u, v, EdgeType.SUPPORT)]["sets"],
         )
-        print(G_)
         # this draws straight lines between nodes
         for u, v in G_.edges():
             circle_r = one_unit_px * 0.25
@@ -679,8 +677,6 @@ def geometrize(instance, M):
             geometries.append(line)
 
         # this draws all the connections at non-occupied nodes
-        # since M does not contain edges within occupied nodes
-        # as the code in the routing stage connects to centers
         for u, v, k, d in M.edges(data=True, keys=True):
             if k != EdgeType.SUPPORT or not edge_filter_ports(
                 G_, u, v, same_centers=True
@@ -688,7 +684,13 @@ def geometrize(instance, M):
                 continue
             uparent = M.nodes[u]["belongs_to"]
 
-            u_adjacent = list([x if w == u else w for w, x, kk in M.edges(nbunch=[u], keys=True) if kk == EdgeType.SUPPORT])
+            u_adjacent = list(
+                [
+                    x if w == u else w
+                    for w, x, kk in M.edges(nbunch=[u], keys=True)
+                    if kk == EdgeType.SUPPORT
+                ]
+            )
             uu = None
             for x in u_adjacent:
                 xparent = M.nodes[x].get("belongs_to")
@@ -696,7 +698,13 @@ def geometrize(instance, M):
                     uu = x
                     break
 
-            v_adjacent = list([x if w == v else w for w, x, kk in M.edges(nbunch=[v], keys=True) if kk == EdgeType.SUPPORT])
+            v_adjacent = list(
+                [
+                    x if w == v else w
+                    for w, x, kk in M.edges(nbunch=[v], keys=True)
+                    if kk == EdgeType.SUPPORT
+                ]
+            )
             vv = None
             for x in v_adjacent:
                 xparent = M.nodes[x].get("belongs_to")
@@ -705,7 +713,7 @@ def geometrize(instance, M):
                     break
 
             if uu is None or vv is None:
-                print('howw')
+                print("howw")
                 continue
 
             if (
@@ -759,13 +767,28 @@ def geometrize(instance, M):
             # we statically identify and penalize (possibly via block function?) crossing edges
             # and on this graph we do a minimum spanning tree, which should result in the optimal line-routing=
 
-            all_used_ports = set(
-                [
-                    b
-                    for a, b, k in M.edges(nbunch=node, keys=True)
-                    if k == EdgeType.SUPPORT
+            # all_used_ports = set(
+            #    [
+            #        b
+            #        for a, b, k in M.edges(nbunch=node, keys=True)
+            #        if k == EdgeType.SUPPORT
+            #    ]
+            # )
+            all_used_ports = []
+            for p in [
+                p
+                for p in nx.neighbors(M, node)
+                if M.nodes[p]["node"] == NodeType.PORT
+                and M.nodes[p]["belongs_to"] == node
+            ]:
+                edges = [
+                    (a, b)
+                    for a, b, k, d in M.edges(nbunch=p, keys=True, data=True)
+                    if k == EdgeType.SUPPORT and "sets" in d
                 ]
-            )
+                if len(edges) > 0:
+                    all_used_ports.append(p)
+
             used_ports = set()
             outward_edge_at_port = dict()
             for port in all_used_ports:
@@ -797,14 +820,14 @@ def geometrize(instance, M):
                 cx, cy = get_segment_circle_intersection(
                     (apos, bpos), (M.nodes[node]["pos"], circle_r)
                 )
-                geometries.append(
-                    svg.Circle(
-                        cx=cx,
-                        cy=cy,
-                        r=circle_r / 8,
-                        fill=set_colors[instance["set_ftb_order"].index(set_id)],
-                    )
+                circle = svg.Circle(
+                    cx=cx,
+                    cy=cy,
+                    r=circle_r / 8,
+                    fill=set_colors[instance["set_ftb_order"].index(set_id)],
                 )
+                circle.append_title(set_id)
+                geometries.append(circle)
                 continue
 
             all_edges_at_ports = get_port_edges(M, node)
