@@ -946,9 +946,9 @@ def read_instance(name):
 
 
 if __name__ == "__main__":
-    m = 75
-    n = 75
-    instance = read_instance("imdb/imdb_250")
+    m = 10
+    n = 10
+    instance = read_instance("imdb/imdb_10")
     lattice_type = "sqr"
 
     with timing("layout"):
