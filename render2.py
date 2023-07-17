@@ -910,7 +910,7 @@ def geometrize(instance, M):
             geometries.append(
                 svg.Circle(cx, cy, r, fill="none", stroke="gray", stroke_width=1)
             )
-    geometries  = list(reversed(geometries))
+    #geometries  = list(reversed(geometries))
     return geometries
 
 

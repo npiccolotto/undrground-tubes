@@ -15,4 +15,3 @@
   - grid size: (depends on above, hagrid can only do square grids)
   - edge penalties
 - add other test datasets
-- finally get rid of pygame dependency, which screws the upstart time of our scripts

@@ -4,7 +4,6 @@ import numpy as np
 from collections import Counter, defaultdict
 from itertools import pairwise, combinations
 from statistics import mean
-from pygame.math import Vector2
 import drawsvg as svg
 
 
@@ -216,9 +215,9 @@ def get_segment_circle_intersection(segment, circle):
     center, r = circle
     cx, cy = center
 
-    Q = Vector2(cx, cy)  # Centre of circle
-    P1 = Vector2(ax, ay)  # Start of line segment
-    V = Vector2(bx, by) - P1  # Vector along line segment
+    Q = np.array([cx, cy])  # Centre of circle
+    P1 = np.array([ax, ay])  # Start of line segment
+    V = np.array([bx, by]) - P1  # Vector along line segment
 
     a = V.dot(V)
     b = 2 * V.dot(P1 - Q)
