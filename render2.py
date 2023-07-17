@@ -82,6 +82,8 @@ SET_COLORS = [
     "#666666",
 ]  # chosen according to set front to back order
 
+PORT_DIRS = ["n", "ne", "e", "se", "s", "sw", "w", "nw"]
+
 
 def add_ports_to_sqr_node(G, node, data, side_length=0.25):
     sqr_corners = [
@@ -96,8 +98,7 @@ def add_ports_to_sqr_node(G, node, data, side_length=0.25):
     ]
     pos = data["pos"]
     sqr_corners = [(x + pos[0], y + pos[1]) for x, y in sqr_corners]
-    dirs = ["n", "ne", "e", "se", "s", "sw", "w", "nw"]
-    sqr_corners_dirs = list(zip(dirs, sqr_corners))
+    sqr_corners_dirs = list(zip(PORT_DIRS, sqr_corners))
     for dir, corner in sqr_corners_dirs:
         G.add_node(corner, node=NodeType.PORT, belongs_to=node, pos=corner, port=dir)
 
@@ -119,8 +120,8 @@ def add_ports_to_sqr_node(G, node, data, side_length=0.25):
                 EdgeType.PHYSICAL,
                 edge=EdgeType.PHYSICAL,
                 weight=EdgePenalty.HOP + penalties_cw[p],
-                efrom=dirs[i],
-                eto=dirs[j],
+                efrom=PORT_DIRS[i],
+                eto=PORT_DIRS[j],
                 epenalty=penalties_cw[p],
             )
             p += 1
@@ -511,11 +512,10 @@ def get_port_edges(M, node):
         p for p in nx.neighbors(M, node) if M.nodes[p]["node"] == NodeType.PORT
     ]
     all_edges_at_ports = set()
-    port_dirs = ["n", "ne", "e", "se", "s", "sw", "w", "nw"]
     for port in all_ports:
         edges_at_port = [
             (a, b)
-            if port_dirs.index(M.nodes[a]["port"]) < port_dirs.index(M.nodes[b]["port"])
+            if PORT_DIRS.index(M.nodes[a]["port"]) < PORT_DIRS.index(M.nodes[b]["port"])
             else (b, a)
             for a, b, k in M.edges(nbunch=port, keys=True)
             if k == EdgeType.PHYSICAL
@@ -530,26 +530,14 @@ def get_port_edges(M, node):
 
 
 def are_port_edges_crossing(us, ut, vs, vt):
-    cw_dirs = ["n", "ne", "e", "se", "s", "sw", "w", "nw"] + [
-        "n",
-        "ne",
-        "e",
-        "se",
-        "s",
-        "sw",
-        "w",
-        "nw",
-    ]
-    ccw_dirs = ["n", "nw", "w", "sw", "s", "se", "e", "ne"] + [
-        "n",
-        "nw",
-        "w",
-        "sw",
-        "s",
-        "se",
-        "e",
-        "ne",
-    ]
+    cw_dirs = PORT_DIRS + PORT_DIRS
+
+    ccw_dirs = (
+        [PORT_DIRS[0]]
+        + list(reversed(PORT_DIRS[1:]))
+        + [PORT_DIRS[0]]
+        + list(reversed(PORT_DIRS[1:]))
+    )
 
     # start at us and go clockwise to ut, collect all ports in between
     cw_set = []
@@ -579,17 +567,15 @@ def are_port_edges_crossing(us, ut, vs, vt):
 
 def get_crossing_port_edges(G):
     # assuming G consinsts only of port edges of one node
-    port_dirs = ["n", "ne", "e", "se", "s", "sw", "w", "nw"]
-
     edges = list(
         [
             (u, v)
-            if port_dirs.index(M.nodes[u]["port"]) < port_dirs.index(M.nodes[v]["port"])
+            if PORT_DIRS.index(M.nodes[u]["port"]) < PORT_DIRS.index(M.nodes[v]["port"])
             else (v, u)
             for (u, v) in G.edges()
         ]
     )
-    edges = list(sorted(edges, key=lambda e: port_dirs.index(G.nodes[e[0]]["port"])))
+    edges = list(sorted(edges, key=lambda e: PORT_DIRS.index(G.nodes[e[0]]["port"])))
     crossings = []
 
     for i, e1 in enumerate(edges):
