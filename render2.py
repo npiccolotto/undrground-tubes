@@ -20,7 +20,23 @@ from util.collections import (
     merge_alternating,
 )
 from util.enums import EdgePenalty, EdgeType, NodeType
-from util.draw import draw_svg
+from util.draw import (
+    draw_svg,
+    draw_support,
+    edge_filter_ports,
+    STROKE_WIDTH,
+    LINE_GAP,
+    CELL_SIZE_PX,
+    GLYPH_SIZE_PX,
+    MARGINS,
+    NODE_CIRCLE_RADIUS,
+    DRAW_GLYPHS_OVER_LINES,
+    DRAW_DEG1_MARKS,
+    DRAW_DEG1_MARK_SIZE_PX,
+    DRAW_HUBS,
+    DRAW_GLYPHS,
+    SET_COLORS,
+)
 from util.geometry import (
     are_faces_adjacent,
     biarc,
@@ -55,33 +71,6 @@ from util.graph import (
 )
 from util.layout import layout_dr, layout_qsap
 from util.perf import timing
-
-STROKE_WIDTH = 4
-LINE_GAP = STROKE_WIDTH * 1.5
-CELL_SIZE_PX = 75
-GLYPH_SIZE_PX = 0.75 * CELL_SIZE_PX
-MARGINS = np.array((0.5, 0.5)) * CELL_SIZE_PX
-NODE_CIRCLE_RADIUS = (
-    0.3 * CELL_SIZE_PX
-)  # must be smaller than 1/2 cell size or we get artefacts in line bends
-DRAW_GLYPHS_OVER_LINES = True
-DRAW_DEG1_MARKS = False
-DRAW_DEG1_MARK_SIZE_PX = STROKE_WIDTH
-DRAW_HUBS = False
-DRAW_GLYPHS = True
-SET_COLORS = [
-    "#1f78b4",
-    "#33a02c",
-    "#e31a1c",
-    "#ff7f00",
-    "#6a3d9a",
-    "#ffff33",
-    "#b15928",
-    "#a6cee3",
-    "#b2df8a",
-    "#fb9a99",
-    "#666666",
-]  # chosen according to set front to back order
 
 PORT_DIRS = ["n", "ne", "e", "se", "s", "sw", "w", "nw"]
 
@@ -483,31 +472,6 @@ def route_set_lines(instance, G, element_set_partition, support_type="steiner-tr
     return G
 
 
-def edge_filter_ports(G, u, v, same_centers=False):
-    uparent = (
-        None if G.nodes[u]["node"] == NodeType.CENTER else G.nodes[u]["belongs_to"]
-    )
-    vparent = (
-        None if G.nodes[v]["node"] == NodeType.CENTER else G.nodes[v]["belongs_to"]
-    )
-
-    match (uparent, vparent):
-        case (None, None):
-            return False
-        case (None, _):
-            return False
-        case (_, None):
-            return False
-        case (_, _):
-            match same_centers:
-                case True:
-                    return uparent == vparent
-                case False:
-                    return uparent != vparent
-                case None:
-                    return True
-
-
 def get_port_edges(M, node):
     all_ports = [
         p for p in nx.neighbors(M, node) if M.nodes[p]["node"] == NodeType.PORT
@@ -885,12 +849,15 @@ def geometrize(instance, M):
 
     return geometries
 
+
 def read_instance(name):
     with open(f"data/{name}.json") as f:
         data = json.load(f)
     elements = data["E"]
     sets = data["S"]
     inst = {
+        "grid_x": 10,
+        "grid_y": 10,
         "elements": elements,
         "sets": sets,
         "set_system": list_of_lists_to_set_system_dict(elements, data["SR"]),
@@ -909,10 +876,10 @@ def read_instance(name):
 
 
 if __name__ == "__main__":
-    m = 10
-    n = 10
     instance = read_instance("imdb/imdb_10")
     lattice_type = "sqr"
+    m = instance["grid_x"]
+    n = instance["grid_y"]
 
     with timing("layout"):
         instance["glyph_positions"] = layout_dr(
@@ -941,6 +908,8 @@ if __name__ == "__main__":
 
     with timing("bundle lines"):
         M = bundle_lines(instance, M)
+
+    draw_support(instance, M.copy())
 
     with timing("draw svg"):
         geometries = geometrize(instance, M)
