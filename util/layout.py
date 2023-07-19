@@ -12,6 +12,7 @@ from sklearn.manifold import MDS
 from sklearn.preprocessing import MinMaxScaler, normalize
 from scipy.spatial import procrustes
 
+from util.draw import draw_embedding
 from util.DGrid import DGrid
 
 # import umap
@@ -430,8 +431,7 @@ def layout_dr(elements, D_EA, D_SR, m=10, n=10, weight=0.5, skip_overlap_removal
     mds = MDS(n_components=2, metric=True, random_state=2, dissimilarity="precomputed")
     H_mds = mds.fit_transform(D)
 
-    # sns.scatterplot(x=H_mds[:,0], y=H_mds[:,1], palette='Set1')
-    # plt.show()
+    draw_embedding(H_mds, './embedding_raw.svg')
 
     if not skip_overlap_removal:
         x_min = np.min(H_mds[:, 0])
@@ -449,6 +449,8 @@ def layout_dr(elements, D_EA, D_SR, m=10, n=10, weight=0.5, skip_overlap_removal
             H_mds
         )
 
+        draw_embedding(h_overlap_removed, './embedding_gridded.svg')
+
         pos = []
         for i in range(len(DE)):
             pos.append((int(h_overlap_removed[i, 0]), int(h_overlap_removed[i, 1])))
@@ -456,6 +458,7 @@ def layout_dr(elements, D_EA, D_SR, m=10, n=10, weight=0.5, skip_overlap_removal
         pos = []
         for i in range(len(DE)):
             pos.append((H_mds[i, 0], H_mds[i, 1]))
+
 
     return pos
 

@@ -20,6 +20,7 @@ from util.collections import (
     merge_alternating,
 )
 from util.enums import EdgePenalty, EdgeType, NodeType
+from util.draw import draw_svg
 from util.geometry import (
     are_faces_adjacent,
     biarc,
@@ -884,16 +885,6 @@ def geometrize(instance, M):
 
     return geometries
 
-
-def draw_svg(geometries, width, height):
-    d = svg.Drawing(width, height, origin=(0, 0))
-
-    for e in geometries:
-        d.append(e)
-
-    return d.as_svg()
-
-
 def read_instance(name):
     with open(f"data/{name}.json") as f:
         data = json.load(f)
@@ -930,7 +921,7 @@ if __name__ == "__main__":
             instance["D_SR"],
             m=m,
             n=n,
-            weight=1,
+            weight=0,
         )
 
     with timing("routing"):
