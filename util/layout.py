@@ -467,19 +467,20 @@ def layout_dr_multiple(D_EA, D_SR, m=10, n=10, num_samples=10):
 
     pos_mtx = []
     for weight in np.linspace(0, 1, num_samples):
+        print(f'weight={weight}')
         DE = (D_EA - np.min(D_EA)) / (np.max(D_EA) - np.min(D_EA))
         DS = np.array(D_SR)
         D = (1 - weight) * DE + weight * DS
 
         mds = MDS(
-            n_components=2, metric=True, random_state=2, dissimilarity="precomputed"
+            n_components=2, metric=True, random_state=2, dissimilarity="precomputed", normalized_stress='auto'
         )
         H_mds = mds.fit_transform(D)
 
         # sns.scatterplot(x=H_mds[:,0], y=H_mds[:,1], palette='Set1')
         # plt.show()
 
-        pos = np.zeros((8, 2))
+        pos = np.zeros((len(DE), 2))
         for i in range(len(DE)):
             pos[i][0] = H_mds[i, 0]
             pos[i][1] = H_mds[i, 1]

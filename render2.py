@@ -11,6 +11,7 @@ import networkx as nx
 import numpy as np
 
 from util.bundle import bundle_lines
+from util.route import route_multilayer
 from util.collections import (
     get_elements_in_same_lists,
     group_by_intersection_group,
@@ -131,7 +132,7 @@ def add_ports_to_sqr_node(G, node, data, side_length=0.25):
     return G
 
 
-def make_sqr_graph(m, n):
+def make_sqr_graph(m, n, with_ports=True):
     G = nx.grid_2d_graph(m, n)
     G = nx.MultiGraph(incoming_graph_data=G)
     for _1, _2, e in G.edges(data=True):
@@ -165,51 +166,52 @@ def make_sqr_graph(m, n):
                 edge=EdgeType.CENTER,
             )
 
-    for node, center in G.nodes(data=True):
-        G_ = add_ports_to_sqr_node(G_, node, center, side_length=0.25)
+    if with_ports:
+        for node, center in G.nodes(data=True):
+            G_ = add_ports_to_sqr_node(G_, node, center, side_length=0.25)
 
-    G_logical = nx.subgraph_view(G_, filter_edge=lambda u, v, k: k == EdgeType.CENTER)
-    G_physical = nx.subgraph_view(
-        G_, filter_edge=lambda u, v, k: k == EdgeType.PHYSICAL
-    )
-
-    for node in list(G_.nodes()):
-        if G_.nodes[node]["node"] != NodeType.CENTER:
-            continue
-
-        ports = list(nx.neighbors(G_physical, node))
-
-        # find neighbors and add physical edges to ports
-        neighbors = list(
-            nx.neighbors(
-                G_logical,
-                node,
-            )
+        G_logical = nx.subgraph_view(G_, filter_edge=lambda u, v, k: k == EdgeType.CENTER)
+        G_physical = nx.subgraph_view(
+            G_, filter_edge=lambda u, v, k: k == EdgeType.PHYSICAL
         )
-        for neighbor in neighbors:
-            ports_nb = list(nx.neighbors(G_physical, neighbor))
-            # use physically closest port for any neighbor
-            port_nb = get_closest_point(G_.nodes[node]["pos"], ports_nb)
-            port_self = get_closest_point(G_.nodes[neighbor]["pos"], ports)
-            length_penalty = dist_euclidean(port_nb, port_self)
 
-            G_.add_edge(
-                port_self,
-                port_nb,
-                EdgeType.PHYSICAL,
-                edge=EdgeType.PHYSICAL,
-                weight=EdgePenalty.HOP + length_penalty,
+        for node in list(G_.nodes()):
+            if G_.nodes[node]["node"] != NodeType.CENTER:
+                continue
+
+            ports = list(nx.neighbors(G_physical, node))
+
+            # find neighbors and add physical edges to ports
+            neighbors = list(
+                nx.neighbors(
+                    G_logical,
+                    node,
+                )
             )
+            for neighbor in neighbors:
+                ports_nb = list(nx.neighbors(G_physical, neighbor))
+                # use physically closest port for any neighbor
+                port_nb = get_closest_point(G_.nodes[node]["pos"], ports_nb)
+                port_self = get_closest_point(G_.nodes[neighbor]["pos"], ports)
+                length_penalty = dist_euclidean(port_nb, port_self)
+
+                G_.add_edge(
+                    port_self,
+                    port_nb,
+                    EdgeType.PHYSICAL,
+                    edge=EdgeType.PHYSICAL,
+                    weight=EdgePenalty.HOP + length_penalty,
+                )
 
     return G_
 
 
-def get_routing_graph(lattice_type, lattice_size):
+def get_routing_graph(lattice_type, lattice_size, with_ports=True):
     m, n = lattice_size
     G = None
     match lattice_type:
         case "sqr":
-            G = make_sqr_graph(m, n)
+            G = make_sqr_graph(m, n, with_ports=with_ports)
         case _:
             raise Exception(f"unknown lattice type {lattice_type}")
     return G
@@ -906,7 +908,6 @@ if __name__ == "__main__":
 
     with timing("layout"):
         instance["glyph_positions"] = layout_dr_multiple(
-            instance["elements"],
             instance["D_EA"],
             instance["D_SR"],
             m=m,
@@ -915,7 +916,7 @@ if __name__ == "__main__":
         )
 
     with timing("routing"):
-        G = get_routing_graph(lattice_type, (m, n))
+        G = get_routing_graph(lattice_type, (m, n), with_ports=False)
         G = add_glyphs_to_nodes(instance, G)
         element_set_partition = (
             group_by_intersection_group(instance["set_system"])
@@ -925,9 +926,12 @@ if __name__ == "__main__":
         element_set_partition = sorted(
             element_set_partition, key=lambda x: len(x[1]), reverse=True
         )
-        M = route_set_lines(
-            instance, G, element_set_partition, support_type=instance["support_type"]
-        )
+        M = route_multilayer(instance, G, element_set_partition,  support_type=instance["support_type"])
+        print(M)
+        sys.exit(0)
+        #M = route_set_lines(
+        #    instance, G, element_set_partition, support_type=instance["support_type"]
+        #)
 
     with timing("bundle lines"):
         M = bundle_lines(instance, M)
