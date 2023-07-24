@@ -69,7 +69,7 @@ from util.graph import (
     path_to_edges,
     visit_edge_pairs_starting_at_node,
 )
-from util.layout import layout_dr, layout_qsap
+from util.layout import layout_dr, layout_qsap,layout_dr_multiple
 from util.perf import timing
 
 PORT_DIRS = ["n", "ne", "e", "se", "s", "sw", "w", "nw"]
@@ -216,17 +216,38 @@ def get_routing_graph(lattice_type, lattice_size):
 
 
 def add_glyphs_to_nodes(instance, G):
-    for n in G.nodes():
-        G.nodes[n]["occupied"] = False
-    for i, element in enumerate(instance["elements"]):
-        logpos = instance["glyph_positions"][i]
-        if G.nodes[logpos]["node"] != NodeType.CENTER:
-            raise Exception("node to position glyph on is somehow not a glyph center")
-        G.nodes[logpos]["occupied"] = True
-        G.nodes[logpos]["label"] = element
-        if "glyph_ids" in instance:
-            G.nodes[logpos]["glyph"] = instance["glyph_ids"][i]
+    num_layers = instance['num_layers']
+
+    for n in [n for n in G.nodes() if G.nodes[n]['node'] == NodeType.CENTER]:
+        #G.nodes[n]["occupied"] = False
+        layers = []
+
+        for k in range(num_layers):
+            layer_info = {
+                'occupied': False
+            }
+            for i, element in enumerate(instance["elements"]):
+                logpos = instance["glyph_positions"][k][i]
+                if logpos == n:
+                    layer_info = {
+                        'occupied': True,
+                        'label': element,
+                    }
+                    if "glyph_ids" in instance:
+                        layer_info["glyph"] = instance["glyph_ids"][i]
+            layers.append(layer_info)
+        G.nodes[n]['layers'] = layers
     return G
+
+    #for i, element in enumerate(instance["elements"]):
+    #    logpos = instance["glyph_positions"][i]
+    #    if G.nodes[logpos]["node"] != NodeType.CENTER:
+    #        raise Exception("node to position glyph on is somehow not a glyph center")
+    #    G.nodes[logpos]["occupied"] = True
+    #    G.nodes[logpos]["label"] = element
+    #    if "glyph_ids" in instance:
+    #        G.nodes[logpos]["glyph"] = instance["glyph_ids"][i]
+    #return G
 
 
 # TODO could be a context manager
@@ -880,15 +901,17 @@ if __name__ == "__main__":
     lattice_type = "sqr"
     m = instance["grid_x"]
     n = instance["grid_y"]
+    num_layers = 2
+    instance['num_layers'] = num_layers
 
     with timing("layout"):
-        instance["glyph_positions"] = layout_dr(
+        instance["glyph_positions"] = layout_dr_multiple(
             instance["elements"],
             instance["D_EA"],
             instance["D_SR"],
             m=m,
             n=n,
-            weight=0,
+            num_samples=num_layers,
         )
 
     with timing("routing"):

@@ -431,7 +431,7 @@ def layout_dr(elements, D_EA, D_SR, m=10, n=10, weight=0.5, skip_overlap_removal
     mds = MDS(n_components=2, metric=True, random_state=2, dissimilarity="precomputed")
     H_mds = mds.fit_transform(D)
 
-    draw_embedding(H_mds, './embedding_raw.svg')
+    draw_embedding(H_mds, "./embedding_raw.svg")
 
     if not skip_overlap_removal:
         x_min = np.min(H_mds[:, 0])
@@ -449,7 +449,7 @@ def layout_dr(elements, D_EA, D_SR, m=10, n=10, weight=0.5, skip_overlap_removal
             H_mds
         )
 
-        draw_embedding(h_overlap_removed, './embedding_gridded.svg')
+        draw_embedding(h_overlap_removed, "./embedding_gridded.svg")
 
         pos = []
         for i in range(len(DE)):
@@ -458,7 +458,6 @@ def layout_dr(elements, D_EA, D_SR, m=10, n=10, weight=0.5, skip_overlap_removal
         pos = []
         for i in range(len(DE)):
             pos.append((H_mds[i, 0], H_mds[i, 1]))
-
 
     return pos
 
