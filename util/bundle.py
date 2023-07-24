@@ -337,7 +337,7 @@ def convert_to_line_graph(G):
 
     S = nx.subgraph_view(G, filter_edge=lambda u, v, k: k == EdgeType.SUPPORT)
 
-    for u, v,k in S.edges(keys=True):
+    for u, v, k in S.edges(keys=True):
         utype = G.nodes[u]["node"]
         vtype = G.nodes[v]["node"]
         uparent = G.nodes[u]["belongs_to"] if utype == NodeType.PORT else None
@@ -464,21 +464,31 @@ def bundle_lines(instance, M):
     # 2) map nodes onto a small geographic area and export as GeoJSON
     # 3) feed it to LOOM
     # 4) read result back in - bam we have an ordering
-    G = convert_to_line_graph(M)
-    G_for_loom = convert_to_geojson(G)
-    with open('loom_input.json','w') as f:
-        f.write(G_for_loom)
-        loom = subprocess.run(
-            ["loom", "-m", "ilp", "--ilp-solver", "glpk"], input=G_for_loom.encode(), check=True, capture_output=True
+    # G = convert_to_line_graph(M)
+
+    for layer in range(instance.get("num_layers", 2)):
+        G = nx.subgraph_view(
+            M,
+            filter_edge=lambda u, v, k: k == (layer, EdgeType.SUPPORT)
         )
-    G = read_loom_output(loom.stdout.decode(), G)
-    with open('loom_output.json','w') as f:
-        f.write(loom.stdout.decode())
+        G_for_loom = convert_to_geojson(G)
+        with open(f"loom_input_{layer}.json", "w") as f:
+            f.write(G_for_loom)
+            loom = subprocess.run(
+                ["loom", "-m", "ilp", "--ilp-solver", "glpk"],
+                input=G_for_loom.encode(),
+                check=True,
+                capture_output=True,
+            )
+        G = read_loom_output(loom.stdout.decode(), G)
+        with open(f"loom_output_{layer}.json", "w") as f:
+            f.write(loom.stdout.decode())
 
-    for u, v, d in G.edges(data=True):
-        w = d["port1"] if M.nodes[d['port1']]['belongs_to'] == u else d['port2']
-        x = d["port1"] if M.nodes[d['port1']]['belongs_to'] == v else d['port2']
-        order = {(w, x): d["oeb_order"][(u, v)], (x, w): d["oeb_order"][(v, u)]}
+        for u, v, d in G.edges(data=True):
+            # w = d["port1"] if M.nodes[d['port1']]['belongs_to'] == u else d['port2']
+            # x = d["port1"] if M.nodes[d['port1']]['belongs_to'] == v else d['port2']
+            # order = {(w, x): d["oeb_order"][(u, v)], (x, w): d["oeb_order"][(v, u)]}
+            order = {(u, v): d["oeb_order"][(u, v)], (v, u): d["oeb_order"][(v, u)]}
 
-        M.edges[(w, x, EdgeType.SUPPORT)]["oeb_order"] = order
+            M.edges[(u, v, (layer, EdgeType.SUPPORT))]["oeb_order"] = order
     return M

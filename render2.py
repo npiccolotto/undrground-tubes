@@ -16,6 +16,7 @@ from util.collections import (
     get_elements_in_same_lists,
     group_by_intersection_group,
     group_by_set,
+    invert_list,
     invert_dict_of_lists,
     list_of_lists_to_set_system_dict,
     merge_alternating,
@@ -70,7 +71,7 @@ from util.graph import (
     path_to_edges,
     visit_edge_pairs_starting_at_node,
 )
-from util.layout import layout_dr, layout_qsap,layout_dr_multiple
+from util.layout import layout_dr, layout_qsap, layout_dr_multiple
 from util.perf import timing
 
 PORT_DIRS = ["n", "ne", "e", "se", "s", "sw", "w", "nw"]
@@ -170,7 +171,9 @@ def make_sqr_graph(m, n, with_ports=True):
         for node, center in G.nodes(data=True):
             G_ = add_ports_to_sqr_node(G_, node, center, side_length=0.25)
 
-        G_logical = nx.subgraph_view(G_, filter_edge=lambda u, v, k: k == EdgeType.CENTER)
+        G_logical = nx.subgraph_view(
+            G_, filter_edge=lambda u, v, k: k == EdgeType.CENTER
+        )
         G_physical = nx.subgraph_view(
             G_, filter_edge=lambda u, v, k: k == EdgeType.PHYSICAL
         )
@@ -218,30 +221,28 @@ def get_routing_graph(lattice_type, lattice_size, with_ports=True):
 
 
 def add_glyphs_to_nodes(instance, G):
-    num_layers = instance['num_layers']
+    num_layers = instance["num_layers"]
 
-    for n in [n for n in G.nodes() if G.nodes[n]['node'] == NodeType.CENTER]:
-        #G.nodes[n]["occupied"] = False
+    for n in [n for n in G.nodes() if G.nodes[n]["node"] == NodeType.CENTER]:
+        # G.nodes[n]["occupied"] = False
         layers = []
 
         for k in range(num_layers):
-            layer_info = {
-                'occupied': False
-            }
+            layer_info = {"occupied": False}
             for i, element in enumerate(instance["elements"]):
                 logpos = instance["glyph_positions"][k][i]
                 if logpos == n:
                     layer_info = {
-                        'occupied': True,
-                        'label': element,
+                        "occupied": True,
+                        "label": element,
                     }
                     if "glyph_ids" in instance:
                         layer_info["glyph"] = instance["glyph_ids"][i]
             layers.append(layer_info)
-        G.nodes[n]['layers'] = layers
+        G.nodes[n]["layers"] = layers
     return G
 
-    #for i, element in enumerate(instance["elements"]):
+    # for i, element in enumerate(instance["elements"]):
     #    logpos = instance["glyph_positions"][i]
     #    if G.nodes[logpos]["node"] != NodeType.CENTER:
     #        raise Exception("node to position glyph on is somehow not a glyph center")
@@ -249,7 +250,7 @@ def add_glyphs_to_nodes(instance, G):
     #    G.nodes[logpos]["label"] = element
     #    if "glyph_ids" in instance:
     #        G.nodes[logpos]["glyph"] = instance["glyph_ids"][i]
-    #return G
+    # return G
 
 
 # TODO could be a context manager
@@ -882,6 +883,7 @@ def read_instance(name):
         "grid_x": 10,
         "grid_y": 10,
         "elements": elements,
+        "elements_inv": invert_list(elements),
         "sets": sets,
         "set_system": list_of_lists_to_set_system_dict(elements, data["SR"]),
         "D_EA": data["EA"],
@@ -904,7 +906,7 @@ if __name__ == "__main__":
     m = instance["grid_x"]
     n = instance["grid_y"]
     num_layers = 2
-    instance['num_layers'] = num_layers
+    instance["num_layers"] = num_layers
 
     with timing("layout"):
         instance["glyph_positions"] = layout_dr_multiple(
@@ -926,24 +928,31 @@ if __name__ == "__main__":
         element_set_partition = sorted(
             element_set_partition, key=lambda x: len(x[1]), reverse=True
         )
-        M = route_multilayer(instance, G, element_set_partition,  support_type=instance["support_type"])
-        print(M)
+        M = route_multilayer(
+            instance, G, element_set_partition, support_type=instance["support_type"]
+        )
         sys.exit(0)
-        #M = route_set_lines(
+        # M = route_set_lines(
         #    instance, G, element_set_partition, support_type=instance["support_type"]
-        #)
+        # )
 
     with timing("bundle lines"):
         M = bundle_lines(instance, M)
 
     draw_support(instance, M.copy())
 
-    with timing("draw svg"):
-        geometries = geometrize(instance, M)
-        img = draw_svg(geometries, m * CELL_SIZE_PX, n * CELL_SIZE_PX)
-    with timing("write svg"):
-        with open("drawing.svg", "w") as f:
-            f.write(img)
-            f.flush()
+    with timing("draw+write svg"):
+        for layer in range(num_layers):
+            M_ = nx.MultiGraph()
+            for n,d in M.nodes(data=True):
+                M_.add_node(n, pos=d['pos'], **d['layers'][layer])
+            for u,v,k,d in M.edges(data=True,keys=True):
+                if k == (layer, EdgeType.SUPPORT):
+                    M_.add_edge(u,v,EdgeType.SUPPORT, **d)
+            geometries = geometrize(instance, M_)
+            img = draw_svg(geometries, m * CELL_SIZE_PX, n * CELL_SIZE_PX)
+            with open("drawing_{layer}.svg", "w") as f:
+                f.write(img)
+                f.flush()
 
     print("Done.")
