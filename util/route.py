@@ -2,7 +2,7 @@ import networkx as nx
 import gurobipy as gp
 from gurobipy import GRB
 from util.enums import EdgeType
-from itertools import product
+from itertools import product, combinations
 
 
 def route_multilayer(instance, G, element_set_partition, support_type="tree"):
@@ -14,7 +14,7 @@ def route_multilayer(instance, G, element_set_partition, support_type="tree"):
 
     model = gp.Model("multilayer-route")
     # model.params.timeLimit = 10
-    model.params.MIPGap = 0.05
+    model.params.MIPGap = 0.2
 
     edges = list(M.edges())
 
@@ -27,6 +27,7 @@ def route_multilayer(instance, G, element_set_partition, support_type="tree"):
             for e in edges
         ],
         vtype=GRB.BINARY,
+        name="flow",
     )
 
     x = model.addVars(edges, vtype=GRB.BINARY, name="x_uv")
@@ -48,6 +49,25 @@ def route_multilayer(instance, G, element_set_partition, support_type="tree"):
                     model.addConstr(f[(k, i, j, e)] <= x[e])
 
     model.setObjective(gp.quicksum(x))
+
+    # max-degree constraints for unoccupied nodes (prevent forks at those)
+    for n in G.nodes():
+        out_edges_at_n = nx.edges(M, nbunch=n)
+        in_edges_at_n = [(v, u) for u, v in out_edges_at_n]
+
+        if not G.nodes[n]["layers"][k]["occupied"]:
+            for k in range(num_layers):
+                for i in range(len(element_set_partition)):
+                    num_js = len(element_set_partition[i][0])
+                    for j1, j2 in combinations(range(1, num_js), 2):
+                        for e1, e2 in product(in_edges_at_n, repeat=2):
+                            if e1 == e2:
+                                continue
+                            model.addConstr(f[(k, i, j1, e1)] + f[(k, i, j2, e2)] <= 1)
+                        for e1, e2 in product(out_edges_at_n, repeat=2):
+                            if e1 == e2:
+                                continue
+                            model.addConstr(f[(k, i, j1, e1)] + f[(k, i, j2, e2)] <= 1)
 
     # MCF constraints
 
@@ -147,11 +167,11 @@ def route_multilayer(instance, G, element_set_partition, support_type="tree"):
             elements, sets = esp
 
             for j, el in enumerate(elements):
-                print((k, i, j), instance["glyph_positions"][k][el_idx_lookup[el]])
+                # print((k, i, j), instance["glyph_positions"][k][el_idx_lookup[el]])
                 for e in edges:
                     u, v = e
                     if j > 0 and f[(k, i, j, e)].x > 0:
-                        print((k, i, j, e))
+                        # ((k, i, j, e))
                         if (u, v, (k, EdgeType.SUPPORT)) not in MM.edges:
                             MM.add_edge(
                                 u,
@@ -159,7 +179,7 @@ def route_multilayer(instance, G, element_set_partition, support_type="tree"):
                                 (k, EdgeType.SUPPORT),
                                 layer=k,
                                 sets=sets,
-                                partitions=[(i,j)],
+                                partitions=[(i, j)],
                             )
                         else:
                             merged_sets = set(
@@ -167,7 +187,7 @@ def route_multilayer(instance, G, element_set_partition, support_type="tree"):
                             ).union(set(sets))
                             merged_partitions = set(
                                 MM.edges[u, v, (k, EdgeType.SUPPORT)]["partitions"]
-                            ).union(set([(i,j)]))
+                            ).union(set([(i, j)]))
                             MM.add_edge(
                                 u,
                                 v,

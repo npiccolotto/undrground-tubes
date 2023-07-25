@@ -1118,9 +1118,11 @@ if __name__ == "__main__":
         for layer in range(num_layers):
             M_ = nx.MultiGraph()
             for n, d in G.nodes(data=True):
-                if d['node'] == NodeType.CENTER:
-                    M_.add_node(n, pos=d["pos"], node=NodeType.CENTER, **d["layers"][layer])
-                if d['node'] == NodeType.PORT:
+                if d["node"] == NodeType.CENTER:
+                    M_.add_node(
+                        n, pos=d["pos"], node=NodeType.CENTER, **d["layers"][layer]
+                    )
+                if d["node"] == NodeType.PORT:
                     M_.add_node(n, **d)
             for u, v, k, d in G.edges(data=True, keys=True):
                 if k == (layer, EdgeType.SUPPORT):
