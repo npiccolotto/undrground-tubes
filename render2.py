@@ -156,6 +156,7 @@ def make_sqr_graph(m, n, with_ports=True):
                 neighbor_nw,
                 EdgeType.CENTER,
                 edge=EdgeType.CENTER,
+                crossing=None if not can_tilt_left else (node, neighbor_ne),
             )
         can_tilt_left = y > 0 and x > 0
         if can_tilt_left:
@@ -165,6 +166,7 @@ def make_sqr_graph(m, n, with_ports=True):
                 neighbor_ne,
                 EdgeType.CENTER,
                 edge=EdgeType.CENTER,
+                crossing=None if not can_tilt_right else (node, neighbor_nw),
             )
 
     if with_ports:
