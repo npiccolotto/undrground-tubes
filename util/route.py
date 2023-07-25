@@ -1,8 +1,37 @@
+import math
 import networkx as nx
 import gurobipy as gp
 from gurobipy import GRB
-from util.enums import EdgeType
 from itertools import product, combinations
+from util.enums import EdgeType, EdgePenalty
+from util.geometry import get_angle
+
+USE_MAX_DEG_CONSTR = True
+PREVENT_FORKS_AT_GLYPHS = False
+
+
+def get_bend(e1, e2):
+    u, v = e1
+    v, x = e2
+
+    base = get_angle(u, v) * 180 / math.pi
+    turn = get_angle(v, x) * 180 / math.pi
+
+    bend = abs(180 - abs(turn - base))
+
+    match int(bend):
+        case 180:
+            return 0
+        case 0:
+            return 0
+        case 135:
+            return 1
+        case 90:
+            return 2
+        case 45:
+            return 3
+
+    raise BaseException(f"invalid bend: {bend}")
 
 
 def route_multilayer(instance, G, element_set_partition, support_type="tree"):
@@ -48,26 +77,91 @@ def route_multilayer(instance, G, element_set_partition, support_type="tree"):
                 for j in range(1, len(elements)):
                     model.addConstr(f[(k, i, j, e)] <= x[e])
 
-    model.setObjective(gp.quicksum(x))
+    # bend penalties
+    b = model.addVars(
+        [
+            (k, i, n, t)
+            for k in range(num_layers)
+            for i in range(len(element_set_partition))
+            for n in G.nodes()
+            for t in range(4)
+        ],
+        vtype=GRB.BINARY,
+        name="bends",
+    )
+
+    for k in range(num_layers):
+        for i in range(len(element_set_partition)):
+            for n in G.nodes():
+                model.addConstr(gp.quicksum([b[(k, i, n, t)] for t in range(4)]) <= 1)
+
+    x_ki = model.addVars(
+        [
+            (k, i, e)
+            for k in range(num_layers)
+            for i in range(len(element_set_partition))
+            for e in edges
+        ],
+        vtype=GRB.BINARY,
+        name="x_ki",
+    )
+    # linking constraints flow to x_ki
+    for e in edges:
+        for k in range(num_layers):
+            for i, esp in enumerate(element_set_partition):
+                elements, sets = esp
+                for j in range(1, len(elements)):
+                    model.addConstr(f[(k, i, j, e)] <= x_ki[(k, i, e)])
+
+    for n in G.nodes():
+        out_edges_at_n = M.edges(nbunch=n)
+        in_edges_at_n = [(v, u) for u, v in out_edges_at_n]
+        for k in range(num_layers):
+            for i in range(len(element_set_partition)):
+                for e1, e2 in product(in_edges_at_n, out_edges_at_n):
+                    both_on = model.addVar(vtype=GRB.BINARY)
+                    model.addConstr(
+                        both_on == gp.and_(x_ki[(k, i, e1)], x_ki[(k, i, e2)])
+                    )
+                    model.addConstr(both_on <= b[(k, i, n, get_bend(e1, e2))])
+
+    model.setObjective(
+        gp.quicksum(x) * EdgePenalty.HOP
+        + gp.quicksum(
+            [
+                b[(k, i, n, 0)] * EdgePenalty.ONE_EIGHTY
+                + b[(k, i, n, 1)] * EdgePenalty.ONE_THIRTY_FIVE
+                + b[(k, i, n, 2)] * EdgePenalty.NINETY
+                + b[(k, i, n, 3)] * EdgePenalty.FORTY_FIVE
+                for k in range(num_layers)
+                for i in range(len(element_set_partition))
+                for n in G.nodes()
+            ]
+        )
+    )
 
     # max-degree constraints for unoccupied nodes (prevent forks at those)
-    for n in G.nodes():
-        out_edges_at_n = nx.edges(M, nbunch=n)
-        in_edges_at_n = [(v, u) for u, v in out_edges_at_n]
+    if USE_MAX_DEG_CONSTR:
+        # TODO alternatively we could compute the degree and put it into objective with penalty
+        for n in G.nodes():
+            out_edges_at_n = nx.edges(M, nbunch=n)
+            in_edges_at_n = [(v, u) for u, v in out_edges_at_n]
 
-        if not G.nodes[n]["layers"][k]["occupied"]:
-            for k in range(num_layers):
-                for i in range(len(element_set_partition)):
-                    num_js = len(element_set_partition[i][0])
-                    for j1, j2 in combinations(range(1, num_js), 2):
-                        for e1, e2 in product(in_edges_at_n, repeat=2):
-                            if e1 == e2:
-                                continue
-                            model.addConstr(f[(k, i, j1, e1)] + f[(k, i, j2, e2)] <= 1)
-                        for e1, e2 in product(out_edges_at_n, repeat=2):
-                            if e1 == e2:
-                                continue
-                            model.addConstr(f[(k, i, j1, e1)] + f[(k, i, j2, e2)] <= 1)
+            if (PREVENT_FORKS_AT_GLYPHS and G.nodes[n]["layers"][k]["occupied"]) or (
+                not PREVENT_FORKS_AT_GLYPHS and not G.nodes[n]["layers"][k]["occupied"]
+            ):
+                for k in range(num_layers):
+                    for i in range(len(element_set_partition)):
+                        num_js = len(element_set_partition[i][0])
+                        for j1, j2 in combinations(range(1, num_js), 2):
+                            for e1, e2 in product(in_edges_at_n, repeat=2):
+                                if e1 == e2:
+                                    continue
+                                model.addConstr(f[(k, i, j1, e1)] + f[(k, i, j2, e2)] <= 1)
+                            for e1, e2 in product(out_edges_at_n, repeat=2):
+                                if e1 == e2:
+                                    continue
+                                model.addConstr(f[(k, i, j1, e1)] + f[(k, i, j2, e2)] <= 1)
 
     # MCF constraints
 
