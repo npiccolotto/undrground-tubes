@@ -152,15 +152,30 @@ def route_multilayer(instance, G, element_set_partition, support_type="tree"):
                     u, v = e
                     if j > 0 and f[(k, i, j, e)].x > 0:
                         print((k, i, j, e))
-                        if (u, v, EdgeType.SUPPORT) not in MM.edges:
-                            MM.add_edge(u, v, EdgeType.SUPPORT, layer=k, sets=sets)
-                        else:
-                            existing_sets = set(
-                                MM.edges[u, v, EdgeType.SUPPORT]["sets"]
-                            )
-                            merged_sets = existing_sets.union(set(sets))
+                        if (u, v, (k, EdgeType.SUPPORT)) not in MM.edges:
                             MM.add_edge(
-                                u, v, (k, EdgeType.SUPPORT), layer=k, edge=EdgeType.SUPPORT, sets=merged_sets
+                                u,
+                                v,
+                                (k, EdgeType.SUPPORT),
+                                layer=k,
+                                sets=sets,
+                                partitions=[(i,j)],
+                            )
+                        else:
+                            merged_sets = set(
+                                MM.edges[u, v, (k, EdgeType.SUPPORT)]["sets"]
+                            ).union(set(sets))
+                            merged_partitions = set(
+                                MM.edges[u, v, (k, EdgeType.SUPPORT)]["partitions"]
+                            ).union(set([(i,j)]))
+                            MM.add_edge(
+                                u,
+                                v,
+                                (k, EdgeType.SUPPORT),
+                                layer=k,
+                                edge=EdgeType.SUPPORT,
+                                sets=merged_sets,
+                                partitions=merged_partitions,
                             )
 
     return MM

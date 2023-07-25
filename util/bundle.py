@@ -422,7 +422,7 @@ def str_tuple_to_tuple(s):
     return tuple(map(lambda x: int(x), s[1:-1].split(",")))
 
 
-def read_loom_output(output, G):
+def read_loom_output(output, G, layer):
     geojson_dict = json.loads(output)
 
     points = [
@@ -450,7 +450,7 @@ def read_loom_output(output, G):
     for lid, feature in lines:
         u, v = lid
         line_order = feature["properties"]["dbg_lines"].split(",")
-        G.edges[(u, v)]["oeb_order"] = {
+        G.edges[(u, v, (layer, EdgeType.SUPPORT))]["oeb_order"] = {
             (u, v): line_order,
             (v, u): list(reversed(line_order)),
         }
@@ -480,7 +480,7 @@ def bundle_lines(instance, M):
                 check=True,
                 capture_output=True,
             )
-        G = read_loom_output(loom.stdout.decode(), G)
+        G = read_loom_output(loom.stdout.decode(), G, layer)
         with open(f"loom_output_{layer}.json", "w") as f:
             f.write(loom.stdout.decode())
 
