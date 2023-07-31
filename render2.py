@@ -972,7 +972,7 @@ def read_instance(name):
         # pipeline config
         "dr_method": "mds",
         "dr_gridification": "hagrid",  #  'hagrid' or 'dgrid'
-        "support_type": "path",  #  'path' or 'steiner-tree'
+        "support_type": "steiner-tree",  #  'path' or 'steiner-tree'
         "support_partition_by": "set",  #  'set' or 'intersection-group'
     }
     if "glyph_ids" in data:

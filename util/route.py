@@ -12,7 +12,7 @@ EDGE_SOFT_CONSTRAINT_WEIGHT = 1
 # factor for edges of one line
 EDGE_LAYER_SOFT_CONSTRAINT_WEIGHT = 1
 # factor for bends
-BEND_SOFT_CONSTRAINT_WEIGHT = 8
+BEND_SOFT_CONSTRAINT_WEIGHT = 10
 
 
 def get_bend(e1, e2):
@@ -181,22 +181,19 @@ def route_multilayer_ilp(
                 if is_steiner:
                     model.addConstr(sum_in == sum_out)
 
-    obj = BEND_SOFT_CONSTRAINT_WEIGHT * gp.quicksum(
-        [
-            b[(k, i, n, 0)] * EdgePenalty.ONE_EIGHTY
-            + b[(k, i, n, 1)] * EdgePenalty.ONE_THIRTY_FIVE
-            + b[(k, i, n, 2)] * EdgePenalty.NINETY
-            + b[(k, i, n, 3)] * EdgePenalty.FORTY_FIVE
-            for k in range(num_layers)
-            for i in range(len(element_set_partition))
-            for n in G.nodes()
-        ]
+    obj = (
+        BEND_SOFT_CONSTRAINT_WEIGHT
+        * gp.quicksum(
+            [
+                b[(k, i, n, 1)] + b[(k, i, n, 2)] * 2 + b[(k, i, n, 3)] * 3
+                for k in range(num_layers)
+                for i in range(len(element_set_partition))
+                for n in G.nodes()
+            ]
+        )
+        + EDGE_SOFT_CONSTRAINT_WEIGHT * gp.quicksum(x_all)
+        + EDGE_LAYER_SOFT_CONSTRAINT_WEIGHT * gp.quicksum(x)
     )
-    """
-    EDGE_SOFT_CONSTRAINT_WEIGHT * gp.quicksum(
-        x_all
-    ) + EDGE_LAYER_SOFT_CONSTRAINT_WEIGHT * gp.quicksum(x)
-    + """
 
     crossings = set()
     for u, v, k in G.edges(keys=True):
