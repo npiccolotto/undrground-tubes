@@ -23,12 +23,12 @@ SET_COLORS = [
     "#e31a1c",
     "#ff7f00",
     "#6a3d9a",
-    "#ffff33",
     "#b15928",
-    "#a6cee3",
-    "#b2df8a",
-    "#fb9a99",
     "#666666",
+    "#a6cee3",
+    "#fb9a99",
+    "#b2df8a",
+    "#ffff33",
 ]  # chosen according to set front to back order
 
 

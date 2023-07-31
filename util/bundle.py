@@ -468,14 +468,23 @@ def bundle_lines(instance, M):
 
     for layer in range(instance.get("num_layers", 2)):
         G = nx.subgraph_view(
-            M,
-            filter_edge=lambda u, v, k: k == (layer, EdgeType.SUPPORT)
+            M, filter_edge=lambda u, v, k: k == (layer, EdgeType.SUPPORT)
         )
         G_for_loom = convert_to_geojson(G)
         with open(f"loom_input_{layer}.json", "w") as f:
             f.write(G_for_loom)
             loom = subprocess.run(
-                ["loom", "-m", "ilp", "--ilp-solver", "glpk"],
+                [
+                    "loom",
+                    "-m",
+                    "ilp",
+                    "--ilp-solver",
+                    "glpk",
+                    "--ilp-num-threads",
+                    "8",
+                    "--ilp-time-limit",
+                    "180",
+                ],
                 input=G_for_loom.encode(),
                 check=True,
                 capture_output=True,

@@ -1,8 +1,8 @@
-from collections import defaultdict
 import json
 import math
 import subprocess
 import sys
+from collections import defaultdict
 from itertools import chain, combinations, pairwise, product
 
 import drawsvg as svg
@@ -11,34 +11,33 @@ import networkx as nx
 import numpy as np
 
 from util.bundle import bundle_lines
-from util.route import route_multilayer
 from util.collections import (
     get_elements_in_same_lists,
     group_by_intersection_group,
     group_by_set,
-    invert_list,
     invert_dict_of_lists,
+    invert_list,
     list_of_lists_to_set_system_dict,
     merge_alternating,
 )
-from util.enums import EdgePenalty, EdgeType, NodeType
 from util.draw import (
-    draw_svg,
-    draw_support,
-    edge_filter_ports,
-    STROKE_WIDTH,
-    LINE_GAP,
     CELL_SIZE_PX,
+    DRAW_DEG1_MARK_SIZE_PX,
+    DRAW_DEG1_MARKS,
+    DRAW_GLYPHS,
+    DRAW_GLYPHS_OVER_LINES,
+    DRAW_HUBS,
     GLYPH_SIZE_PX,
+    LINE_GAP,
     MARGINS,
     NODE_CIRCLE_RADIUS,
-    DRAW_GLYPHS_OVER_LINES,
-    DRAW_DEG1_MARKS,
-    DRAW_DEG1_MARK_SIZE_PX,
-    DRAW_HUBS,
-    DRAW_GLYPHS,
     SET_COLORS,
+    STROKE_WIDTH,
+    draw_support,
+    draw_svg,
+    edge_filter_ports,
 )
+from util.enums import EdgePenalty, EdgeType, NodeType
 from util.geometry import (
     are_faces_adjacent,
     biarc,
@@ -71,8 +70,9 @@ from util.graph import (
     path_to_edges,
     visit_edge_pairs_starting_at_node,
 )
-from util.layout import layout_dr, layout_qsap, layout_dr_multiple
+from util.layout import layout_dr, layout_dr_multiple, layout_qsap
 from util.perf import timing
+from util.route import route_multilayer_ilp
 
 PORT_DIRS = ["n", "ne", "e", "se", "s", "sw", "w", "nw"]
 
@@ -138,11 +138,11 @@ def make_sqr_graph(m, n, with_ports=True):
     G = nx.MultiGraph(incoming_graph_data=G)
     for _1, _2, e in G.edges(data=True):
         e["edge"] = EdgeType.CENTER
-    for node, n in G.nodes(data=True):
+    for node, d in G.nodes(data=True):
         x, y = node
-        n["node"] = NodeType.CENTER
-        n["logpos"] = node
-        n["pos"] = logical_coords_to_physical(x, y, "sqr")
+        d["node"] = NodeType.CENTER
+        d["logpos"] = node
+        d["pos"] = logical_coords_to_physical(x, y, "sqr")
 
     G_ = nx.MultiGraph(incoming_graph_data=G)
 
@@ -156,7 +156,6 @@ def make_sqr_graph(m, n, with_ports=True):
                 neighbor_nw,
                 EdgeType.CENTER,
                 edge=EdgeType.CENTER,
-                crossing=None if not can_tilt_left else (node, neighbor_ne),
             )
         can_tilt_left = y > 0 and x > 0
         if can_tilt_left:
@@ -166,8 +165,24 @@ def make_sqr_graph(m, n, with_ports=True):
                 neighbor_ne,
                 EdgeType.CENTER,
                 edge=EdgeType.CENTER,
-                crossing=None if not can_tilt_right else (node, neighbor_nw),
             )
+
+    for u, v in list(G_.edges()):
+        ux, uy = u
+        vx, vy = v
+        dx = vx - ux
+        dy = vy - uy
+
+        if (
+            dx != 0
+            and dy != 0
+            and ux + dx >= 0
+            and ux + dx < m
+            and uy + dy >= 0
+            and uy + dy < n
+        ):
+            t = ((ux + dx, uy), (ux, uy + dy))
+            G_.edges[(u, v, EdgeType.CENTER)]["crossing"] = t
 
     if with_ports:
         for node, center in G.nodes(data=True):
@@ -957,7 +972,7 @@ def read_instance(name):
         # pipeline config
         "dr_method": "mds",
         "dr_gridification": "hagrid",  #  'hagrid' or 'dgrid'
-        "support_type": "steiner-tree",  #  'path' or 'steiner-tree'
+        "support_type": "path",  #  'path' or 'steiner-tree'
         "support_partition_by": "set",  #  'set' or 'intersection-group'
     }
     if "glyph_ids" in data:
@@ -1001,7 +1016,7 @@ if __name__ == "__main__":
             element_set_partition, key=lambda x: len(x[1]), reverse=True
         )
 
-        L = route_multilayer(
+        L = route_multilayer_ilp(
             instance, L, element_set_partition, support_type=instance["support_type"]
         )
         # M = route_set_lines(
@@ -1030,7 +1045,7 @@ if __name__ == "__main__":
                 P = nx.subgraph_view(
                     L,
                     filter_edge=lambda u, v, k: k == (layer, EdgeType.SUPPORT)
-                    and (i, j) in L.edges[u, v, k]["partitions"],
+                    and i in L.edges[u, v, k]["partitions"],
                 )
                 path_j = path_to_edges(
                     nx.shortest_path(P, root_pos, j_pos)
