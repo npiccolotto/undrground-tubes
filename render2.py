@@ -37,7 +37,7 @@ from util.draw import (
     draw_svg,
     edge_filter_ports,
 )
-from util.enums import EdgePenalty, EdgeType, NodeType
+from util.enums import EdgePenalty, EdgeType, NodeType, PortDirs
 from util.geometry import (
     are_faces_adjacent,
     biarc,
@@ -56,25 +56,10 @@ from util.geometry import (
     offset_edge,
     offset_point,
 )
-from util.graph import (
-    approximate_steiner_tree,
-    approximate_steiner_tree_nx,
-    approximate_tsp_tour,
-    are_node_sets_connected,
-    calculate_path_length,
-    get_closest_pair,
-    get_longest_simple_paths,
-    get_node_with_degree,
-    get_shortest_path_between_sets,
-    incident_edges,
-    path_to_edges,
-    visit_edge_pairs_starting_at_node,
-)
+from util.graph import path_to_edges, get_port_edges, extract_support_layer, get_ports
 from util.layout import layout_dr, layout_dr_multiple, layout_qsap
 from util.perf import timing
-from util.route import route_multilayer_ilp, route_multilayer_ilp_gg
-
-PORT_DIRS = ["n", "ne", "e", "se", "s", "sw", "w", "nw"]
+from util.route import route_multilayer_ilp, route_multilayer_heuristic
 
 
 def add_ports_to_sqr_node(G, node, data, side_length=0.25):
@@ -90,7 +75,7 @@ def add_ports_to_sqr_node(G, node, data, side_length=0.25):
     ]
     pos = data["pos"]
     sqr_corners = [(x + pos[0], y + pos[1]) for x, y in sqr_corners]
-    sqr_corners_dirs = list(zip(PORT_DIRS, sqr_corners))
+    sqr_corners_dirs = list(zip(PortDirs, sqr_corners))
     for dir, corner in sqr_corners_dirs:
         G.add_node(corner, node=NodeType.PORT, belongs_to=node, pos=corner, port=dir)
 
@@ -112,8 +97,8 @@ def add_ports_to_sqr_node(G, node, data, side_length=0.25):
                 EdgeType.PHYSICAL,
                 edge=EdgeType.PHYSICAL,
                 weight=EdgePenalty.HOP + penalties_cw[p],
-                efrom=PORT_DIRS[i],
-                eto=PORT_DIRS[j],
+                efrom=PortDirs[i],
+                eto=PortDirs[j],
                 epenalty=penalties_cw[p],
             )
             p += 1
@@ -269,25 +254,6 @@ def add_glyphs_to_nodes(instance, G):
     #        G.nodes[logpos]["glyph"] = instance["glyph_ids"][i]
     # return G
 
-
-# TODO could be a context manager
-def block_edges_using(G, closed_nodes):
-    for node in closed_nodes:
-        if G.nodes[node]["node"] != NodeType.CENTER:
-            raise BaseException("trying to block non-center node!")
-        ports = G.neighbors(node)
-        for p in ports:
-            for e in G.edges(p):
-                u, v = e
-                if (
-                    G.nodes[u]["node"] == NodeType.PORT
-                    and G.nodes[v]["node"] == NodeType.PORT
-                    and ("blocked" not in G.edges[e] or not G.edges[e]["blocked"])
-                ):
-                    G.edges[e]["blocked"] = True
-                    G.edges[e]["base_weight"] = G.edges[e]["weight"]
-                    G.edges[e]["weight"] = float(math.inf)
-
     # for u, v in G.edges():
     #    if G.nodes[u]["node"] == NodeType.PORT and G.nodes[v]["node"] == NodeType.PORT:
     #        parents = set([G.nodes[u]["belongs_to"], G.nodes[v]["belongs_to"]])
@@ -295,304 +261,6 @@ def block_edges_using(G, closed_nodes):
     #            G.edges[(u, v)]["base_weight"] = G.edges[(u, v)]["weight"]
     #            G.edges[(u, v)]["weight"] = float(math.inf)
     return G
-
-
-def unblock_edges(G, closed_nodes):
-    for node in closed_nodes:
-        ports = G.neighbors(node)
-        for p in ports:
-            for e in G.edges(p):
-                if "blocked" in G.edges[e] and G.edges[e]["blocked"]:
-                    G.edges[e]["blocked"] = False
-                    G.edges[e]["weight"] = G.edges[e]["base_weight"]
-
-    # for u, v in G.edges():
-    #    if G.nodes[u]["node"] == NodeType.PORT and G.nodes[v]["node"] == NodeType.PORT:
-    #        parents = set([G.nodes[u]["belongs_to"], G.nodes[v]["belongs_to"]])
-    #        if len(parents.intersection(set(closed_nodes))) > 0:
-    #            G.edges[(u, v)]["weight"] = G.edges[(u, v)]["base_weight"]
-    return G
-
-
-def get_port_edge_between_centers(G, u, v):
-    uports = G.neighbors(u)
-
-    for p in uports:
-        for w, x in G.edges(p):
-            if G.nodes[x]["node"] == NodeType.PORT and G.nodes[x]["belongs_to"] == v:
-                return (w, x)
-    raise Exception("no port edge between centers")
-
-
-def update_weights_for_support_edge(G, edge):
-    u, v = edge
-    un = G.nodes[u]["node"]
-    vn = G.nodes[v]["node"]
-
-    # only care about ports
-    if un != NodeType.PORT or vn != NodeType.PORT:
-        return G
-
-    # make this edge cheaper so future routes will use it more
-    G.edges[edge]["weight"] += EdgePenalty.IN_SUPPORT
-
-    # penalize other edges crossing this one
-    # is it an edge between nodes?
-    uparent = G.nodes[u]["belongs_to"]
-    vparent = G.nodes[v]["belongs_to"]
-    """
-    if uparent == vparent and not G.nodes[uparent]["occupied"]:
-        # nope, within a node
-        # get all port edges and find those crossing this one
-        ports = G.neighbors(uparent)
-        port_edges = [G.edges(p) for p in ports]
-        port_edges = list(set([item for sub_list in port_edges for item in sub_list]))
-        port_edges = [
-            (u, v)
-            for u, v in port_edges
-            if G.nodes[u]["node"] == NodeType.PORT
-            and G.nodes[v]["node"] == NodeType.PORT
-        ]
-        crossing_edges = [
-            (w, x) for w, x in port_edges if do_lines_intersect(w, x, u, v)
-        ]
-        for w, x in crossing_edges:
-            G.edges[(w, x)]["weight"] = G.edges[(w, x)]["weight"] + EdgePenalty.CROSSING
-    """
-    if uparent != vparent:
-        # yep, between nodes
-        uparent, vparent = list(sorted([uparent, vparent], key=lambda x: x[1]))
-        # now u is up
-        ux, uy = uparent
-        vx, vy = vparent
-        is_left_tilt = ux < vx and uy < vy
-        is_right_tilt = ux > vx and uy < vy
-
-        if is_left_tilt:
-            e = get_port_edge_between_centers(G, (ux, uy + 1), (ux + 1, uy))
-            G.edges[e]["weight"] = G.edges[e]["weight"] + EdgePenalty.CROSSING
-        if is_right_tilt:
-            e = get_port_edge_between_centers(G, (ux - 1, uy), (ux, uy + 1))
-            G.edges[e]["weight"] = G.edges[e]["weight"] + EdgePenalty.CROSSING
-
-    return G
-
-
-def route_set_lines(instance, G, element_set_partition, support_type="steiner-tree"):
-    # steps:
-    processed_elements = set()
-
-    # TODO 100ms spent here
-    G_ = nx.Graph()
-    G_.add_nodes_from([(n, d) for n, d in G.nodes(data=True)])
-    G_.add_edges_from(
-        [
-            (u, v, d)
-            for u, v, k, d in G.edges(keys=True, data=True)
-            if k == EdgeType.PHYSICAL
-        ]
-    )
-
-    # 2. then process from biggest to smallest group. for each:
-    for elements, sets in element_set_partition:
-        new_edges = []
-        S = [
-            n
-            for n, d in G_.nodes(data=True)
-            if d["node"] == NodeType.CENTER and d["occupied"] and d["label"] in elements
-        ]
-
-        # close edges to all other occupied nodes so as to not route "over" them
-        S_minus = [
-            n
-            for n, d in G_.nodes(data=True)
-            if d["node"] == NodeType.CENTER
-            and d["occupied"]
-            and d["label"] not in elements
-        ]
-        G_ = block_edges_using(G_, S_minus)
-
-        # 3. determine approximated steiner tree acc. to kou1981 / wu1986.
-        # or TSP path
-        if len(S) > 1:
-            with timing("sub support"):
-                set_support = (
-                    approximate_steiner_tree_nx(G_, S)
-                    if support_type == "steiner-tree"
-                    else approximate_tsp_tour(G_, S)
-                )
-            set_support_edges = (
-                set_support.edges()
-                if support_type == "steiner-tree"
-                else path_to_edges(set_support)
-            )
-        else:
-            set_support_edges = []
-        # print([(G.nodes[u], G.nodes[v]) for u,v in set_support_edges])
-
-        # add those edges to support
-        for u, v in set_support_edges:
-            if not G.has_edge(u, v, EdgeType.SUPPORT):
-                new_edges.append((u, v))
-                G.add_edge(
-                    u, v, EdgeType.SUPPORT, edge=EdgeType.SUPPORT, sets=set(sets)
-                )
-            else:
-                G.edges[(u, v, EdgeType.SUPPORT)]["sets"] = set(sets).union(
-                    G.edges[(u, v, EdgeType.SUPPORT)]["sets"]
-                )
-
-        G_ = unblock_edges(G_, S_minus)
-
-        for s in sets:
-            processed_elements_for_s = set(instance["set_system"][s]).intersection(
-                processed_elements
-            )
-            if len(processed_elements_for_s) > 0:
-                nodes_of_processed_elements_for_s = [
-                    n
-                    for n, d in G_.nodes(data=True)
-                    if d["node"] == NodeType.CENTER
-                    and d["occupied"]
-                    and d["label"] in processed_elements_for_s
-                ]
-
-                # if support is not connected but should be, fix it by connecting via shortest path
-                support = nx.subgraph_view(
-                    G, filter_edge=lambda u, v, k: k == EdgeType.SUPPORT
-                )
-                is_connected = are_node_sets_connected(
-                    support, S, nodes_of_processed_elements_for_s
-                )
-
-                if not is_connected:
-                    S_minus = list(
-                        set(instance["elements"]).difference(
-                            set(elements).union(set(processed_elements_for_s))
-                        )
-                    )
-                    S_minus = [
-                        n
-                        for n, d in G_.nodes(data=True)
-                        if d["node"] == NodeType.CENTER
-                        and d["occupied"]
-                        and d["label"] in S_minus
-                    ]
-                    G_ = block_edges_using(
-                        G_,
-                        S_minus,
-                    )
-                    shortest_path_edgelist = get_shortest_path_between_sets(
-                        G_, S, nodes_of_processed_elements_for_s
-                    )
-                    for u, v in shortest_path_edgelist:
-                        if not G.has_edge(u, v, EdgeType.SUPPORT):
-                            new_edges.append((u, v))
-                            G.add_edge(
-                                u,
-                                v,
-                                EdgeType.SUPPORT,
-                                edge=EdgeType.SUPPORT,
-                                sets=set([s]),
-                            )
-                        else:
-                            G.edges[(u, v, EdgeType.SUPPORT)]["sets"] = set([s]).union(
-                                G.edges[(u, v, EdgeType.SUPPORT)]["sets"]
-                            )
-
-                    G_ = unblock_edges(G_, S_minus)
-        processed_elements = processed_elements.union(set(elements))
-
-        # 4. update host graph: lighten weight on edges in F as suggested in castermans2019,
-        # TODO only applicable if EdgePenalty.HOP is greater than zero
-        # penalize crossing dual edges as suggested by bast2020
-        for e in new_edges:
-            u, v = e
-            update_weights_for_support_edge(G_, e)
-    # 5. stop when all elements have been processed
-    return G
-
-
-def get_port_edges(M, node):
-    all_ports = [
-        p for p in nx.neighbors(M, node) if M.nodes[p]["node"] == NodeType.PORT
-    ]
-    all_edges_at_ports = set()
-    for port in all_ports:
-        edges_at_port = [
-            (a, b)
-            if PORT_DIRS.index(M.nodes[a]["port"]) < PORT_DIRS.index(M.nodes[b]["port"])
-            else (b, a)
-            for a, b, k in M.edges(nbunch=port, keys=True)
-            if k == EdgeType.PHYSICAL
-            and M.nodes[a]["node"] == NodeType.PORT
-            and M.nodes[b]["node"] == NodeType.PORT
-            and M.nodes[a]["belongs_to"] == node
-            and M.nodes[b]["belongs_to"] == node
-        ]
-
-        all_edges_at_ports = all_edges_at_ports.union(set(edges_at_port))
-    return list(all_edges_at_ports)
-
-
-def are_port_edges_crossing(us, ut, vs, vt):
-    cw_dirs = PORT_DIRS + PORT_DIRS
-
-    ccw_dirs = (
-        [PORT_DIRS[0]]
-        + list(reversed(PORT_DIRS[1:]))
-        + [PORT_DIRS[0]]
-        + list(reversed(PORT_DIRS[1:]))
-    )
-
-    # start at us and go clockwise to ut, collect all ports in between
-    cw_set = []
-    i = cw_dirs.index(us["port"]) + 1
-    j = cw_dirs.index(ut["port"])
-    if j > i:
-        cw_set = cw_dirs[i:j]
-
-    # then start at us and go ccw to ut, collect all ports in between
-    ccw_set = []
-    i = ccw_dirs.index(ut["port"]) + 1
-    j = ccw_dirs.index(us["port"])
-    if j > i:
-        ccw_set = ccw_dirs[i:j]
-
-    # edges cross iff vs in former and vt in latter set (or vice versa)
-    port1 = vs["port"]
-    port2 = vt["port"]
-
-    are_crossing = True
-    if port1 in cw_set and port2 in cw_set and port1 in ccw_set and port2 in ccw_set:
-        are_crossing = False
-    if port1 in [ut["port"], us["port"]] or port2 in [ut["port"], us["port"]]:
-        are_crossing = False
-    return are_crossing
-
-
-def get_crossing_port_edges(G):
-    # assuming G consinsts only of port edges of one node
-    edges = list(
-        [
-            (u, v)
-            if PORT_DIRS.index(M.nodes[u]["port"]) < PORT_DIRS.index(M.nodes[v]["port"])
-            else (v, u)
-            for (u, v) in G.edges()
-        ]
-    )
-    edges = list(sorted(edges, key=lambda e: PORT_DIRS.index(G.nodes[e[0]]["port"])))
-    crossings = []
-
-    for i, e1 in enumerate(edges):
-        u, v = e1
-        for j, e2 in enumerate(edges):
-            if j <= i:
-                continue
-            w, x = e2
-            if are_port_edges_crossing(G.nodes[u], G.nodes[v], G.nodes[w], G.nodes[x]):
-                crossings.append((e1, e2))
-    return crossings
 
 
 def geometrize(instance, M):
@@ -617,23 +285,23 @@ def geometrize(instance, M):
                 c.append_title(M.nodes[i]["label"])
                 geometries.append(c)
 
-    for u, v, k in M.edges(keys=True):
-        if k != EdgeType.SUPPORT or not edge_filter_ports(M, u, v, same_centers=False):
+    for u, v in M.edges():
+        if not edge_filter_ports(M, u, v, same_centers=False):
             continue
 
         src = M.nodes[u]["pos"]
         tgt = M.nodes[v]["pos"]
         edge_angle = get_angle(src, tgt)
 
-        paths_at_edge = M.edges[(u, v, EdgeType.SUPPORT)]["oeb_order"][(u, v)]
+        paths_at_edge = M.edges[(u, v)]["oeb_order"][(u, v)]
         centering_offset = ((len(paths_at_edge) - 1) / 2) * -LINE_GAP
-        M.edges[(u, v, EdgeType.SUPPORT)]["edge_pos"] = {}
+        M.edges[(u, v)]["edge_pos"] = {}
         for i, set_id in enumerate(paths_at_edge):
             offset_dir = 3 * math.pi / 2
             offset_length = centering_offset + i * LINE_GAP
             o_u, o_v = offset_edge((src, tgt), edge_angle - offset_dir, offset_length)
 
-            M.edges[(u, v, EdgeType.SUPPORT)]["edge_pos"][set_id] = {
+            M.edges[(u, v)]["edge_pos"][set_id] = {
                 (u, v): (o_u, o_v),
                 (v, u): (o_v, o_u),
             }
@@ -641,13 +309,12 @@ def geometrize(instance, M):
     for set_id in instance["sets"]:
         G_ = nx.subgraph_view(
             M,
-            filter_edge=lambda u, v, k: k == EdgeType.SUPPORT
-            and edge_filter_ports(M, u, v, same_centers=False)
-            and set_id in M.edges[(u, v, EdgeType.SUPPORT)]["sets"],
+            filter_edge=lambda u, v: edge_filter_ports(M, u, v, same_centers=False)
+            and set_id in M.edges[(u, v)]["sets"],
         )
         # this draws straight lines between nodes
         for u, v in G_.edges():
-            upos, vpos = G_.edges[(u, v, EdgeType.SUPPORT)]["edge_pos"][set_id][(u, v)]
+            upos, vpos = G_.edges[(u, v)]["edge_pos"][set_id][(u, v)]
 
             u_intersect = get_segment_circle_intersection(
                 (upos, vpos),
@@ -897,63 +564,6 @@ def geometrize(instance, M):
 
     return geometries
 
-
-def get_port(G, parent, side):
-    all_ports = nx.neighbors(G, parent)
-    for p in all_ports:
-        if (
-            G.nodes[p]["node"] == NodeType.PORT
-            and G.nodes[p]["belongs_to"] == parent
-            and G.nodes[p]["port"] == side
-        ):
-            return p
-    return None
-
-
-def get_ports(G, u, v):
-    """for two center nodes u and v in G, returns their respective ports that an edge would use"""
-    ux, uy = G.nodes[u]["logpos"]
-    vx, vy = G.nodes[v]["logpos"]
-
-    dx = ux - vx
-    dy = uy - vy
-    delta = (dx, dy)
-
-    # dx = -1 -> ux - vx = -1 -> vx > ux -> v is west of u
-    # dx = 1 -> ux - vx = 1 -> ux > vx -> v is east of u
-    # dy = -1 -> uy - vy = -1 -> vy > uy -> v is south of u
-
-    match delta:
-        # v is west
-        case (-1, -1):
-            # v is in se of u
-            return (get_port(G, u, "sw"), get_port(G, v, "ne"))
-        case (-1, 0):
-            # v is east of u
-            return (get_port(G, u, "w"), get_port(G, v, "e"))
-        case (-1, 1):
-            # v is ne of u
-            return (get_port(G, u, "nw"), get_port(G, v, "se"))
-
-        case (0, -1):
-            # v is south of u
-            return (get_port(G, u, "s"), get_port(G, v, "n"))
-        # (0,0) not possible!
-        case (0, 1):
-            # v is north of u
-            return (get_port(G, u, "n"), get_port(G, v, "s"))
-
-        # v is east
-        case (1, -1):
-            return (get_port(G, u, "se"), get_port(G, v, "nw"))
-        case (1, 0):
-            return (get_port(G, u, "e"), get_port(G, v, "w"))
-        case (1, 1):
-            return (get_port(G, u, "ne"), get_port(G, v, "sw"))
-
-    raise BaseException(f"something went wrong: dx={dx}, dy={dy}, u={u}, v={v}")
-
-
 def read_instance(name):
     with open(f"data/{name}.json") as f:
         data = json.load(f)
@@ -970,6 +580,7 @@ def read_instance(name):
         "D_SR": data["SA"],
         "set_ftb_order": list(sorted(sets)),
         # pipeline config
+        "strategy": "heuristic",  # 'opt' or 'heuristic'
         "dr_method": "mds",
         "dr_gridification": "hagrid",  #  'hagrid' or 'dgrid'
         "support_type": "steiner-tree",  #  'path' or 'steiner-tree'
@@ -1001,18 +612,6 @@ if __name__ == "__main__":
         G = get_routing_graph(lattice_type, (m, n))
         G = add_glyphs_to_nodes(instance, G)
 
-        L = nx.subgraph_view(
-            G,
-            filter_edge=lambda u, v, k: k == EdgeType.CENTER,
-            filter_node=lambda n: G.nodes[n]["node"] == NodeType.CENTER,
-        )
-
-        #L = nx.subgraph_view(
-        #    G,
-        #    filter_edge=lambda u,v,k: k==EdgeType.PHYSICAL,
-        #    filter_node=lambda n: G.nodes[n]['node'] in [NodeType.CENTER, NodeType.PORT]
-        #)
-
         element_set_partition = (
             group_by_intersection_group(instance["set_system"])
             if instance["support_partition_by"] == "intersection-group"
@@ -1022,134 +621,144 @@ if __name__ == "__main__":
             element_set_partition, key=lambda x: len(x[1]), reverse=True
         )
 
-        L = route_multilayer_ilp(
-            instance, L, element_set_partition, support_type=instance["support_type"]
-        )
-        # M = route_set_lines(
-        #    instance, G, element_set_partition, support_type=instance["support_type"]
-        # )
+        if instance["strategy"] == "opt":
+            L = route_multilayer_ilp(
+                instance,
+                nx.subgraph_view(
+                    G,
+                    filter_edge=lambda u, v, k: k == EdgeType.CENTER,
+                    filter_node=lambda n: G.nodes[n]["node"] == NodeType.CENTER,
+                ),
+                element_set_partition,
+                support_type=instance["support_type"],
+            )
+        else:
+            L = route_multilayer_heuristic(
+                instance,
+                G,
+                element_set_partition,
+                support_type=instance["support_type"],
+            )
 
     with timing("bundle lines"):
         L = bundle_lines(instance, L)
 
-    # TODO merge grid graph data (ports at nodes) with line graph data (routing and bundling info)
-    # we have
-    # G = multigraph with center and physical nodes/edges
-    # L = a multigraph with (layer, support) edges and center nodes
 
-    # add support edges from L into G
-    for layer in range(num_layers):
-        for i, esp in enumerate(element_set_partition):
-            elements, sets = esp
-            root_pos = instance["glyph_positions"][layer][
-                instance["elements_inv"][elements[0]]
-            ]
-            for j, el in enumerate(elements):
-                if j == 0:
-                    continue
-                j_pos = instance["glyph_positions"][layer][instance["elements_inv"][el]]
-                P = nx.subgraph_view(
-                    L,
-                    filter_edge=lambda u, v, k: k == (layer, EdgeType.SUPPORT)
-                    and i in L.edges[u, v, k]["partitions"],
-                )
-                path_j = path_to_edges(
-                    nx.shortest_path(P, root_pos, j_pos)
-                )  # P should actually just be a path already but we do this to order edges
+    if instance["strategy"] == "opt":
+        # merge grid graph data (ports at nodes) with line graph data (routing and bundling info)
+        # we have
+        # G = multigraph with center and physical nodes/edges
+        # L = a multigraph with (layer, support) edges and center nodes
+        for layer in range(num_layers):
+            for i, esp in enumerate(element_set_partition):
+                elements, sets = esp
+                root_pos = instance["glyph_positions"][layer][
+                    instance["elements_inv"][elements[0]]
+                ]
+                for j, el in enumerate(elements):
+                    if j == 0:
+                        continue
+                    j_pos = instance["glyph_positions"][layer][
+                        instance["elements_inv"][el]
+                    ]
+                    P = nx.subgraph_view(
+                        L,
+                        filter_edge=lambda u, v, k: k == (layer, EdgeType.SUPPORT)
+                        and i in L.edges[u, v, k]["partitions"],
+                    )
+                    path_j = path_to_edges(
+                        nx.shortest_path(P, root_pos, j_pos)
+                    )  # P should actually just be a path already but we do this to order edges
 
-                edge_pairs_path_j = list(pairwise(path_j))
-                for l, edge_pair in enumerate(edge_pairs_path_j):
-                    e1, e2 = edge_pair
-                    u, v = e1
-                    v, x = e2
+                    edge_pairs_path_j = list(pairwise(path_j))
+                    for l, edge_pair in enumerate(edge_pairs_path_j):
+                        e1, e2 = edge_pair
+                        u, v = e1
+                        v, x = e2
 
-                    port_u, port_vu = get_ports(G, u, v)
-                    port_vx, port_x = get_ports(G, v, x)
+                        port_u, port_vu = get_ports(G, u, v)
+                        port_vx, port_x = get_ports(G, v, x)
 
-                    if l == 0:
-                        # add edge from center to first port
+                        if l == 0:
+                            # add edge from center to first port
+                            G.add_edge(
+                                u,
+                                port_u,
+                                (layer, EdgeType.SUPPORT),
+                                edge=EdgeType.SUPPORT,
+                                sets=set(
+                                    L.edges[u, v, (layer, EdgeType.SUPPORT)]["sets"]
+                                ),
+                            )
+                        if l == len(edge_pairs_path_j) - 1:
+                            # add edge from last port to center
+                            G.add_edge(
+                                port_x,
+                                x,
+                                (layer, EdgeType.SUPPORT),
+                                edge=EdgeType.SUPPORT,
+                                sets=set(
+                                    L.edges[v, x, (layer, EdgeType.SUPPORT)]["sets"]
+                                ),
+                            )
+
+                        # TODO remove MST heurisitic in drawing code
+
+                        oeb_order_u_v = {
+                            (port_u, port_vu): L.edges[u, v, (layer, EdgeType.SUPPORT)][
+                                "oeb_order"
+                            ][(u, v)],
+                            (port_vu, port_u): L.edges[u, v, (layer, EdgeType.SUPPORT)][
+                                "oeb_order"
+                            ][(v, u)],
+                        }
                         G.add_edge(
-                            u,
                             port_u,
+                            port_vu,
                             (layer, EdgeType.SUPPORT),
-                            edge=EdgeType.SUPPORT,
-                            sets=set(L.edges[u, v, (layer, EdgeType.SUPPORT)]["sets"]),
+                            **{
+                                **L.edges[u, v, (layer, EdgeType.SUPPORT)],
+                                "oeb_order": oeb_order_u_v,
+                            },
                         )
-                    if l == len(edge_pairs_path_j) - 1:
-                        # add edge from last port to center
+
+                        oeb_order_v_x = {
+                            (port_vx, port_x): L.edges[v, x, (layer, EdgeType.SUPPORT)][
+                                "oeb_order"
+                            ][(v, x)],
+                            (port_x, port_vx): L.edges[v, x, (layer, EdgeType.SUPPORT)][
+                                "oeb_order"
+                            ][(x, v)],
+                        }
                         G.add_edge(
+                            port_vx,
                             port_x,
-                            x,
                             (layer, EdgeType.SUPPORT),
-                            edge=EdgeType.SUPPORT,
-                            sets=set(L.edges[v, x, (layer, EdgeType.SUPPORT)]["sets"]),
+                            **{
+                                **L.edges[v, x, (layer, EdgeType.SUPPORT)],
+                                "oeb_order": oeb_order_v_x,
+                            },
                         )
 
-                    # TODO remove MST heurisitic in drawing code
-
-                    oeb_order_u_v = {
-                        (port_u, port_vu): L.edges[u, v, (layer, EdgeType.SUPPORT)][
-                            "oeb_order"
-                        ][(u, v)],
-                        (port_vu, port_u): L.edges[u, v, (layer, EdgeType.SUPPORT)][
-                            "oeb_order"
-                        ][(v, u)],
-                    }
-                    G.add_edge(
-                        port_u,
-                        port_vu,
-                        (layer, EdgeType.SUPPORT),
-                        **{
-                            **L.edges[u, v, (layer, EdgeType.SUPPORT)],
-                            "oeb_order": oeb_order_u_v,
-                        },
-                    )
-
-                    oeb_order_v_x = {
-                        (port_vx, port_x): L.edges[v, x, (layer, EdgeType.SUPPORT)][
-                            "oeb_order"
-                        ][(v, x)],
-                        (port_x, port_vx): L.edges[v, x, (layer, EdgeType.SUPPORT)][
-                            "oeb_order"
-                        ][(x, v)],
-                    }
-                    G.add_edge(
-                        port_vx,
-                        port_x,
-                        (layer, EdgeType.SUPPORT),
-                        **{
-                            **L.edges[v, x, (layer, EdgeType.SUPPORT)],
-                            "oeb_order": oeb_order_v_x,
-                        },
-                    )
-
-                    G.add_edge(
-                        port_vu,
-                        port_vx,
-                        (layer, EdgeType.SUPPORT),
-                        edge=EdgeType.SUPPORT,
-                        sets=set(
-                            L.edges[v, x, (layer, EdgeType.SUPPORT)]["sets"]
-                        ).intersection(
-                            set(L.edges[u, v, (layer, EdgeType.SUPPORT)]["sets"])
-                        ),
-                    )
+                        G.add_edge(
+                            port_vu,
+                            port_vx,
+                            (layer, EdgeType.SUPPORT),
+                            edge=EdgeType.SUPPORT,
+                            sets=set(
+                                L.edges[v, x, (layer, EdgeType.SUPPORT)]["sets"]
+                            ).intersection(
+                                set(L.edges[u, v, (layer, EdgeType.SUPPORT)]["sets"])
+                            ),
+                        )
+        L = G
 
     # draw_support(instance, M.copy())
 
     with timing("draw+write svg"):
         for layer in range(num_layers):
-            M_ = nx.MultiGraph()
-            for n, d in G.nodes(data=True):
-                if d["node"] == NodeType.CENTER:
-                    M_.add_node(
-                        n, pos=d["pos"], node=NodeType.CENTER, **d["layers"][layer]
-                    )
-                if d["node"] == NodeType.PORT:
-                    M_.add_node(n, **d)
-            for u, v, k, d in G.edges(data=True, keys=True):
-                if k == (layer, EdgeType.SUPPORT):
-                    M_.add_edge(u, v, EdgeType.SUPPORT, **d)
+            M_ = extract_support_layer(L, layer)
+            print('layer', layer, M_)
             geometries = geometrize(instance, M_)
             img = draw_svg(geometries, m * CELL_SIZE_PX, n * CELL_SIZE_PX)
             with open(f"drawing_{layer}.svg", "w") as f:

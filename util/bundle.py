@@ -5,7 +5,7 @@ import subprocess
 from itertools import combinations, pairwise
 from collections import defaultdict
 
-from util.graph import incident_edges, get_longest_simple_paths
+from util.graph import incident_edges, get_longest_simple_paths, extract_support_layer
 from util.geometry import get_side, get_linear_order, get_center_of_mass
 from util.enums import NodeType, EdgeType
 
@@ -335,15 +335,13 @@ def convert_to_line_graph(G):
     Edges are only between centers."""
     G_ = nx.Graph()
 
-    S = nx.subgraph_view(G, filter_edge=lambda u, v, k: k == EdgeType.SUPPORT)
-
-    for u, v, k in S.edges(keys=True):
+    for u, v in G.edges():
         utype = G.nodes[u]["node"]
         vtype = G.nodes[v]["node"]
         uparent = G.nodes[u]["belongs_to"] if utype == NodeType.PORT else None
         vparent = G.nodes[v]["belongs_to"] if vtype == NodeType.PORT else None
 
-        sets = S.edges[(u, v, k)]["sets"]
+        sets = G.edges[(u, v)]["sets"]
 
         if uparent is None and vparent is None:
             # both are centers
@@ -422,7 +420,7 @@ def str_tuple_to_tuple(s):
     return tuple(map(lambda x: int(x), s[1:-1].split(",")))
 
 
-def read_loom_output(output, G, layer):
+def read_loom_output(output, G):
     geojson_dict = json.loads(output)
 
     points = [
@@ -450,7 +448,7 @@ def read_loom_output(output, G, layer):
     for lid, feature in lines:
         u, v = lid
         line_order = feature["properties"]["dbg_lines"].split(",")
-        G.edges[(u, v, (layer, EdgeType.SUPPORT))]["oeb_order"] = {
+        G.edges[(u, v)]["oeb_order"] = {
             (u, v): line_order,
             (v, u): list(reversed(line_order)),
         }
@@ -464,12 +462,14 @@ def bundle_lines(instance, M):
     # 2) map nodes onto a small geographic area and export as GeoJSON
     # 3) feed it to LOOM
     # 4) read result back in - bam we have an ordering
-    # G = convert_to_line_graph(M)
 
     for layer in range(instance.get("num_layers", 2)):
-        G = nx.subgraph_view(
-            M, filter_edge=lambda u, v, k: k == (layer, EdgeType.SUPPORT)
-        )
+        G = extract_support_layer(M, layer)
+        print('support layer', G)
+        G = convert_to_line_graph(G)
+
+        print('line graph', G)
+
         G_for_loom = convert_to_geojson(G)
         with open(f"loom_input_{layer}.json", "w") as f:
             f.write(G_for_loom)
@@ -489,15 +489,15 @@ def bundle_lines(instance, M):
                 check=True,
                 capture_output=True,
             )
-        G = read_loom_output(loom.stdout.decode(), G, layer)
+        G = read_loom_output(loom.stdout.decode(), G)
         with open(f"loom_output_{layer}.json", "w") as f:
             f.write(loom.stdout.decode())
 
         for u, v, d in G.edges(data=True):
-            # w = d["port1"] if M.nodes[d['port1']]['belongs_to'] == u else d['port2']
-            # x = d["port1"] if M.nodes[d['port1']]['belongs_to'] == v else d['port2']
-            # order = {(w, x): d["oeb_order"][(u, v)], (x, w): d["oeb_order"][(v, u)]}
-            order = {(u, v): d["oeb_order"][(u, v)], (v, u): d["oeb_order"][(v, u)]}
+            w = d["port1"] if M.nodes[d['port1']]['belongs_to'] == u else d['port2']
+            x = d["port1"] if M.nodes[d['port1']]['belongs_to'] == v else d['port2']
+            order = {(w, x): d["oeb_order"][(u, v)], (x, w): d["oeb_order"][(v, u)]}
+            #order = {(u, v): d["oeb_order"][(u, v)], (v, u): d["oeb_order"][(v, u)]}
 
-            M.edges[(u, v, (layer, EdgeType.SUPPORT))]["oeb_order"] = order
+            M.edges[(w,x, (layer, EdgeType.SUPPORT))]["oeb_order"] = order
     return M

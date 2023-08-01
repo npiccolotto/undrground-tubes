@@ -39,3 +39,5 @@ class EdgeType(IntEnum):
 class NodeType(IntEnum):
     CENTER = 0
     PORT = 1
+
+PortDirs = ["n", "ne", "e", "se", "s", "sw", "w", "nw"]
