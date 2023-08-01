@@ -72,7 +72,7 @@ from util.graph import (
 )
 from util.layout import layout_dr, layout_dr_multiple, layout_qsap
 from util.perf import timing
-from util.route import route_multilayer_ilp
+from util.route import route_multilayer_ilp, route_multilayer_ilp_gg
 
 PORT_DIRS = ["n", "ne", "e", "se", "s", "sw", "w", "nw"]
 
@@ -1006,6 +1006,12 @@ if __name__ == "__main__":
             filter_edge=lambda u, v, k: k == EdgeType.CENTER,
             filter_node=lambda n: G.nodes[n]["node"] == NodeType.CENTER,
         )
+
+        #L = nx.subgraph_view(
+        #    G,
+        #    filter_edge=lambda u,v,k: k==EdgeType.PHYSICAL,
+        #    filter_node=lambda n: G.nodes[n]['node'] in [NodeType.CENTER, NodeType.PORT]
+        #)
 
         element_set_partition = (
             group_by_intersection_group(instance["set_system"])
