@@ -12,8 +12,8 @@ MARGINS = np.array((0.5, 0.5)) * CELL_SIZE_PX
 NODE_CIRCLE_RADIUS = (
     0.3 * CELL_SIZE_PX
 )  # must be smaller than 1/2 cell size or we get artefacts in line bends
-DRAW_GLYPHS_OVER_LINES = True
-DRAW_DEG1_MARKS = False
+DRAW_GLYPHS_OVER_LINES = False
+DRAW_DEG1_MARKS = True
 DRAW_DEG1_MARK_SIZE_PX = STROKE_WIDTH
 DRAW_HUBS = False
 DRAW_GLYPHS = True
@@ -52,7 +52,7 @@ def draw_embedding(X, path, **kwargs):
         f.write(draw_svg(geometries, w + 2 * mx, h + 2 * my))
 
 
-def edge_filter_ports(G, u, v, same_centers=False):
+def edge_filter_ports(G, u, v, same_centers=False, possibly_with_center=False):
     uparent = (
         None if G.nodes[u]["node"] == NodeType.CENTER else G.nodes[u]["belongs_to"]
     )
@@ -64,9 +64,9 @@ def edge_filter_ports(G, u, v, same_centers=False):
         case (None, None):
             return False
         case (None, _):
-            return False
+            return possibly_with_center
         case (_, None):
-            return False
+            return possibly_with_center
         case (_, _):
             match same_centers:
                 case True:

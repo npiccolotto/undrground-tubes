@@ -74,6 +74,7 @@ def get_elements_in_same_lists(d: Dict):
 
 
 def list_of_lists_to_set_system_dict(elements, lol):
+    '''Returns a dict with sets as keys and their elements as list value.'''
     d = defaultdict(list)
     for i, element in enumerate(elements):
         sets_i = lol[i]

@@ -427,7 +427,7 @@ def get_crossing_port_edges(G):
     edges = list(
         [
             (u, v)
-            if PortDirs.index(M.nodes[u]["port"]) < PortDirs.index(M.nodes[v]["port"])
+            if PortDirs.index(G.nodes[u]["port"]) < PortDirs.index(G.nodes[v]["port"])
             else (v, u)
             for (u, v) in G.edges()
         ]
