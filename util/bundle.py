@@ -465,10 +465,10 @@ def bundle_lines(instance, M):
 
     for layer in range(instance.get("num_layers", 2)):
         G = extract_support_layer(M, layer)
-        print('support layer', G)
+        print("support layer", G)
         G = convert_to_line_graph(G)
 
-        print('line graph', G)
+        print("line graph", G)
 
         G_for_loom = convert_to_geojson(G)
         with open(f"loom_input_{layer}.json", "w") as f:
@@ -494,10 +494,10 @@ def bundle_lines(instance, M):
             f.write(loom.stdout.decode())
 
         for u, v, d in G.edges(data=True):
-            w = d["port1"] if M.nodes[d['port1']]['belongs_to'] == u else d['port2']
-            x = d["port1"] if M.nodes[d['port1']]['belongs_to'] == v else d['port2']
+            w = d["port1"] if M.nodes[d["port1"]]["belongs_to"] == u else d["port2"]
+            x = d["port1"] if M.nodes[d["port1"]]["belongs_to"] == v else d["port2"]
             order = {(w, x): d["oeb_order"][(u, v)], (x, w): d["oeb_order"][(v, u)]}
-            #order = {(u, v): d["oeb_order"][(u, v)], (v, u): d["oeb_order"][(v, u)]}
+            # order = {(u, v): d["oeb_order"][(u, v)], (v, u): d["oeb_order"][(v, u)]}
 
-            M.edges[(w,x, (layer, EdgeType.SUPPORT))]["oeb_order"] = order
+            M.edges[(w, x, (layer, EdgeType.SUPPORT))]["oeb_order"] = order
     return M

@@ -4,6 +4,7 @@ import networkx as nx
 import gurobipy as gp
 from gurobipy import GRB
 from itertools import product, combinations
+from collections import defaultdict
 from util.enums import EdgeType, EdgePenalty, NodeType, PortDirs
 from util.geometry import get_angle
 from util.perf import timing
@@ -195,15 +196,72 @@ def route_single_layer_heuristic(
 
 
 def route_multilayer_heuristic(
-    instance, G, element_set_partition, support_type="steiner-tree"
+    instance,
+    G,
+    element_set_partition,
+    support_type="steiner-tree",
+    multilayer_strategy=("k-of-n", 1),  # 'k-of-n' or 'prev-k'
 ):
     num_layers = instance.get("num_layers", 2)
     G_ = nx.MultiGraph()
     G_.add_nodes_from(list(G.nodes(data=True)))
 
+    edge_used_in_layers = defaultdict(list)
+
     for layer in range(num_layers):
         L = route_single_layer_heuristic(
-            instance, G.copy(), element_set_partition, support_type=support_type, layer=layer
+            instance,
+            G.copy(),
+            element_set_partition,
+            support_type=support_type,
+            layer=layer,
+        )
+        for u, v, k in L.edges(keys=True):
+            if k != EdgeType.SUPPORT:
+                continue
+            edge_used_in_layers[(u, v)].append(k)
+            G_.add_edge(u, v, (layer, k), **L.edges[u, v, k])
+
+    # down-weight edges used in many layers
+    # either if used in all of the previous k layers (at current layer)
+    # or if used in k out of n tota layers
+    # the choice should match the multilayer layout strategy
+    # TODO down-weight by constant or by fraction?
+
+    G_ = nx.MultiGraph()
+    G_.add_nodes_from(list(G.nodes(data=True)))
+
+    for layer in range(num_layers):
+        L2 = G.copy()
+        for edgelayers in edge_used_in_layers.items():
+            edge, layers = edgelayers
+            strat, k = multilayer_strategy
+            should_downweight = False
+            match strat:
+                case "prev-k":
+                    possible_layers = set(range(layer))
+                    sought_layers = set(range(max(0, layer - k), layer))
+                    should_downweight = (
+                        len(sought_layers.intersection(possible_layers))
+                        == len(sought_layers)
+                        if layer > 0
+                        else False
+                    )
+                case "k-of-n":
+                    should_downweight = len(layers) >= k
+
+            if should_downweight:
+                u, v = edge
+                L2.edges[(u, v, EdgeType.PHYSICAL)]["weight"] = (
+                    L.edges[(u, v, EdgeType.PHYSICAL)]["weight"]
+                    + EdgePenalty.COMMON_MULTILAYER
+                )
+        L = route_single_layer_heuristic(
+            instance,
+            G.copy(),
+            element_set_partition,
+            support_type=support_type,
+            layer=layer,
         )
         for u, v, k in L.edges(keys=True):
             if k != EdgeType.SUPPORT:

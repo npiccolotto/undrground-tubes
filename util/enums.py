@@ -10,6 +10,7 @@ from enum import IntEnum, Enum
 
 class EdgePenalty(float, Enum):
     IN_SUPPORT = -1
+    COMMON_MULTILAYER = -1
 
     # Bends
     ONE_EIGHTY = 0
@@ -27,6 +28,7 @@ class EdgePenalty(float, Enum):
     HOP = 2
 
     CROSSING = 1000
+
 
 
 class EdgeType(IntEnum):

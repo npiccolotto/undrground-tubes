@@ -486,7 +486,6 @@ def extract_support_layer(M, layer):
     return G
 
 
-
 def get_port(G, parent, side):
     all_ports = nx.neighbors(G, parent)
     for p in all_ports:
@@ -541,4 +540,3 @@ def get_ports(G, u, v):
             return (get_port(G, u, "ne"), get_port(G, v, "sw"))
 
     raise BaseException(f"something went wrong: dx={dx}, dy={dy}, u={u}, v={v}")
-
