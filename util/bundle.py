@@ -465,12 +465,9 @@ def bundle_lines(instance, M):
 
     for layer in range(instance.get("num_layers", 2)):
         G = extract_support_layer(M, layer)
-        print("support layer", G)
         G = convert_to_line_graph(G)
-
-        print("line graph", G)
-
         G_for_loom = convert_to_geojson(G)
+
         with open(f"loom_input_{layer}.json", "w") as f:
             f.write(G_for_loom)
             loom = subprocess.run(

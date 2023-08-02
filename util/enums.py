@@ -16,7 +16,7 @@ class EdgePenalty(float, Enum):
     ONE_EIGHTY = 0
     ONE_THIRTY_FIVE = 1
     NINETY = 1.5
-    FORTY_FIVE = 2
+    FORTY_FIVE = 4
 
     # To center
     TO_CENTER = 2
@@ -30,7 +30,6 @@ class EdgePenalty(float, Enum):
     CROSSING = 1000
 
 
-
 class EdgeType(IntEnum):
     DRAW = -3
     SUPPORT = -2  # edge in hypergraph support
@@ -41,5 +40,6 @@ class EdgeType(IntEnum):
 class NodeType(IntEnum):
     CENTER = 0
     PORT = 1
+
 
 PortDirs = ["n", "ne", "e", "se", "s", "sw", "w", "nw"]
