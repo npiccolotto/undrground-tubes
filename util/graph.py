@@ -1,11 +1,12 @@
 import numpy as np
 import networkx as nx
+import math
 import networkx.algorithms.approximation.traveling_salesman as tsp
 import networkx.algorithms.approximation.steinertree as steinertree
 from util.geometry import dist_euclidean
 from util.perf import timing
 from itertools import product, pairwise, combinations
-from util.enums import NodeType
+from util.enums import NodeType, EdgePenalty, PortDirs, EdgeType
 
 
 def path_to_edges(path):
@@ -229,17 +230,19 @@ def approximate_tsp_tour(G, S):
     )
     return path
 
+
 def get_node_with_degree(G, deg):
     nodes_and_deg = [(n, G.degree(n)) for n in G.nodes()]
     deg_nodes = [n for n, d in nodes_and_deg if d == deg]
     return deg_nodes[0] if len(deg_nodes) > 0 else None
+
 
 def visit_edge_pairs_starting_at_node(G, start):
     # so here the idea is that for drawing we need edge pairs
     # we find edge pairs by starting at a node
     edge_pairs = []
     stack = []
-    current_edge=None
+    current_edge = None
 
     incident_edges = list(G.edges(start))
     if len(incident_edges) == 0:
@@ -247,7 +250,6 @@ def visit_edge_pairs_starting_at_node(G, start):
     current_edge = incident_edges.pop()
     if len(incident_edges) > 0:
         stack = incident_edges
-
 
     while True:
         # not currently looking at an edge
@@ -259,8 +261,8 @@ def visit_edge_pairs_starting_at_node(G, start):
             elif len(edge_pairs) > 0:
                 return edge_pairs
 
-        u,v = current_edge
-        next_edges = list([(w,x) for w,x in G.edges(v) if (w,x) != (v,u)])
+        u, v = current_edge
+        next_edges = list([(w, x) for w, x in G.edges(v) if (w, x) != (v, u)])
 
         match len(next_edges):
             case 0:
@@ -270,12 +272,12 @@ def visit_edge_pairs_starting_at_node(G, start):
                 continue
             case 1:
                 # there is 1 next edge
-                next_edge =  next_edges[0]
-                edge_pairs.append([current_edge,next_edge])
+                next_edge = next_edges[0]
+                edge_pairs.append([current_edge, next_edge])
                 current_edge = next_edge
                 continue
             case _:
-                next_edge =  next_edges[0]
+                next_edge = next_edges[0]
                 pairs = product([current_edge], next_edges)
                 edge_pairs = edge_pairs + list(pairs)
                 stack = stack + next_edges[1:]
@@ -283,6 +285,258 @@ def visit_edge_pairs_starting_at_node(G, start):
                 continue
 
 
+# TODO could be a context manager
+def block_edges_using(G, closed_nodes):
+    for node in closed_nodes:
+        if G.nodes[node]["node"] != NodeType.CENTER:
+            raise BaseException("trying to block non-center node!")
+        ports = G.neighbors(node)
+        for p in ports:
+            for e in G.edges(p):
+                u, v = e
+                if (
+                    G.nodes[u]["node"] == NodeType.PORT
+                    and G.nodes[v]["node"] == NodeType.PORT
+                    and ("blocked" not in G.edges[e] or not G.edges[e]["blocked"])
+                ):
+                    G.edges[e]["blocked"] = True
+                    G.edges[e]["base_weight"] = G.edges[e]["weight"]
+                    G.edges[e]["weight"] = float(math.inf)
+    return G
 
 
-    pass
+def unblock_edges(G, closed_nodes):
+    for node in closed_nodes:
+        ports = G.neighbors(node)
+        for p in ports:
+            for e in G.edges(p):
+                if "blocked" in G.edges[e] and G.edges[e]["blocked"]:
+                    G.edges[e]["blocked"] = False
+                    G.edges[e]["weight"] = G.edges[e]["base_weight"]
+
+    # for u, v in G.edges():
+    #    if G.nodes[u]["node"] == NodeType.PORT and G.nodes[v]["node"] == NodeType.PORT:
+    #        parents = set([G.nodes[u]["belongs_to"], G.nodes[v]["belongs_to"]])
+    #        if len(parents.intersection(set(closed_nodes))) > 0:
+    #            G.edges[(u, v)]["weight"] = G.edges[(u, v)]["base_weight"]
+    return G
+
+
+def get_port_edge_between_centers(G, u, v):
+    uports = G.neighbors(u)
+
+    for p in uports:
+        for w, x in G.edges(p):
+            if G.nodes[x]["node"] == NodeType.PORT and G.nodes[x]["belongs_to"] == v:
+                return (w, x)
+    raise Exception("no port edge between centers")
+
+
+def update_weights_for_support_edge(G, edge):
+    u, v = edge
+    un = G.nodes[u]["node"]
+    vn = G.nodes[v]["node"]
+
+    # only care about ports
+    if un != NodeType.PORT or vn != NodeType.PORT:
+        return G
+
+    # make this edge cheaper so future routes will use it more
+    G.edges[edge]["weight"] += EdgePenalty.IN_SUPPORT
+
+    # penalize other edges crossing this one
+    # is it an edge between nodes?
+    uparent = G.nodes[u]["belongs_to"]
+    vparent = G.nodes[v]["belongs_to"]
+    """
+    if uparent == vparent and not G.nodes[uparent]["occupied"]:
+        # nope, within a node
+        # get all port edges and find those crossing this one
+        ports = G.neighbors(uparent)
+        port_edges = [G.edges(p) for p in ports]
+        port_edges = list(set([item for sub_list in port_edges for item in sub_list]))
+        port_edges = [
+            (u, v)
+            for u, v in port_edges
+            if G.nodes[u]["node"] == NodeType.PORT
+            and G.nodes[v]["node"] == NodeType.PORT
+        ]
+        crossing_edges = [
+            (w, x) for w, x in port_edges if do_lines_intersect(w, x, u, v)
+        ]
+        for w, x in crossing_edges:
+            G.edges[(w, x)]["weight"] = G.edges[(w, x)]["weight"] + EdgePenalty.CROSSING
+    """
+    if uparent != vparent:
+        # yep, between nodes
+        uparent, vparent = list(sorted([uparent, vparent], key=lambda x: x[1]))
+        # now u is up
+        ux, uy = uparent
+        vx, vy = vparent
+        is_left_tilt = ux < vx and uy < vy
+        is_right_tilt = ux > vx and uy < vy
+
+        if is_left_tilt:
+            e = get_port_edge_between_centers(G, (ux, uy + 1), (ux + 1, uy))
+            G.edges[e]["weight"] = G.edges[e]["weight"] + EdgePenalty.CROSSING
+        if is_right_tilt:
+            e = get_port_edge_between_centers(G, (ux - 1, uy), (ux, uy + 1))
+            G.edges[e]["weight"] = G.edges[e]["weight"] + EdgePenalty.CROSSING
+
+    return G
+
+
+def are_port_edges_crossing(us, ut, vs, vt):
+    cw_dirs = PortDirs + PortDirs
+
+    ccw_dirs = (
+        [PortDirs[0]]
+        + list(reversed(PortDirs[1:]))
+        + [PortDirs[0]]
+        + list(reversed(PortDirs[1:]))
+    )
+
+    # start at us and go clockwise to ut, collect all ports in between
+    cw_set = []
+    i = cw_dirs.index(us["port"]) + 1
+    j = cw_dirs.index(ut["port"])
+    if j > i:
+        cw_set = cw_dirs[i:j]
+
+    # then start at us and go ccw to ut, collect all ports in between
+    ccw_set = []
+    i = ccw_dirs.index(ut["port"]) + 1
+    j = ccw_dirs.index(us["port"])
+    if j > i:
+        ccw_set = ccw_dirs[i:j]
+
+    # edges cross iff vs in former and vt in latter set (or vice versa)
+    port1 = vs["port"]
+    port2 = vt["port"]
+
+    are_crossing = True
+    if port1 in cw_set and port2 in cw_set and port1 in ccw_set and port2 in ccw_set:
+        are_crossing = False
+    if port1 in [ut["port"], us["port"]] or port2 in [ut["port"], us["port"]]:
+        are_crossing = False
+    return are_crossing
+
+
+def get_crossing_port_edges(G):
+    # assuming G consinsts only of port edges of one node
+    edges = list(
+        [
+            (u, v)
+            if PortDirs.index(G.nodes[u]["port"]) < PortDirs.index(G.nodes[v]["port"])
+            else (v, u)
+            for (u, v) in G.edges()
+        ]
+    )
+    edges = list(sorted(edges, key=lambda e: PortDirs.index(G.nodes[e[0]]["port"])))
+    crossings = []
+
+    for i, e1 in enumerate(edges):
+        u, v = e1
+        for j, e2 in enumerate(edges):
+            if j <= i:
+                continue
+            w, x = e2
+            if are_port_edges_crossing(G.nodes[u], G.nodes[v], G.nodes[w], G.nodes[x]):
+                crossings.append((e1, e2))
+    return crossings
+
+
+def get_port_edges(M, node):
+    all_ports = [
+        p for p in nx.neighbors(M, node) if M.nodes[p]["node"] == NodeType.PORT
+    ]
+    all_edges_at_ports = set()
+    for port in all_ports:
+        edges_at_port = [
+            (a, b)
+            if PortDirs.index(M.nodes[a]["port"]) < PortDirs.index(M.nodes[b]["port"])
+            else (b, a)
+            for a, b, k in M.edges(nbunch=port, keys=True)
+            if k == EdgeType.PHYSICAL
+            and M.nodes[a]["node"] == NodeType.PORT
+            and M.nodes[b]["node"] == NodeType.PORT
+            and M.nodes[a]["belongs_to"] == node
+            and M.nodes[b]["belongs_to"] == node
+        ]
+
+        all_edges_at_ports = all_edges_at_ports.union(set(edges_at_port))
+    return list(all_edges_at_ports)
+
+
+def extract_support_layer(M, layer):
+    G = nx.Graph()
+    G.add_nodes_from(
+        [
+            (n, d | d["layers"][layer] if d["node"] == NodeType.CENTER else d)
+            for n, d in M.nodes(data=True)
+        ]
+    )
+    G.add_edges_from(
+        [
+            (u, v, d)
+            for u, v, k, d in M.edges(keys=True, data=True)
+            if k == (layer, EdgeType.SUPPORT)
+        ]
+    )
+    return G
+
+
+def get_port(G, parent, side):
+    all_ports = nx.neighbors(G, parent)
+    for p in all_ports:
+        if (
+            G.nodes[p]["node"] == NodeType.PORT
+            and G.nodes[p]["belongs_to"] == parent
+            and G.nodes[p]["port"] == side
+        ):
+            return p
+    return None
+
+
+def get_ports(G, u, v):
+    """for two center nodes u and v in G, returns their respective ports that an edge would use"""
+    ux, uy = G.nodes[u]["logpos"]
+    vx, vy = G.nodes[v]["logpos"]
+
+    dx = ux - vx
+    dy = uy - vy
+    delta = (dx, dy)
+
+    # dx = -1 -> ux - vx = -1 -> vx > ux -> v is west of u
+    # dx = 1 -> ux - vx = 1 -> ux > vx -> v is east of u
+    # dy = -1 -> uy - vy = -1 -> vy > uy -> v is south of u
+
+    match delta:
+        # v is west
+        case (-1, -1):
+            # v is in se of u
+            return (get_port(G, u, "sw"), get_port(G, v, "ne"))
+        case (-1, 0):
+            # v is east of u
+            return (get_port(G, u, "w"), get_port(G, v, "e"))
+        case (-1, 1):
+            # v is ne of u
+            return (get_port(G, u, "nw"), get_port(G, v, "se"))
+
+        case (0, -1):
+            # v is south of u
+            return (get_port(G, u, "s"), get_port(G, v, "n"))
+        # (0,0) not possible!
+        case (0, 1):
+            # v is north of u
+            return (get_port(G, u, "n"), get_port(G, v, "s"))
+
+        # v is east
+        case (1, -1):
+            return (get_port(G, u, "se"), get_port(G, v, "nw"))
+        case (1, 0):
+            return (get_port(G, u, "e"), get_port(G, v, "w"))
+        case (1, 1):
+            return (get_port(G, u, "ne"), get_port(G, v, "sw"))
+
+    raise BaseException(f"something went wrong: dx={dx}, dy={dy}, u={u}, v={v}")

@@ -420,53 +420,6 @@ def biarc(ps, p0, p4, pt):
         "arc2": get_svg_arc_params(p2, p4, c2, r2, angle2a, angle2b, clockwise2),
     }
 
-
-def draw_biarc(line, barc):
-    p0 = barc["p"][1]
-    line.M(p0[0], p0[1])
-
-    if barc["type"] == "C":
-        line.C(*barc["args"])
-    else:
-        arc1 = barc["arc1"]
-        arc2 = barc["arc2"]
-        arc1_x, arc1_y, arc1_r, arc1_sweep, arc1_large = arc1
-        arc2_x, arc2_y, arc2_r, arc2_sweep, arc2_large = arc2
-
-        line.A(arc1_r, arc1_r, 0, arc1_large, arc1_sweep, arc1_x, arc1_y)
-        line.M(arc1_x, arc1_y)
-        line.A(arc2_r, arc2_r, 0, arc2_large, arc2_sweep, arc2_x, arc2_y)
-        line.M(arc2_x, arc2_y)
-
-
-def interpolate_biarcs(points, **kwargs):
-    if len(points) < 2:
-        return None
-
-    line = svg.Path(**kwargs)
-
-    pairs = pairwise(points)
-    for i, (p, q) in enumerate(pairs):
-        seg_type, p = p
-        _, q = q
-
-        if seg_type == "L":
-            line.M(p[0], p[1]).L(q[0], q[1])
-            continue
-        if seg_type != "B":
-            raise Exception(f"unknown segment type '{seg_type}'")
-
-        _, ps = points[i - 1]
-        _, p0 = points[i]
-        _, p4 = points[i + 1]
-        _, pt = points[i + 2]
-
-        barc = biarc(ps, p0, p4, pt)
-        draw_biarc(line, barc)
-
-    return line
-
-
 def logical_coords_to_physical(x, y, lattice_type="sqr"):
     if lattice_type == "hex":
         if y % 2 == 1:

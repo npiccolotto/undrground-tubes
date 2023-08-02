@@ -10,6 +10,7 @@ class timing(ContextDecorator):
         self.enabled = enabled
 
     def __enter__(self):
+        print(f'{self.name}...')
         self.start = time.time()
 
     def __exit__(self, *exc):

@@ -431,7 +431,7 @@ def layout_dr(elements, D_EA, D_SR, m=10, n=10, weight=0.5, skip_overlap_removal
     mds = MDS(n_components=2, metric=True, random_state=2, dissimilarity="precomputed")
     H_mds = mds.fit_transform(D)
 
-    draw_embedding(H_mds, './embedding_raw.svg')
+    draw_embedding(H_mds, "./embedding_raw.svg")
 
     if not skip_overlap_removal:
         x_min = np.min(H_mds[:, 0])
@@ -449,7 +449,7 @@ def layout_dr(elements, D_EA, D_SR, m=10, n=10, weight=0.5, skip_overlap_removal
             H_mds
         )
 
-        draw_embedding(h_overlap_removed, './embedding_gridded.svg')
+        draw_embedding(h_overlap_removed, "./embedding_gridded.svg")
 
         pos = []
         for i in range(len(DE)):
@@ -459,7 +459,6 @@ def layout_dr(elements, D_EA, D_SR, m=10, n=10, weight=0.5, skip_overlap_removal
         for i in range(len(DE)):
             pos.append((H_mds[i, 0], H_mds[i, 1]))
 
-
     return pos
 
 
@@ -468,19 +467,20 @@ def layout_dr_multiple(D_EA, D_SR, m=10, n=10, num_samples=10):
 
     pos_mtx = []
     for weight in np.linspace(0, 1, num_samples):
+        print(f'weight={weight}')
         DE = (D_EA - np.min(D_EA)) / (np.max(D_EA) - np.min(D_EA))
         DS = np.array(D_SR)
         D = (1 - weight) * DE + weight * DS
 
         mds = MDS(
-            n_components=2, metric=True, random_state=2, dissimilarity="precomputed"
+            n_components=2, metric=True, random_state=2, dissimilarity="precomputed", normalized_stress='auto'
         )
         H_mds = mds.fit_transform(D)
 
         # sns.scatterplot(x=H_mds[:,0], y=H_mds[:,1], palette='Set1')
         # plt.show()
 
-        pos = np.zeros((8, 2))
+        pos = np.zeros((len(DE), 2))
         for i in range(len(DE)):
             pos[i][0] = H_mds[i, 0]
             pos[i][1] = H_mds[i, 1]

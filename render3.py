@@ -6,7 +6,6 @@ from enum import Enum, IntEnum
 from itertools import combinations, pairwise, product
 
 
-
 import drawsvg as svg
 import networkx as nx
 import numpy as np
@@ -615,7 +614,11 @@ def geometrize(instance, M, draw_labels=False):
         if M.nodes[i]["node"] == NodeType.CENTER and M.nodes[i]["occupied"]:
             geometries.append(
                 svg.Circle(
-                    cx=nx, cy=ny, r=one_unit_px / 4, data_name=M.nodes[i]["glyph"], fill=f'#0000{i}{i}'
+                    cx=nx,
+                    cy=ny,
+                    r=one_unit_px / 4,
+                    data_name=M.nodes[i]["glyph"],
+                    fill=f"#0000{i}{i}",
                 )
             )
 
@@ -656,7 +659,7 @@ def geometrize(instance, M, draw_labels=False):
                 )
             )
 
-    #Labeling
+    # Labeling
 
     if draw_labels:
         for i, data in M.nodes(data=True):
@@ -665,11 +668,18 @@ def geometrize(instance, M, draw_labels=False):
             if "glyph" in data:
                 label = data["glyph"]
                 geometries.append(
-                    svg.Text(text=label, x=x, y=y, font_size=14, fill="purple", text_anchor="middle")
+                    svg.Text(
+                        text=label,
+                        x=x,
+                        y=y,
+                        font_size=14,
+                        fill="purple",
+                        text_anchor="middle",
+                    )
                 )
 
     # uncomment to draw edge-bundled lines
-    '''
+    """
     set_colors = ["red", "blue", "orange", "green", "magenta"]
     uniq_edges = list(set(M.edges()))
     for u, v in uniq_edges:
@@ -772,7 +782,7 @@ def geometrize(instance, M, draw_labels=False):
         line = interpolate_biarcs(keypoints, **kwargs)
         geometries.append(line)
     
-    '''
+    """
     if False:
         hubs = [n for n in M.nodes() if M.degree[n] > 0]
         for hub in hubs:
@@ -858,7 +868,8 @@ def process_single():
         )
         nx.draw(G, pos=nx.get_node_attributes(G, "pos"), node_size=50)
         plt.show()
-        
+
+
 def process_series():
     m = 10
     n = 10
@@ -876,19 +887,13 @@ def process_series():
     #     )
 
     weights = np.linspace(0, 1, 2)
-    
+
     with timing("layout"):
-        layouts = layout_dr_multiple(
-            instance["D_EA"],
-            instance["D_SR"],
-            m=m,
-            n=n
-        )
-           
+        layouts = layout_dr_multiple(instance["D_EA"], instance["D_SR"], m=m, n=n)
+
     print(layouts)
 
     for i, layout in enumerate(layouts):
-
         instance["glyph_positions"] = layout
 
         with timing("routing"):
@@ -904,9 +909,8 @@ def process_series():
             with open(f"drawing_{i}.svg", "w") as f:
                 f.write(img)
                 f.flush()
-                
-    
+
 
 if __name__ == "__main__":
-    #process_single()
+    # process_single()
     process_series()

@@ -74,6 +74,7 @@ def get_elements_in_same_lists(d: Dict):
 
 
 def list_of_lists_to_set_system_dict(elements, lol):
+    '''Returns a dict with sets as keys and their elements as list value.'''
     d = defaultdict(list)
     for i, element in enumerate(elements):
         sets_i = lol[i]
@@ -98,3 +99,10 @@ def group_by_set(set_system_dict):
     sets = list(map(lambda s: s if isinstance(s, list) or isinstance(s, set) else [s], sets))
 
     return sorted(zip(elements,sets), key=lambda s: len(s[0]), reverse=True)
+
+def invert_list(l):
+    '''returns a dict that holds the index of each list element'''
+    d = {}
+    for i, e in enumerate(l):
+        d[e] = i
+    return d
