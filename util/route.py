@@ -141,7 +141,7 @@ def route_single_layer_heuristic(
 
                 # if support is not connected but should be, fix it by connecting via shortest path
                 support = nx.subgraph_view(
-                    G, filter_edge=lambda u, v, k: k == EdgeType.SUPPORT
+                    G, filter_edge=lambda u, v, k: k == EdgeType.SUPPORT and s in G.edges[u,v,k]['sets']
                 )
                 is_connected = are_node_sets_connected(
                     support, S, nodes_of_processed_elements_for_s
