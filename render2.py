@@ -2,6 +2,7 @@ import json
 import math
 import subprocess
 import sys
+import click
 from collections import defaultdict
 from itertools import chain, combinations, pairwise, product
 
@@ -238,14 +239,12 @@ def add_glyphs_to_nodes(instance, G):
     return G
 
 
-def read_instance(name):
-    with open(f"data/{name}.json") as f:
+def read_instance(directory, name):
+    with open(f"{directory}/{name}.json") as f:
         data = json.load(f)
     elements = data["E"]
     sets = data["S"]
     inst = {
-        "grid_x": 10,
-        "grid_y": 10,
         "elements": elements,
         "elements_inv": invert_list(elements),
         "sets": sets,
@@ -257,33 +256,67 @@ def read_instance(name):
         "strategy": "heuristic",  # 'opt' or 'heuristic'
         "dr_method": "mds",
         "dr_gridification": "hagrid",  #  'hagrid' or 'dgrid'
-        "support_type": "steiner-tree",  #  'path' or 'steiner-tree'
-        "support_partition_by": "set",  #  'set' or 'intersection-group'
     }
     if "glyph_ids" in data:
         inst["glyph_ids"] = data["glyph_ids"]
     return inst
 
 
-if __name__ == "__main__":
-    instance = read_instance("imdb/imdb_10")
+@click.command()
+@click.option(
+    "--read-dir", default="./data", help="directory to read the datasets from"
+)
+@click.option("--write-dir", default="./", help="directory to write the output to")
+@click.option("--dataset", default="imdb/imdb_10", help="dataset to load")
+@click.option("--opt", default=False, help="try optimal solutions")
+@click.option("--grid-width", "-w", default=10, help="grid width as # cols")
+@click.option("--grid-height", "-h", default=10, help="grid height as # rows")
+@click.option(
+    "--num-weights", default=2, help="how many samples between 0..1 to use for weights"
+)
+@click.option(
+    "--support-type",
+    type=click.Choice(["path", "steiner-tree"], case_sensitive=False),
+    default="steiner-tree",
+    help="the support type",
+)
+@click.option(
+    "--support-partition",
+    type=click.Choice(["set", "intersection-group"], case_sensitive=False),
+    default="set",
+    help="the partition type",
+)
+def render(
+    read_dir,
+    write_dir,
+    dataset,
+    opt,
+    num_weights,
+    grid_width,
+    grid_height,
+    support_type,
+    support_partition,
+):
+    instance = read_instance(read_dir, dataset)
     lattice_type = "sqr"
-    m = instance["grid_x"]
-    n = instance["grid_y"]
-    num_layers = 2
-    instance["num_layers"] = num_layers
+    instance["grid_x"] = grid_width
+    instance["grid_y"] = grid_height
+    instance["num_layers"] = num_weights
+    instance["support_type"] = support_type
+    instance["strategy"] = "opt" if opt else "heuristic"
+    instance["support_partition_by"] = support_partition
 
     with timing("layout"):
         instance["glyph_positions"] = layout_dr_multiple(
             instance["D_EA"],
             instance["D_SR"],
-            m=m,
-            n=n,
-            num_samples=num_layers,
+            m=grid_width,
+            n=grid_height,
+            num_samples=num_weights,
         )
 
     with timing("routing"):
-        G = get_routing_graph(lattice_type, (m, n))
+        G = get_routing_graph(lattice_type, (grid_width, grid_height))
         G = add_glyphs_to_nodes(instance, G)
 
         element_set_partition = (
@@ -324,7 +357,7 @@ if __name__ == "__main__":
         # we have
         # G = multigraph with center and physical nodes/edges
         # L = a multigraph with (layer, support) edges and center nodes
-        for layer in range(num_layers):
+        for layer in range(num_weights):
             for i, esp in enumerate(element_set_partition):
                 elements, sets = esp
                 root_pos = instance["glyph_positions"][layer][
@@ -431,7 +464,7 @@ if __name__ == "__main__":
     # draw_support(instance, M.copy())
 
     with timing("draw+write svg"):
-        for layer in range(num_layers):
+        for layer in range(num_weights):
             L.add_edges_from(
                 [
                     (u, v, k, d)
@@ -440,9 +473,13 @@ if __name__ == "__main__":
                 ]
             )
             geometries = geometrize(instance, L, element_set_partition, layer=layer)
-            img = draw_svg(geometries, m * CELL_SIZE_PX, n * CELL_SIZE_PX)
-            with open(f"drawing_{layer}.svg", "w") as f:
+            img = draw_svg(geometries, grid_width * CELL_SIZE_PX, grid_height * CELL_SIZE_PX)
+            with open(f"{write_dir}drawing_{layer}.svg", "w") as f:
                 f.write(img)
                 f.flush()
 
     print("Done.")
+
+
+if __name__ == "__main__":
+    render()
