@@ -2,6 +2,7 @@ import json
 import math
 import subprocess
 import sys
+import copy
 import click
 from collections import defaultdict
 from itertools import chain, combinations, pairwise, product
@@ -31,6 +32,7 @@ from util.geometry import (
 )
 from util.graph import (
     path_to_edges,
+    extract_support_layer,
     get_ports,
 )
 from util.layout import layout_dr, layout_dr_multiple, layout_qsap
@@ -253,7 +255,6 @@ def read_instance(directory, name):
         "D_SR": data["SA"],
         "set_ftb_order": list(sorted(sets)),
         # pipeline config
-        "strategy": "heuristic",  # 'opt' or 'heuristic'
         "dr_method": "mds",
         "dr_gridification": "hagrid",  #  'hagrid' or 'dgrid'
     }
@@ -461,10 +462,28 @@ def render(
                         )
         L = G
 
-    # draw_support(instance, M.copy())
+    with timing("serialize graph"):
+        # avoid referencing issues
+        L_ = copy.deepcopy(L)
+
+        for u, v, d in L_.edges(data=True):
+            # convert stuff that json doesn't like
+            # sets
+            if "sets" in d:
+                d["sets"] = list(d["sets"])
+            # tuple keys
+            if "oeb_order" in d:
+                keys = list(d["oeb_order"])
+                for key in keys:
+                    d["oeb_order"][str(key)] = [*d["oeb_order"][key]]
+                    del d["oeb_order"][key]
+
+        with open(f"{write_dir}serialized.json", "w") as f:
+            json.dump(nx.node_link_data(L_), f)
 
     with timing("draw+write svg"):
         for layer in range(num_weights):
+            # TODO dump L in some format we can read again
             L.add_edges_from(
                 [
                     (u, v, k, d)
@@ -473,7 +492,9 @@ def render(
                 ]
             )
             geometries = geometrize(instance, L, element_set_partition, layer=layer)
-            img = draw_svg(geometries, grid_width * CELL_SIZE_PX, grid_height * CELL_SIZE_PX)
+            img = draw_svg(
+                geometries, grid_width * CELL_SIZE_PX, grid_height * CELL_SIZE_PX
+            )
             with open(f"{write_dir}drawing_{layer}.svg", "w") as f:
                 f.write(img)
                 f.flush()
