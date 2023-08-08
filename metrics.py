@@ -25,13 +25,9 @@ def compute_total_line_length(G):
     for u, v, k, d in G.edges(keys=True, data=True):
         layer, _ = k
         if layer not in result:
-            result[layer] = {"within-node": 0, "between-node": 0}
+            result[layer] = {"between-node": 0}
         num_sets_at_edge = len(d["sets"])
-        if edge_filter_ports(G, u, v, possibly_with_center=False, same_centers=True):
-            result[layer]["within-node"] += num_sets_at_edge
-        elif edge_filter_ports(G, u, v, possibly_with_center=True, same_centers=True):
-            pass
-        else:
+        if edge_filter_ports(G, u, v, possibly_with_center=False, same_centers=False):
             result[layer]["between-node"] += num_sets_at_edge
 
     return result
