@@ -3,7 +3,12 @@ import numpy as np
 import math
 import networkx as nx
 from util.enums import NodeType, EdgeType
-from util.graph import extract_support_layer, get_crossing_port_edges, get_port_edges
+from util.graph import (
+    extract_support_layer,
+    get_crossing_port_edges,
+    get_port_edges,
+    edge_filter_ports,
+)
 from util.geometry import (
     get_angle,
     offset_edge,
@@ -78,31 +83,6 @@ def draw_embedding(X, path, **kwargs):
         )
     with open(path, "w") as f:
         f.write(draw_svg(geometries, w + 2 * mx, h + 2 * my))
-
-
-def edge_filter_ports(G, u, v, same_centers=False, possibly_with_center=False):
-    uparent = (
-        None if G.nodes[u]["node"] == NodeType.CENTER else G.nodes[u]["belongs_to"]
-    )
-    vparent = (
-        None if G.nodes[v]["node"] == NodeType.CENTER else G.nodes[v]["belongs_to"]
-    )
-
-    match (uparent, vparent):
-        case (None, None):
-            return False
-        case (None, _):
-            return possibly_with_center
-        case (_, None):
-            return possibly_with_center
-        case (_, _):
-            match same_centers:
-                case True:
-                    return uparent == vparent
-                case False:
-                    return uparent != vparent
-                case None:
-                    return True
 
 
 def draw_svg(geometries, width, height):

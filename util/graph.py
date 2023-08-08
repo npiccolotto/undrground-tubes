@@ -540,3 +540,28 @@ def get_ports(G, u, v):
             return (get_port(G, u, "ne"), get_port(G, v, "sw"))
 
     raise BaseException(f"something went wrong: dx={dx}, dy={dy}, u={u}, v={v}")
+
+
+def edge_filter_ports(G, u, v, same_centers=False, possibly_with_center=False):
+    uparent = (
+        None if G.nodes[u]["node"] == NodeType.CENTER else G.nodes[u]["belongs_to"]
+    )
+    vparent = (
+        None if G.nodes[v]["node"] == NodeType.CENTER else G.nodes[v]["belongs_to"]
+    )
+
+    match (uparent, vparent):
+        case (None, None):
+            return False
+        case (None, _):
+            return possibly_with_center
+        case (_, None):
+            return possibly_with_center
+        case (_, _):
+            match same_centers:
+                case True:
+                    return uparent == vparent
+                case False:
+                    return uparent != vparent
+                case None:
+                    return True
