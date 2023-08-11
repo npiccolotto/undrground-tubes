@@ -9,6 +9,7 @@ __pycache__/**/*
 
 data/imdb/covers/*.jpg
 data/imdb/*.tsv
+data/synth/imgs/*.png
 
 loom_*.json
 
@@ -17,5 +18,6 @@ embedding_gridded.svg
 embedding_raw.svg
 support.svg
 **/serialized.json
+
 
 .DS_Store
