@@ -26,8 +26,8 @@ MARGINS = np.array((0.5, 0.5)) * CELL_SIZE_PX
 NODE_CIRCLE_RADIUS = (
     0.3 * CELL_SIZE_PX
 )  # must be smaller than 1/2 cell size or we get artefacts in line bends
-DRAW_GLYPHS_OVER_LINES = False
-DRAW_DEG1_MARKS = True
+DRAW_GLYPHS_OVER_LINES = True
+DRAW_DEG1_MARKS = False
 DRAW_DEG1_MARK_SIZE_PX = STROKE_WIDTH
 DRAW_HUBS = False
 DRAW_GLYPHS = True
