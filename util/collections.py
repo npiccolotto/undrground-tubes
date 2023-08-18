@@ -1,5 +1,6 @@
 from collections import defaultdict
 from typing import Dict
+from itertools import combinations, chain
 
 
 def merge_alternating(xs, ys=None):
@@ -74,7 +75,7 @@ def get_elements_in_same_lists(d: Dict):
 
 
 def list_of_lists_to_set_system_dict(elements, lol):
-    '''Returns a dict with sets as keys and their elements as list value.'''
+    """Returns a dict with sets as keys and their elements as list value."""
     d = defaultdict(list)
     for i, element in enumerate(elements):
         sets_i = lol[i]
@@ -83,26 +84,57 @@ def list_of_lists_to_set_system_dict(elements, lol):
     return d
 
 
-def group_by_intersection_group(set_system_dict):
-    intersection_groups = get_elements_in_same_lists(set_system_dict)
-    sorted_intersection_groups = sorted(
-        zip(intersection_groups.keys(), intersection_groups.values()),
-        key=lambda x: len(x[1]),
-        reverse=True,
-    )
-    return sorted_intersection_groups
+#def group_by_intersection_group(set_system_dict):
+#    intersection_groups = get_intersection_groups(set_system_dict)
+#    sorted_intersection_groups = sorted(
+#        zip(intersection_groups.keys(), intersection_groups.values()),
+#        key=lambda x: len(x[1]),
+#        reverse=True,
+#    )
+#    return sorted_intersection_groups
 
 
 def group_by_set(set_system_dict):
-    sets,elements = zip(*set_system_dict.items())
+    sets, elements = zip(*set_system_dict.items())
 
-    sets = list(map(lambda s: s if isinstance(s, list) or isinstance(s, set) else [s], sets))
+    sets = list(
+        map(lambda s: s if isinstance(s, list) or isinstance(s, set) else [s], sets)
+    )
 
-    return sorted(zip(elements,sets), key=lambda s: len(s[0]), reverse=True)
+    return sorted(zip(elements, sets), key=lambda s: len(s[0]), reverse=True)
+
 
 def invert_list(l):
-    '''returns a dict that holds the index of each list element'''
+    """returns a dict that holds the index of each list element"""
     d = {}
     for i, e in enumerate(l):
         d[e] = i
     return d
+
+def set_contains(a, b):
+    """returns true if set b is contained in set a"""
+    return a.intersection(b) == b
+
+
+def group_by_intersection_group(d: Dict):
+    sets, _ = zip(*d.items())
+    igroups = list(
+        chain.from_iterable(combinations(sets, l) for l in range(1, len(sets) + 1))
+    )
+
+    result = []
+    for igroup in igroups:
+        igroup_elements = set.intersection(*[set(d[s]) for s in igroup])
+        # currently we can't display sets with 1 element in them
+        if len(igroup_elements) > 1:
+            result.append((tuple(sorted(igroup_elements)), tuple(sorted(igroup))))
+
+    return result
+
+
+if __name__ == "__main__":
+    print(
+        group_by_intersection_group(
+            {"horror": ["a", "b"], "comedy": ["a"], "drama": ["a", "b", "c"]}
+        )
+    )

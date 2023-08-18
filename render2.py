@@ -278,7 +278,7 @@ def read_instance(directory, name):
 @click.option(
     "--support-type",
     type=click.Choice(["path", "steiner-tree"], case_sensitive=False),
-    default="path",
+    default="steiner-tree",
     help="the support type",
 )
 @click.option(

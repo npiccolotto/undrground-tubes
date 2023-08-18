@@ -18,6 +18,7 @@ from util.graph import (
     approximate_tsp_tour,
     path_to_edges,
 )
+from util.collections import set_contains
 
 # factor for edges on all layers
 EDGE_SOFT_CONSTRAINT_WEIGHT = 1
@@ -78,11 +79,25 @@ def route_single_layer_heuristic(
     # 2. then process from biggest to smallest group. for each:
     for elements, sets in element_set_partition:
         new_edges = []
+
+        # find elements to connect
         S = [
             n
             for n, d in G_.nodes(data=True)
             if d["node"] == NodeType.CENTER and d["occupied"] and d["label"] in elements
         ]
+
+        # check if the elements already are connected
+        # could have happened e.g. from a previous, larger intersection group
+        C = nx.subgraph_view(
+            G,
+            filter_edge=lambda u, v, k: k == EdgeType.SUPPORT
+            and set_contains(G.edges[u, v, k]["sets"], set(sets))
+        )
+        print(set(sets), C)
+        if nx.is_connected(C):
+            print(elements, "already connected")
+            continue
 
         # close edges to all other occupied nodes so as to not route "over" them
         S_minus = [
@@ -92,6 +107,7 @@ def route_single_layer_heuristic(
             and d["occupied"]
             and d["label"] not in elements
         ]
+
         G_ = block_edges_using(G_, S_minus)
 
         # 3. determine approximated steiner tree acc. to kou1981 / wu1986.
@@ -141,7 +157,9 @@ def route_single_layer_heuristic(
 
                 # if support is not connected but should be, fix it by connecting via shortest path
                 support = nx.subgraph_view(
-                    G, filter_edge=lambda u, v, k: k == EdgeType.SUPPORT and s in G.edges[u,v,k]['sets']
+                    G,
+                    filter_edge=lambda u, v, k: k == EdgeType.SUPPORT
+                    and s in G.edges[u, v, k]["sets"],
                 )
                 is_connected = are_node_sets_connected(
                     support, S, nodes_of_processed_elements_for_s
