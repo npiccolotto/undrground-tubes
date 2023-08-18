@@ -1,15 +1,13 @@
-drawsvg~=2.0
-networkx~=3.1
-pandas >= 1.4.1
-numpy >= 1.22.3
-scikit-learn >= 1.02
-scikit-learn-extra >= 0.2.0
-scipy >= 1.8.0
-numba >= 0.57.0
-seaborn >= 0.12.2
-gurobipy >= 10.0.0
-Pillow >= 10.0.0
-click >= 8.0.4
-tsplib95 @ git+https://github.com/prayerslayer/tsplib95
-pyconcorde @ git+https://github.com/prayerslayer/pyconcorde
-nx-concorde @ git+https://github.com/prayerslayer/nx-concorde
+drawsvg ~= 2.0
+networkx ~= 3.1
+pandas ~= 1.4.1
+numpy ~= 1.22.3
+scikit-learn ~= 1.02
+scikit-learn-extra ~= 0.2.0
+scipy ~= 1.8.0
+numba ~= 0.57.0
+seaborn ~= 0.12.2
+gurobipy ~= 10.0.0
+Pillow ~= 10.0.0
+click ~= 8.0.4
+pathos ~= 0.2

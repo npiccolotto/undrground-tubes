@@ -3,10 +3,14 @@ import networkx as nx
 import math
 import networkx.algorithms.approximation.traveling_salesman as tsp
 import networkx.algorithms.approximation.steinertree as steinertree
+from contextlib import ContextDecorator
+from copy import deepcopy
+from itertools import product, pairwise, combinations
+
 from util.geometry import dist_euclidean
 from util.perf import timing
-from itertools import product, pairwise, combinations
 from util.enums import NodeType, EdgePenalty, PortDirs, EdgeType
+from pathos.multiprocessing import ProcessingPool as Pool
 
 
 def path_to_edges(path):
@@ -223,12 +227,122 @@ def approximate_steiner_tree(G, S):
     return G4
 
 
+def update_edge_weights(G, edges, weight):
+    for u, v in edges:
+        G.edges[u, v]["weight"] = weight[(u, v)] if isinstance(weight, dict) else weight
+
+
+class updated_edge_weights(ContextDecorator):
+    def __init__(self, G, edges, weight=0):
+        self.G = G
+        self.edges = edges
+        self.weight = weight
+        self.initial_edge_weights = {}
+        for u, v in edges:
+            self.initial_edge_weights[(u, v)] = G.edges[u, v]["weight"]
+
+    def __enter__(self):
+        print("Blocking edges...")
+        update_edge_weights(self.G, self.edges, self.weight)
+
+    def __exit__(self, *exc):
+        print("Unblocking edges...")
+        update_edge_weights(self.G, self.edges, self.initial_edge_weights)
+
+
+def calc_path_matrix(graph, S=None, heuristic=None, weight="weight", threads=1):
+    """Calculates shortest paths between specified nodes in the graph."""
+
+    nodes = S if S is not None else graph.nodes()
+
+    def _find_path():
+        def path(node_pair):
+            source, target = node_pair
+            return (
+                nx.astar_path(
+                    graph,
+                    source,
+                    target,
+                    heuristic=heuristic,
+                    weight=weight,
+                )
+                if heuristic is not None
+                else nx.shortest_path(graph, source, target, weight=weight)
+            )
+
+        return path
+
+    find_path = _find_path()
+    node_pairs = [(source, target) for source, target in combinations(nodes, 2)]
+    with Pool(nodes=threads) as pool:
+        paths = pool.map(find_path, node_pairs)
+    return {frozenset(node_pair): path for node_pair, path in zip(node_pairs, paths)}
+
+
+def calc_distance_matrix(graph, pathmatrix, weight="weight"):
+    return {
+        node_pair: calculate_path_length(graph, path_to_edges(path), weight)
+        for node_pair, path in pathmatrix.items()
+    }
+
+
 def approximate_tsp_tour(G, S):
-    """Returns an approximation of the shortest tour in G visiting all nodes S exactly once"""
-    path = tsp.traveling_salesman_problem(
-        G, nodes=S, cycle=False, weight="weight", method=tsp.greedy_tsp
+    """Returns an approximation of the shortest tour in G visiting all nodes S exactly once while using each edge at most once.
+    Which is almost but not really a TSP tour (e.g., G is not completely connected), but let's continue calling it that."""
+
+    if len(S) < 3:
+        return nx.shortest_path(G, S[0], S[1], weight="weight")
+
+    G_ = deepcopy(G)
+    R = nx.Graph()  # result graph
+
+    segments = set()
+
+    while len(set(list(R.nodes())).intersection(set(S))) < len(
+        S
+    ) or not nx.is_connected(R):
+        # make shortest path graph
+        SP = nx.Graph()
+        SP.add_nodes_from(S)
+
+        # TODO this takes some time :/ (800ms with imdb10 on 10x10)
+        pathmatrix_G = calc_path_matrix(G_, S=S, heuristic=None)
+
+        for pair, path in pathmatrix_G.items():
+            u, v = pair
+            dist = calculate_path_length(G_, path_to_edges(path), weight="weight")
+            SP.add_edge(u, v, weight=dist)
+
+        # tour through that graph
+        pathmatrix_SP = calc_path_matrix(SP, heuristic=None)
+        distmatrix_SP = calc_distance_matrix(SP, pathmatrix_SP)
+        tour = tsp.traveling_salesman_problem(
+            SP, cycle=False, weight="weight", method=tsp.greedy_tsp
+        )
+
+        min_segment = (math.inf, None)
+        for u, v in pairwise(tour):
+            if (u, v) in segments:  # or (v, u) in segments:
+                continue
+            min, _ = min_segment
+            if distmatrix_SP[frozenset((u, v))] < min:
+                min_segment = (distmatrix_SP[frozenset((u, v))], (u, v))
+
+        u, v = min_segment[1]
+        segments.add((u, v))
+        sp = path_to_edges(pathmatrix_G[frozenset((u, v))])
+        for u, v in sp:
+            R.add_edge(u, v, **G_.edges[u, v])
+
+        # block off used edges
+        update_edge_weights(G_, sp, math.inf)
+        # TODO also block off crossing twins?
+        # but i think a tour can't have crossings
+        # problem is that the `crossing` attribute is only on center edges, which we don't have here
+
+    return tsp.traveling_salesman_problem(
+        R, nodes=S, cycle=False, weight="weight", method=tsp.greedy_tsp
     )
-    return path
 
 
 def get_node_with_degree(G, deg):

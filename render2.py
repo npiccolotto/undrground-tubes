@@ -268,23 +268,23 @@ def read_instance(directory, name):
     "--read-dir", default="./data", help="directory to read the datasets from"
 )
 @click.option("--write-dir", default="./", help="directory to write the output to")
-@click.option("--dataset", default="synth/synth", help="dataset to load")
+@click.option("--dataset", default="imdb/imdb_10", help="dataset to load")
 @click.option("--opt", default=False, help="try optimal solutions")
-@click.option("--grid-width", "-w", default=20, help="grid width as # cols")
-@click.option("--grid-height", "-h", default=20, help="grid height as # rows")
+@click.option("--grid-width", "-w", default=10, help="grid width as # cols")
+@click.option("--grid-height", "-h", default=10, help="grid height as # rows")
 @click.option(
     "--num-weights", default=2, help="how many samples between 0..1 to use for weights"
 )
 @click.option(
     "--support-type",
     type=click.Choice(["path", "steiner-tree"], case_sensitive=False),
-    default="steiner-tree",
+    default="path",
     help="the support type",
 )
 @click.option(
     "--support-partition",
     type=click.Choice(["set", "intersection-group"], case_sensitive=False),
-    default="set",
+    default="intersection-group",
     help="the partition type",
 )
 def render(
