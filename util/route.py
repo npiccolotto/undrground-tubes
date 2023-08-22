@@ -15,6 +15,7 @@ from util.graph import (
     block_edges_using,
     unblock_edges,
     updated_edge_weights,
+    updated_port_node_edge_weights_incident_at,
     approximate_steiner_tree_nx,
     approximate_tsp_tour,
     path_to_edges,
@@ -127,7 +128,6 @@ def route_single_layer_heuristic(
             and set_contains(G.edges[u, v, k]["sets"], set(sets)),
         )
 
-        print(current_support_for_sets)
 
         current_support_for_sets_exists = (
             len(list(current_support_for_sets.edges())) > 0
@@ -149,89 +149,60 @@ def route_single_layer_heuristic(
             print("skipping", sets, ": already supported")
             continue
 
-        # ok, no working support
-        if not current_support_for_sets_exists:
-            # if there is no partial support, just do a path or tree
-            G_ = block_edges_using(G_, S_minus)
+        # there is a partial support, so everything gets trickier
+        # because we have to be smart about incorporating the existing support
+        # if a path is desired:
+        #  find connected components in partial support
+        #  for each component, identify deg-1 nodes
+        #  make shortest path graph of all deg-1 and unconnected nodes with weight = path length (no paths within a component)
+        #  add virtual start node with edge cost 0 connected to all components and unconnected nodes
+        #  find a tour starting at start node
 
+        components = [set(c) for c in nx.connected_components(current_support_for_sets)]
+        nodes_in_components = components
+        if support_type == "path":
+            nodes_in_components = []
+            for c in components:
+                cs = current_support_for_sets.subgraph(c).copy()
+                deg1_nodes = [n for n in c if cs.degree[n] == 1]
+                if len(deg1_nodes) > 0:
+                    nodes_in_components.append(set(deg1_nodes))
+
+        unconnected_nodes = set(S).difference(
+            set(list(current_support_for_sets.nodes()))
+        )
+        nodes_in_components.extend(list(map(lambda x: set([x]), unconnected_nodes)))
+
+        with updated_port_node_edge_weights_incident_at(G_, S_minus, math.inf):
             with updated_edge_weights(
                 G_,
                 [(u, v) for u, v in current_support_for_sets.edges()],
                 math.inf,
             ):
-                print('does blocking work', list([G_.edges[u,v]['weight'] for u, v in current_support_for_sets.edges()]))
-                if len(S) > 1:
-                    with timing("sub support"):
-                        set_support = (
-                            approximate_steiner_tree_nx(G_, S)
-                            if support_type == "steiner-tree"
-                            else approximate_tsp_tour(
-                                G_, list(map(lambda x: set([x]), S))
+                deg2_nodes = [
+                    c
+                    for i, n in enumerate(components)
+                    for c in n
+                    if c not in nodes_in_components[i] and G_.nodes[c]['node'] == NodeType.CENTER
+                ]
+                with updated_port_node_edge_weights_incident_at(
+                    G_, deg2_nodes, math.inf
+                ):
+                    if len(S) > 1:
+                        with timing("sub support"):
+                            set_support = (
+                                approximate_steiner_tree_nx(G_, S)
+                                if support_type == "steiner-tree"
+                                else approximate_tsp_tour(G_, nodes_in_components)
                             )
-                        )
-                    set_support_edges = (
-                        set_support.edges()
-                        if support_type == "steiner-tree"
-                        else path_to_edges(set_support)
-                    )
-                else:
-                    set_support_edges = []
-            G_ = unblock_edges(G_, S_minus)
-        else:
-            # there is a partial support, so everything gets trickier
-            # because we have to be smart about incorporating the existing support
-            # if a path is desired:
-            #  find connected components in partial support
-            #  for each component, identify deg-1 nodes
-            #  make shortest path graph of all deg-1 and unconnected nodes with weight = path length (no paths within a component)
-            #  add virtual start node with edge cost 0 connected to all components and unconnected nodes
-            #  find a tour starting at start node
-
-            components = [
-                set(c) for c in nx.connected_components(current_support_for_sets)
-            ]
-            nodes_in_components = components
-            if support_type == "path":
-                nodes_in_components = []
-                for c in components:
-                    cs = current_support_for_sets.subgraph(c).copy()
-                    deg1_nodes = [n for n in c if cs.degree[n] == 1]
-                    if len(deg1_nodes) > 0:
-                        nodes_in_components.append(set(deg1_nodes))
-
-            unconnected_nodes = set(S).difference(
-                set(list(current_support_for_sets.nodes()))
-            )
-            nodes_in_components.extend(list(map(lambda x: set([x]), unconnected_nodes)))
-
-            # current_support_for_sets.nodes()
-            print(S, current_support_for_sets, nodes_in_components)
-
-            G_ = block_edges_using(G_, S_minus)
-            with updated_edge_weights(
-                G_,
-                [(u, v) for u, v in current_support_for_sets.edges()],
-                math.inf,
-            ):
-                print('does blocking work', list([G_.edges[u,v]['weight'] for u, v in current_support_for_sets.edges()]))
-                if len(S) > 1:
-                    with timing("sub support"):
-                        set_support = (
-                            approximate_steiner_tree_nx(G_, S)
+                        set_support_edges = (
+                            set_support.edges()
                             if support_type == "steiner-tree"
-                            else approximate_tsp_tour(G_, nodes_in_components)
+                            else path_to_edges(set_support)
                         )
-                    set_support_edges = (
-                        set_support.edges()
-                        if support_type == "steiner-tree"
-                        else path_to_edges(set_support)
-                    )
-                else:
-                    set_support_edges = []
+                    else:
+                        set_support_edges = []
 
-            G_ = unblock_edges(G_, S_minus)
-
-        print(set_support_edges)
         # add those edges to support
         for u, v in set_support_edges:
             if not G.has_edge(u, v, EdgeType.SUPPORT):

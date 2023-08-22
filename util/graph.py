@@ -249,12 +249,73 @@ class updated_edge_weights(ContextDecorator):
             self.initial_edge_weights[(u, v)] = G.edges[u, v]["weight"]
 
     def __enter__(self):
-        print("Updating edge weights...")
         update_edge_weights(self.G, self.edges, self.weight)
 
     def __exit__(self, *exc):
-        print("Restoring edge weights...")
         update_edge_weights(self.G, self.edges, self.initial_edge_weights)
+
+
+class updated_port_node_edge_weights_incident_at(ContextDecorator):
+    def __init__(self, G, closed_nodes, weight=math.inf):
+        self.G = G
+        self.nodes = closed_nodes
+        self.weight = weight
+        self.edges = [
+            (u, v)
+            for node in closed_nodes
+            for p in G.neighbors(node)
+            for u, v in G.edges(p)
+            if (
+                G.nodes[u]["node"] == NodeType.PORT
+                and G.nodes[v]["node"] == NodeType.PORT
+            )
+        ]
+        self.initial_edge_weights = {}
+        for u, v in self.edges:
+            self.initial_edge_weights[(u, v)] = G.edges[u, v]["weight"]
+
+    def __enter__(self):
+        update_edge_weights(self.G, self.edges, self.weight)
+
+    def __exit__(self,*exc):
+        update_edge_weights(self.G, self.edges, self.initial_edge_weights)
+
+
+# TODO could be a context manager
+def block_edges_using(G, closed_nodes):
+    for node in closed_nodes:
+        if G.nodes[node]["node"] != NodeType.CENTER:
+            raise BaseException("trying to block non-center node!")
+        ports = G.neighbors(node)
+        for p in ports:
+            for e in G.edges(p):
+                u, v = e
+                if (
+                    G.nodes[u]["node"] == NodeType.PORT
+                    and G.nodes[v]["node"] == NodeType.PORT
+                    and ("blocked" not in G.edges[e] or not G.edges[e]["blocked"])
+                ):
+                    G.edges[e]["blocked"] = True
+                    G.edges[e]["base_weight"] = G.edges[e]["weight"]
+                    G.edges[e]["weight"] = float(math.inf)
+    return G
+
+
+def unblock_edges(G, closed_nodes):
+    for node in closed_nodes:
+        ports = G.neighbors(node)
+        for p in ports:
+            for e in G.edges(p):
+                if "blocked" in G.edges[e] and G.edges[e]["blocked"]:
+                    G.edges[e]["blocked"] = False
+                    G.edges[e]["weight"] = G.edges[e]["base_weight"]
+
+    # for u, v in G.edges():
+    #    if G.nodes[u]["node"] == NodeType.PORT and G.nodes[v]["node"] == NodeType.PORT:
+    #        parents = set([G.nodes[u]["belongs_to"], G.nodes[v]["belongs_to"]])
+    #        if len(parents.intersection(set(closed_nodes))) > 0:
+    #            G.edges[(u, v)]["weight"] = G.edges[(u, v)]["base_weight"]
+    return G
 
 
 def calc_path_matrix(graph, S=None, heuristic=None, weight="weight", threads=1):
@@ -306,7 +367,9 @@ def approximate_tsp_tour(G, S):
         return sp
 
     R = nx.Graph()  # result graph
-    R.add_edges_from([(u, v) for u, v in G.edges() if G.edges[u, v]["weight"] == math.inf])
+    R.add_edges_from(
+        [(u, v) for u, v in G.edges() if G.edges[u, v]["weight"] == math.inf]
+    )
 
     segments = set()
     G_ = deepcopy(G)
@@ -332,7 +395,6 @@ def approximate_tsp_tour(G, S):
                     all_paths,
                 )
             )
-            print(c1, c2, all_dists)
             argmin = np.argmin(all_dists)
             min_idx = argmin[0] if isinstance(argmin, list) else argmin
             SP.add_edge(
@@ -353,13 +415,11 @@ def approximate_tsp_tour(G, S):
         tour = tsp.traveling_salesman_problem(
             SP, cycle=False, weight="weight", method=tsp.greedy_tsp
         )
-        print(segments, list(pairwise(tour)))
         min_segment = (math.inf, None)
         for c1, c2 in pairwise(tour):
             if (c1, c2) in segments:  # or (v, u) in segments:
                 continue
             min, _ = min_segment
-            print('min', min, distmatrix_SP[frozenset((c1, c2))])
             if distmatrix_SP[frozenset((c1, c2))] < min:
                 min_segment = (distmatrix_SP[frozenset((c1, c2))], (c1, c2))
 
@@ -368,8 +428,8 @@ def approximate_tsp_tour(G, S):
             break
 
         c1, c2 = min_segment[1]
-        print("c1", c1, "c2", c2)
         segments.add((c1, c2))
+        segments.add((c2,c1))
         # sp = path_to_edges(pathmatrix_G[frozenset((c1, c2))])
         sp = path_to_edges(SP.edges[c1, c2]["path"])
 
@@ -377,7 +437,7 @@ def approximate_tsp_tour(G, S):
             R.add_edge(u, v, **G_.edges[u, v])
 
         # block off used edges
-        update_edge_weights(G_, sp, math.inf )
+        update_edge_weights(G_, sp, math.inf)
         # TODO also block off crossing twins?
         # but i think a tour can't have crossings
         # problem is that the `crossing` attribute is only on center edges, which we don't have here
@@ -439,43 +499,6 @@ def visit_edge_pairs_starting_at_node(G, start):
                 stack = stack + next_edges[1:]
                 current_edge = next_edge
                 continue
-
-
-# TODO could be a context manager
-def block_edges_using(G, closed_nodes):
-    for node in closed_nodes:
-        if G.nodes[node]["node"] != NodeType.CENTER:
-            raise BaseException("trying to block non-center node!")
-        ports = G.neighbors(node)
-        for p in ports:
-            for e in G.edges(p):
-                u, v = e
-                if (
-                    G.nodes[u]["node"] == NodeType.PORT
-                    and G.nodes[v]["node"] == NodeType.PORT
-                    and ("blocked" not in G.edges[e] or not G.edges[e]["blocked"])
-                ):
-                    G.edges[e]["blocked"] = True
-                    G.edges[e]["base_weight"] = G.edges[e]["weight"]
-                    G.edges[e]["weight"] = float(math.inf)
-    return G
-
-
-def unblock_edges(G, closed_nodes):
-    for node in closed_nodes:
-        ports = G.neighbors(node)
-        for p in ports:
-            for e in G.edges(p):
-                if "blocked" in G.edges[e] and G.edges[e]["blocked"]:
-                    G.edges[e]["blocked"] = False
-                    G.edges[e]["weight"] = G.edges[e]["base_weight"]
-
-    # for u, v in G.edges():
-    #    if G.nodes[u]["node"] == NodeType.PORT and G.nodes[v]["node"] == NodeType.PORT:
-    #        parents = set([G.nodes[u]["belongs_to"], G.nodes[v]["belongs_to"]])
-    #        if len(parents.intersection(set(closed_nodes))) > 0:
-    #            G.edges[(u, v)]["weight"] = G.edges[(u, v)]["base_weight"]
-    return G
 
 
 def get_port_edge_between_centers(G, u, v):
