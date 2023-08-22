@@ -128,7 +128,6 @@ def route_single_layer_heuristic(
             and set_contains(G.edges[u, v, k]["sets"], set(sets)),
         )
 
-
         current_support_for_sets_exists = (
             len(list(current_support_for_sets.edges())) > 0
         )
@@ -183,7 +182,8 @@ def route_single_layer_heuristic(
                     c
                     for i, n in enumerate(components)
                     for c in n
-                    if c not in nodes_in_components[i] and G_.nodes[c]['node'] == NodeType.CENTER
+                    if c not in nodes_in_components[i]
+                    and G_.nodes[c]["node"] == NodeType.CENTER
                 ]
                 with updated_port_node_edge_weights_incident_at(
                     G_, deg2_nodes, math.inf
@@ -344,9 +344,9 @@ def route_multilayer_heuristic(
 
             if should_downweight:
                 u, v = edge
-                L2.edges[(u, v, EdgeType.PHYSICAL)]["weight"] = (
-                    L.edges[(u, v, EdgeType.PHYSICAL)]["weight"]
-                    + EdgePenalty.COMMON_MULTILAYER
+                w = L.edges[(u, v, EdgeType.PHYSICAL)]["weight"]
+                L2.edges[(u, v, EdgeType.PHYSICAL)]["weight"] = max(
+                    0, w + EdgePenalty.COMMON_MULTILAYER
                 )
         L = route_single_layer_heuristic(
             instance,

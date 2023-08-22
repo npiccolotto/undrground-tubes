@@ -277,7 +277,7 @@ class updated_port_node_edge_weights_incident_at(ContextDecorator):
     def __enter__(self):
         update_edge_weights(self.G, self.edges, self.weight)
 
-    def __exit__(self,*exc):
+    def __exit__(self, *exc):
         update_edge_weights(self.G, self.edges, self.initial_edge_weights)
 
 
@@ -429,7 +429,7 @@ def approximate_tsp_tour(G, S):
 
         c1, c2 = min_segment[1]
         segments.add((c1, c2))
-        segments.add((c2,c1))
+        segments.add((c2, c1))
         # sp = path_to_edges(pathmatrix_G[frozenset((c1, c2))])
         sp = path_to_edges(SP.edges[c1, c2]["path"])
 
@@ -521,7 +521,7 @@ def update_weights_for_support_edge(G, edge):
         return G
 
     # make this edge cheaper so future routes will use it more
-    G.edges[edge]["weight"] += EdgePenalty.IN_SUPPORT
+    G.edges[edge]["weight"] = max(0, G.edges[edge]["weight"] + EdgePenalty.IN_SUPPORT)
 
     # penalize other edges crossing this one
     # is it an edge between nodes?
