@@ -2,6 +2,8 @@ from collections import defaultdict
 from typing import Dict
 from itertools import combinations, chain
 
+def flatten(list):
+    return [item for sublist in list for item in sublist]
 
 def merge_alternating(xs, ys=None):
     if ys is None and len(xs) == 2:

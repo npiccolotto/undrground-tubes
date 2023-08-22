@@ -260,6 +260,7 @@ def read_instance(directory, name):
     }
     if "glyph_ids" in data:
         inst["glyph_ids"] = data["glyph_ids"]
+    print(list_of_lists_to_set_system_dict(elements, data["SR"]))
     return inst
 
 
@@ -278,7 +279,7 @@ def read_instance(directory, name):
 @click.option(
     "--support-type",
     type=click.Choice(["path", "steiner-tree"], case_sensitive=False),
-    default="steiner-tree",
+    default="path",
     help="the support type",
 )
 @click.option(
