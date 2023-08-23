@@ -1,6 +1,7 @@
 import drawsvg as svg
 import numpy as np
 import math
+import os
 import networkx as nx
 from util.enums import NodeType, EdgeType
 from util.graph import (
@@ -66,7 +67,6 @@ def draw_biarc(line, barc):
 
 
 def draw_embedding(X, path, **kwargs):
-    # X is a
     r = kwargs.get("r", 0.5)
     w = kwargs.get("width", 100)
     h = kwargs.get("height", 100)
@@ -94,7 +94,9 @@ def draw_svg(geometries, width, height):
     return d.as_svg()
 
 
-def draw_support(instance, M, path="./support.svg"):
+def draw_support(instance, M, dir="./", layer = 0):
+    path = os.path.join(dir, f'support_{layer}.svg')
+
     geometries = []
     # project nodes
     mx, my = MARGINS
@@ -114,8 +116,7 @@ def draw_support(instance, M, path="./support.svg"):
 
     M_ = nx.subgraph_view(
         M,
-        filter_edge=lambda u, v, k: k == EdgeType.SUPPORT
-        and edge_filter_ports(M, u, v, same_centers=False),
+        filter_edge=lambda u, v: edge_filter_ports(M, u, v, same_centers=False),
     )
     for u, v in M_.edges():
         src = M.nodes[M.nodes[u]["belongs_to"]]["pos"]

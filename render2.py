@@ -23,6 +23,8 @@ from util.draw import (
     CELL_SIZE_PX,
     draw_svg,
     geometrize,
+    draw_support,
+    draw_embedding,
 )
 from util.enums import EdgePenalty, EdgeType, NodeType, PortDirs
 from util.geometry import (
@@ -350,6 +352,10 @@ def render(
                 element_set_partition,
                 support_type=instance["support_type"],
             )
+
+    for layer in range(num_weights):
+        M = extract_support_layer(L, layer)
+        draw_support(instance, M, write_dir, layer)
 
     with timing("bundle lines"):
         L = bundle_lines(instance, L)
