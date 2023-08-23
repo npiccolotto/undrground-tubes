@@ -398,7 +398,7 @@ def approximate_tsp_tour(G, S):
     Which is almost but not really a TSP tour (e.g., G is not completely connected), but let's continue calling it that."""
 
     if len(S) < 3:
-        sp = get_shortest_path_between_sets(G, S[0], S[1], weight="weight")
+        sp = get_shortest_path_between_sets(G, S[0], S[1])
         return sp
 
     R = nx.Graph()  # result graph
