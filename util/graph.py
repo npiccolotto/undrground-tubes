@@ -113,27 +113,36 @@ def get_shortest_path_between(G, list1, list2, weight=None):
     return shortest
 
 
-def get_shortest_path_between_sets(G, S, T, weight="weight"):
+def get_shortest_path_between_sets(G, S, T):
     # idea: add temp nodes s (connected with cost 0 to all S) and t (analog)
     # then run dijkstra and remove s and t from shortest path and graph
-    s = "s"
-    t = "t"
+    s = "virtual_source"
+    t = "virtual_target"
     temp_edges = []
+
     G.add_node(s)
     for i in S:
         G.add_edge(s, i, weight=0)
         temp_edges.append((s, i))
+    G.add_node(t)
     for j in T:
         G.add_edge(t, j, weight=0)
         temp_edges.append((t, j))
-    sp = nx.shortest_path(G, s, t, weight=weight)
-    sp = [node for node in sp if node != s and node != t]
-    # cleanup
-    for u, v in temp_edges:
-        G.remove_edge(u, v)
-    G.remove_node(s)
-    G.remove_node(t)
-    return sp
+
+    def cleanup():
+        for u, v in temp_edges:
+            G.remove_edge(u, v)
+        G.remove_node(s)
+        G.remove_node(t)
+
+    try:
+        sp = nx.shortest_path(G, s, t, weight="weight")
+    except nx.exception.NetworkXNoPath as e:
+        cleanup()
+        raise e
+
+    cleanup()
+    return [node for node in sp if node != s and node != t]
 
 
 def shortest_path_graph(G, t=1):
@@ -158,15 +167,11 @@ def shortest_path_graph(G, t=1):
 
 
 def are_node_sets_connected(G, S, T):
-    # take any node as source
-    src = S[0]
-    # keep track of nodes we must eventually find
-    # assume that S is already connected
-    N = set(T)
-    for n in nx.dfs_preorder_nodes(G, src):
-        if n in N:
-            N = N.difference([n])
-    return len(N) == 0
+    try:
+        get_shortest_path_between_sets(G, S, T)
+        return True
+    except nx.exception.NetworkXNoPath:
+        return False
 
 
 def count_node_occurrence_in_path(G, S, path):
@@ -185,49 +190,79 @@ def approximate_steiner_tree_nx(G, S):
     return steinertree.steiner_tree(G, S, method="mehlhorn")
 
 
-def approximate_steiner_tree(G, S):
-    """G is a weighted graph, S is the set of terminal nodes. Returns a tree subgraph of G that is a Steiner tree.
+def approximate_steiner_tree(G, S, C=None):
+    """Steiner tree but works with groups of nodes too"""
+    # S is a group of nodes
+    # C is the current support in G
 
-    Wu et al., 1986: A faster approximation algorithm for the Steiner problem in graphs
-    """
-    # step 1: make G1, a complete graph of all the terminals where edge weight is shortest path length. pick any shortest path if it's not unique
-    shortest_paths_dict = {}
-    G1 = nx.Graph()
-    G1.add_nodes_from(S)
-    for n1, n2 in combinations(S, 2):
-        sp = nx.shortest_path(G, n1, n2, weight="weight")
-        sp_edgelist = path_to_edges(sp)
-        spl = calculate_path_length(G, sp_edgelist, weight="weight")
-        shortest_paths_dict[(n1, n2)] = (spl, sp_edgelist)
-        shortest_paths_dict[(n2, n1)] = (spl, sp_edgelist)
-        G1.add_edge(n1, n2, weight=spl)
+    unconnected_nodes = list(filter(lambda s: len(s) == 1, S))
+    groups = list(filter(lambda s: len(s) > 1, S))
 
-    # step 2: make G2, a MST on G1
-    G2 = nx.minimum_spanning_tree(G1, weight="weight", algorithm="prim")
+    G_ = G.copy()
+    C = nx.Graph() if C is None else C
+    R = nx.Graph()
 
-    # step 3: make G3 by starting with G nodes and no edges. for every edge in G2 add a shortest path between the endpoints in G
-    G3 = nx.Graph()
-    G3.add_nodes_from(G)
-    for u, v in G2.edges():
-        spl, sp = shortest_paths_dict[(u, v)]
-        for w, x in sp:
-            G3.add_edge(w, x, weight=G.edges[(w, x)]["weight"])
+    if len(unconnected_nodes) > 1:
+        groups.append(flatten(unconnected_nodes))
+        ST = approximate_steiner_tree_nx(G_, flatten(unconnected_nodes))
+        R.add_edges_from(ST.edges())
 
-    # step 4: make G4, a MST on G3
-    G4 = nx.minimum_spanning_tree(G3, weight="weight")
+    R.add_weighted_edges_from([(u, v, G_.edges[u, v]["weight"]) for u, v in C.edges()])
 
-    # step 5: make G5 by removing any non-terminal leaves from G4
-    while (
-        len(
-            non_terminal_leaves := [
-                n for n in G4.nodes() if G4.degree[n] == 1 and n not in S
-            ]
-        )
-        > 0
-    ):
-        G4.remove_nodes_from(non_terminal_leaves)
+    if len(groups) > 1:
+        while not nx.is_connected(R):
+            SP = nx.Graph()
+            SP.add_nodes_from(map(lambda g: frozenset(g), groups))
+            missing_connections = []
+            connections = []
+            for g1, g2 in combinations(groups, 2):
+                try:
+                    sp = get_shortest_path_between_sets(R, g1, g2)
+                    SP.add_edge(
+                        frozenset(g1),
+                        frozenset(g2),
+                        path=sp,
+                        weight=calculate_path_length(
+                            R, path_to_edges(sp), weight="weight"
+                        ),
+                    )
+                    connections.append((frozenset(g1), frozenset(g2)))
+                except nx.exception.NetworkXNoPath:
+                    missing_connections.append((frozenset(g1), frozenset(g2)))
 
-    return G4
+            if not nx.is_connected(SP):
+                for g1, g2 in missing_connections:
+                    sp = get_shortest_path_between_sets(G_, g1, g2)
+                    SP.add_edge(
+                        g1,
+                        g2,
+                        path=sp,
+                        weight=calculate_path_length(
+                            G_, path_to_edges(sp), weight="weight"
+                        ),
+                    )
+                MST = nx.minimum_spanning_tree(SP)
+
+                # find cheapest connection
+                min_segment = (math.inf, None)
+                for conn in missing_connections:
+                    g1, g2 = conn
+                    cost, _ = min_segment
+                    if MST.has_edge(g1, g2) and cost > MST.edges[g1, g2]["weight"]:
+                        min_segment = (MST.edges[g1, g2]["weight"], conn)
+
+                _, conn = min_segment
+                if conn is None:
+                    break
+
+                u, v = conn
+                sp = MST.edges[u, v]["path"]
+
+                R.add_weighted_edges_from(
+                    [(u, v, G_.edges[u, v]["weight"]) for u, v in path_to_edges(sp)]
+                )
+                update_edge_weights(G_, path_to_edges(sp), math.inf)
+    return R
 
 
 def update_edge_weights(G, edges, weight):

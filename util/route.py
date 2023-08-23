@@ -17,6 +17,7 @@ from util.graph import (
     updated_edge_weights,
     updated_port_node_edge_weights_incident_at,
     approximate_steiner_tree_nx,
+    approximate_steiner_tree,
     approximate_tsp_tour,
     path_to_edges,
 )
@@ -172,36 +173,51 @@ def route_single_layer_heuristic(
         )
         nodes_in_components.extend(list(map(lambda x: set([x]), unconnected_nodes)))
 
-        with updated_port_node_edge_weights_incident_at(G_, S_minus, math.inf):
-            with updated_edge_weights(
-                G_,
-                [(u, v) for u, v in current_support_for_sets.edges()],
-                math.inf,
-            ):
-                deg2_nodes = [
-                    c
-                    for i, n in enumerate(components)
-                    for c in n
-                    if c not in nodes_in_components[i]
-                    and G_.nodes[c]["node"] == NodeType.CENTER
-                ]
-                with updated_port_node_edge_weights_incident_at(
-                    G_, deg2_nodes, math.inf
-                ):
-                    if len(S) > 1:
-                        with timing("sub support"):
-                            set_support = (
-                                approximate_steiner_tree_nx(G_, S)
-                                if support_type == "steiner-tree"
-                                else approximate_tsp_tour(G_, nodes_in_components)
-                            )
-                        set_support_edges = (
-                            set_support.edges()
-                            if support_type == "steiner-tree"
-                            else path_to_edges(set_support)
+        # TODO
+        # this works nice for paths but not for trees
+        # reason probs being that we block off the current support but ask for additional support edges
+        # when we do it by intersection group
+        # so something has to change here
+        # idea: identify free-roaming nodes, do a regular steiner tree on them
+        # then connect all components with a MST
+        set_support_edges = []
+        if len(S) > 1:
+            if support_type == "path":
+                with updated_port_node_edge_weights_incident_at(G_, S_minus, math.inf):
+                    with updated_edge_weights(
+                        G_,
+                        [(u, v) for u, v in current_support_for_sets.edges()],
+                        math.inf,
+                    ):
+                        deg2_nodes = [
+                            c
+                            for i, n in enumerate(components)
+                            for c in n
+                            if c not in nodes_in_components[i]
+                            and G_.nodes[c]["node"] == NodeType.CENTER
+                        ]
+                        with updated_port_node_edge_weights_incident_at(
+                            G_, deg2_nodes, math.inf
+                        ):
+                            set_support = approximate_tsp_tour(G_, nodes_in_components)
+                            set_support_edges = path_to_edges(set_support)
+            else:
+                # steiner treee
+                with updated_port_node_edge_weights_incident_at(G_, S_minus, math.inf):
+                    nodes_in_components = list(
+                        map(
+                            lambda g: [
+                                n
+                                for n in g
+                                if G_.nodes[n]["node"] == NodeType.CENTER
+                            ],
+                            nodes_in_components,
                         )
-                    else:
-                        set_support_edges = []
+                    )
+                    set_support = approximate_steiner_tree(
+                        G_, nodes_in_components, current_support_for_sets
+                    )
+                    set_support_edges = set_support.edges()
 
         # add those edges to support
         for u, v in set_support_edges:
@@ -215,71 +231,6 @@ def route_single_layer_heuristic(
                     G.edges[(u, v, EdgeType.SUPPORT)]["sets"]
                 )
 
-        if False:
-            for s in sets:
-                processed_elements_for_s = set(instance["set_system"][s]).intersection(
-                    processed_elements
-                )
-                if len(processed_elements_for_s) > 0:
-                    nodes_of_processed_elements_for_s = [
-                        n
-                        for n, d in G_.nodes(data=True)
-                        if d["node"] == NodeType.CENTER
-                        and d["occupied"]
-                        and d["label"] in processed_elements_for_s
-                    ]
-
-                    # if support is not connected but should be, fix it by connecting via shortest path
-                    support = nx.subgraph_view(
-                        G,
-                        filter_edge=lambda u, v, k: k == EdgeType.SUPPORT
-                        and s in G.edges[u, v, k]["sets"],
-                    )
-                    is_connected = are_node_sets_connected(
-                        support, S, nodes_of_processed_elements_for_s
-                    )
-
-                    if not is_connected:
-                        S_minus = list(
-                            set(instance["elements"]).difference(
-                                set(elements).union(set(processed_elements_for_s))
-                            )
-                        )
-                        S_minus = [
-                            n
-                            for n, d in G_.nodes(data=True)
-                            if d["node"] == NodeType.CENTER
-                            and d["occupied"]
-                            and d["label"] in S_minus
-                        ]
-                        G_ = block_edges_using(
-                            G_,
-                            S_minus,
-                        )
-                        shortest_path_edgelist = get_shortest_path_between_sets(
-                            G_, S, nodes_of_processed_elements_for_s
-                        )
-                        for u, v in shortest_path_edgelist:
-                            if not G.has_edge(u, v, EdgeType.SUPPORT):
-                                new_edges.append((u, v))
-                                G.add_edge(
-                                    u,
-                                    v,
-                                    EdgeType.SUPPORT,
-                                    edge=EdgeType.SUPPORT,
-                                    sets=set([s]),
-                                )
-                            else:
-                                G.edges[(u, v, EdgeType.SUPPORT)]["sets"] = set(
-                                    [s]
-                                ).union(G.edges[(u, v, EdgeType.SUPPORT)]["sets"])
-
-                        G_ = unblock_edges(G_, S_minus)
-        # processed_elements = processed_elements.union(set(elements))
-
-        # 4. update host graph: lighten weight on edges in F as suggested in castermans2019,
-        # TODO only applicable if EdgePenalty.HOP is greater than zero
-        # penalize crossing dual edges as suggested by bast2020
         for e in new_edges:
             u, v = e
             update_weights_for_support_edge(G_, e)
