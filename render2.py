@@ -19,7 +19,9 @@ from util.config import (
     CELL_SIZE_PX,
     SUB_SUPPORT_GROUPING,
     SUB_SUPPORT_TYPE,
-    STRATEGY
+    STRATEGY,
+    GRID_WIDTH,
+    GRID_HEIGHT
 )
 from util.bundle import bundle_lines
 from util.collections import (
@@ -264,9 +266,6 @@ def read_instance(directory, name):
         "D_EA": data["EA"],
         "D_SR": data["SA"],
         "set_ftb_order": list(sorted(sets)),
-        # pipeline config
-        "dr_method": "mds",
-        "dr_gridification": "hagrid",  #  'hagrid' or 'dgrid'
     }
     if "glyph_ids" in data:
         inst["glyph_ids"] = data["glyph_ids"]
@@ -279,26 +278,22 @@ def render(
     write_dir,
     dataset,
     num_weights,
-    grid_width,
-    grid_height,
 ):
     instance = read_instance(read_dir, dataset)
     lattice_type = "sqr"
-    instance["grid_x"] = grid_width
-    instance["grid_y"] = grid_height
     instance["num_layers"] = num_weights
 
     with timing("layout"):
         instance["glyph_positions"] = layout_dr_multiple(
             instance["D_EA"],
             instance["D_SR"],
-            m=grid_width,
-            n=grid_height,
+            m=GRID_WIDTH.get(),
+            n=GRID_HEIGHT.get(),
             num_samples=num_weights,
         )
 
     with timing("routing"):
-        G = get_routing_graph(lattice_type, (grid_width, grid_height))
+        G = get_routing_graph(lattice_type, (GRID_WIDTH.get(), GRID_HEIGHT.get()))
         G = add_glyphs_to_nodes(instance, G)
 
         element_set_partition = (
@@ -477,8 +472,8 @@ def render(
             geometries = geometrize(instance, L, element_set_partition, layer=layer)
             img = draw_svg(
                 geometries,
-                grid_width * CELL_SIZE_PX.get(),
-                grid_height * CELL_SIZE_PX.get(),
+                GRID_WIDTH.get() * CELL_SIZE_PX.get(),
+                GRID_HEIGHT.get() * CELL_SIZE_PX.get(),
             )
             with open(f"{write_dir}drawing_{layer}.svg", "w") as f:
                 f.write(img)
@@ -534,6 +529,8 @@ def vis(
     SUB_SUPPORT_GROUPING.set(support_partition)
     SUB_SUPPORT_TYPE.set(support_type)
     STRATEGY.set(strategy)
+    GRID_WIDTH.set(grid_width)
+    GRID_HEIGHT.set(grid_height)
 
     fun = partial(
         render,
@@ -541,8 +538,6 @@ def vis(
         write_dir,
         dataset,
         num_weights,
-        grid_width,
-        grid_height,
     )
     ctx = contextvars.copy_context()
     ctx.run(fun)

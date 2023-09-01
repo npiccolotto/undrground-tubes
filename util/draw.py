@@ -32,6 +32,8 @@ from util.config import (
     DRAW_HUBS,
     DRAW_GRID_CELLS,
     SET_COLORS,
+    GRID_WIDTH,
+    GRID_HEIGHT,
 )
 
 
@@ -123,8 +125,8 @@ def draw_support(instance, M, dir="./", layer=0):
             )
         )
 
-    w = instance["grid_x"] * CELL_SIZE_PX.get()
-    h = instance["grid_y"] * CELL_SIZE_PX.get()
+    w = GRID_WIDTH.get() * CELL_SIZE_PX.get()
+    h = GRID_HEIGHT.get() * CELL_SIZE_PX.get()
     with open(path, "w") as f:
         f.write(draw_svg(geometries, w, h))
 
@@ -158,7 +160,9 @@ def geometrize(instance, L, element_set_partition, layer=0):
                     c.append_title(M.nodes[i]["label"])
                     geometries.append(c)
             elif DRAW_GRID_CELLS.get():
-                c = svg.Circle(cx=px, cy=py, r=NODE_CIRCLE_RADIUS.get() / 8, fill="gray")
+                c = svg.Circle(
+                    cx=px, cy=py, r=NODE_CIRCLE_RADIUS.get() / 8, fill="gray"
+                )
                 geometries.append(c)
 
     for u, v in M.edges():
@@ -370,7 +374,9 @@ def geometrize(instance, L, element_set_partition, layer=0):
                         "stroke_width": STROKE_WIDTH.get(),
                         "fill": "none",
                         "data_weight": G_node.edges[a, b]["weight"],
-                        "stroke": SET_COLORS.get()[instance["set_ftb_order"].index(set_id)],
+                        "stroke": SET_COLORS.get()[
+                            instance["set_ftb_order"].index(set_id)
+                        ],
                     }
                 )
                 _, v = outward_edge_at_port[a]
