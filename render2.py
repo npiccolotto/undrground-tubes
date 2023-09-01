@@ -21,7 +21,9 @@ from util.config import (
     SUB_SUPPORT_TYPE,
     STRATEGY,
     GRID_WIDTH,
-    GRID_HEIGHT
+    GRID_HEIGHT,
+    READ_DIR,
+    WRITE_DIR
 )
 from util.bundle import bundle_lines
 from util.collections import (
@@ -274,12 +276,10 @@ def read_instance(directory, name):
 
 
 def render(
-    read_dir,
-    write_dir,
     dataset,
     num_weights,
 ):
-    instance = read_instance(read_dir, dataset)
+    instance = read_instance(READ_DIR.get(), dataset)
     lattice_type = "sqr"
     instance["num_layers"] = num_weights
 
@@ -326,7 +326,7 @@ def render(
 
     for layer in range(num_weights):
         M = extract_support_layer(L, layer)
-        draw_support(instance, M, write_dir, layer)
+        draw_support(instance, M, WRITE_DIR.get(), layer)
 
     with timing("bundle lines"):
         L = bundle_lines(instance, L)
@@ -456,7 +456,7 @@ def render(
                     d["oeb_order"][str(key)] = [*d["oeb_order"][key]]
                     del d["oeb_order"][key]
 
-        with open(f"{write_dir}serialized.json", "w") as f:
+        with open(f"{WRITE_DIR.get()}serialized.json", "w") as f:
             json.dump(nx.node_link_data(L_), f)
 
     with timing("draw+write svg"):
@@ -475,7 +475,7 @@ def render(
                 GRID_WIDTH.get() * CELL_SIZE_PX.get(),
                 GRID_HEIGHT.get() * CELL_SIZE_PX.get(),
             )
-            with open(f"{write_dir}drawing_{layer}.svg", "w") as f:
+            with open(f"{WRITE_DIR.get()}drawing_{layer}.svg", "w") as f:
                 f.write(img)
                 f.flush()
 
@@ -531,11 +531,11 @@ def vis(
     STRATEGY.set(strategy)
     GRID_WIDTH.set(grid_width)
     GRID_HEIGHT.set(grid_height)
+    READ_DIR.set(read_dir)
+    WRITE_DIR.set(write_dir)
 
     fun = partial(
         render,
-        read_dir,
-        write_dir,
         dataset,
         num_weights,
     )

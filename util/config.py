@@ -3,7 +3,6 @@ import numpy as np
 from contextvars import ContextVar
 
 config = configparser.ConfigParser()
-
 config.read("config.ini")
 
 
@@ -47,21 +46,15 @@ SET_COLORS = ContextVar(
 )
 
 SUB_SUPPORT_TYPE = ContextVar(
-    'SUB_SUPPORT_TYPE', default = config.get('ROUTE', 'SubSupportType')
+    "SUB_SUPPORT_TYPE", default=config.get("ROUTE", "SubSupportType")
 )
 SUB_SUPPORT_GROUPING = ContextVar(
-    'SUB_SUPPORT_GROUPING', default = config.get('ROUTE', 'SubSupportGrouping')
+    "SUB_SUPPORT_GROUPING", default=config.get("ROUTE", "SubSupportGrouping")
 )
 
-STRATEGY = ContextVar(
-    'STRATEGY', default= config.get('GENERAL', 'Strategy')
-)
+STRATEGY = ContextVar("STRATEGY", default=config.get("GENERAL", "Strategy"))
+GRID_WIDTH = ContextVar("GRID_WIDTH", default=config.getint("GENERAL", "GridWidth"))
+GRID_HEIGHT = ContextVar("GRID_HEIGHT", default=config.getint("GENERAL", "GridHeight"))
 
-
-GRID_WIDTH = ContextVar(
-    'GRID_WIDTH', default= config.getint('GENERAL', 'GridWidth')
-)
-
-GRID_HEIGHT = ContextVar(
-    'GRID_HEIGHT', default= config.getint('GENERAL', 'GridHeight')
-)
+READ_DIR = ContextVar("READ_DIR", default=config.get("GENERAL", "ReadDir"))
+WRITE_DIR = ContextVar("WRITE_DIR", default=config.get("GENERAL", "WriteDir"))
