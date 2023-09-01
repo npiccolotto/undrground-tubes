@@ -6,12 +6,15 @@ import copy
 import click
 from collections import defaultdict
 from itertools import chain, combinations, pairwise, product
+import contextvars
+from functools import partial
 
 import drawsvg as svg
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 
+from util.config import DRAW_GLYPHS
 from util.bundle import bundle_lines
 from util.collections import (
     group_by_intersection_group,
@@ -266,30 +269,6 @@ def read_instance(directory, name):
     return inst
 
 
-@click.command()
-@click.option(
-    "--read-dir", default="./data", help="directory to read the datasets from"
-)
-@click.option("--write-dir", default="./", help="directory to write the output to")
-@click.option("--dataset", default="imdb/imdb_10", help="dataset to load")
-@click.option("--opt", default=False, help="try optimal solutions")
-@click.option("--grid-width", "-w", default=10, help="grid width as # cols")
-@click.option("--grid-height", "-h", default=10, help="grid height as # rows")
-@click.option(
-    "--num-weights", default=2, help="how many samples between 0..1 to use for weights"
-)
-@click.option(
-    "--support-type",
-    type=click.Choice(["path", "steiner-tree"], case_sensitive=False),
-    default="path",
-    help="the support type",
-)
-@click.option(
-    "--support-partition",
-    type=click.Choice(["set", "intersection-group"], case_sensitive=False),
-    default="intersection-group",
-    help="the partition type",
-)
 def render(
     read_dir,
     write_dir,
@@ -500,7 +479,7 @@ def render(
             )
             geometries = geometrize(instance, L, element_set_partition, layer=layer)
             img = draw_svg(
-                geometries, grid_width * CELL_SIZE_PX, grid_height * CELL_SIZE_PX
+                geometries, grid_width * CELL_SIZE_PX.get(), grid_height * CELL_SIZE_PX.get()
             )
             with open(f"{write_dir}drawing_{layer}.svg", "w") as f:
                 f.write(img)
@@ -509,5 +488,65 @@ def render(
     print("Done.")
 
 
+@click.command()
+@click.option(
+    "--read-dir", default="./data", help="directory to read the datasets from"
+)
+@click.option("--write-dir", default="./", help="directory to write the output to")
+@click.option("--dataset", default="imdb/imdb_10", help="dataset to load")
+@click.option("--opt", default=False, help="try optimal solutions")
+@click.option("--grid-width", "-w", default=10, help="grid width as # cols")
+@click.option("--grid-height", "-h", default=10, help="grid height as # rows")
+@click.option(
+    "--num-weights", default=2, help="how many samples between 0..1 to use for weights"
+)
+@click.option(
+    "--support-type",
+    type=click.Choice(["path", "steiner-tree"], case_sensitive=False),
+    default="path",
+    help="the support type",
+)
+@click.option(
+    "--support-partition",
+    type=click.Choice(["set", "intersection-group"], case_sensitive=False),
+    default="intersection-group",
+    help="the partition type",
+)
+@click.option(
+    "--draw-glyphs/--no-draw-glyphs",
+    type=bool,
+    default=True,
+    help="draw glyphs (true) or circles (false)",
+)
+def vis(
+    read_dir,
+    write_dir,
+    dataset,
+    opt,
+    num_weights,
+    grid_width,
+    grid_height,
+    support_type,
+    support_partition,
+    draw_glyphs,
+):
+
+    DRAW_GLYPHS.set(draw_glyphs)
+    fun = partial(
+        render,
+        read_dir,
+        write_dir,
+        dataset,
+        opt,
+        num_weights,
+        grid_width,
+        grid_height,
+        support_type,
+        support_partition,
+    )
+    ctx = contextvars.copy_context()
+    ctx.run(fun)
+
+
 if __name__ == "__main__":
-    render()
+    vis()
