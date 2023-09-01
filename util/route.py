@@ -24,6 +24,7 @@ from util.graph import (
 )
 from util.collections import set_contains
 from util.config import (
+    NUM_WEIGHTS,
     # factor for total edge length on all layers
     EDGE_SOFT_CONSTRAINT_WEIGHT,
     # factor for total edge length on one layer
@@ -243,7 +244,7 @@ def route_multilayer_heuristic(
     element_set_partition,
     multilayer_strategy=("k-of-n", 1),  # 'k-of-n' or 'prev-k'
 ):
-    num_layers = instance.get("num_layers", 2)
+    num_layers = NUM_WEIGHTS.get()
     G_ = nx.MultiGraph()
     G_.add_nodes_from(list(G.nodes(data=True)))
 
@@ -312,7 +313,7 @@ def route_multilayer_heuristic(
 
 def route_multilayer_ilp(instance, G, element_set_partition):
     support_type = SUB_SUPPORT_TYPE.get()
-    num_layers = instance.get("num_layers", 2)
+    num_layers = NUM_WEIGHTS.get()
     el_idx_lookup = instance["elements_inv"]
 
     match support_type:
@@ -591,7 +592,7 @@ def route_multilayer_ilp_gg(
     """Same function as the other but on a grid graph, i.e., the bend penalties are
     not modeled as variables but as edge weights. Seems worse than doing it on the
     line graph."""
-    num_layers = instance.get("num_layers", 2)
+    num_layers = NUM_WEIGHTS.get()
     el_idx_lookup = instance["elements_inv"]
 
     match support_type:

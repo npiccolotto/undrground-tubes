@@ -52,6 +52,7 @@ SUB_SUPPORT_GROUPING = ContextVar(
     "SUB_SUPPORT_GROUPING", default=config.get("ROUTE", "SubSupportGrouping")
 )
 
+NUM_WEIGHTS = ContextVar("GRID_WIDTH", default=config.getint("GENERAL", "NumLayers"))
 STRATEGY = ContextVar("STRATEGY", default=config.get("GENERAL", "Strategy"))
 GRID_WIDTH = ContextVar("GRID_WIDTH", default=config.getint("GENERAL", "GridWidth"))
 GRID_HEIGHT = ContextVar("GRID_HEIGHT", default=config.getint("GENERAL", "GridHeight"))

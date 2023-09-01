@@ -8,6 +8,7 @@ from collections import defaultdict
 from util.graph import incident_edges, get_longest_simple_paths, extract_support_layer
 from util.geometry import get_side, get_linear_order, get_center_of_mass
 from util.enums import NodeType, EdgeType
+from util.config import NUM_WEIGHTS
 
 
 def find_edge_ordering_tree(G, k1, k2, u, v, initial_edge, exploring_other_way=False):
@@ -463,7 +464,7 @@ def bundle_lines(instance, M):
     # 3) feed it to LOOM
     # 4) read result back in - bam we have an ordering
 
-    for layer in range(instance.get("num_layers", 2)):
+    for layer in range(NUM_WEIGHTS.get()):
         G = extract_support_layer(M, layer)
         G = convert_to_line_graph(G)
         G_for_loom = convert_to_geojson(G)

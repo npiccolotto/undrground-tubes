@@ -23,7 +23,8 @@ from util.config import (
     GRID_WIDTH,
     GRID_HEIGHT,
     READ_DIR,
-    WRITE_DIR
+    WRITE_DIR,
+    NUM_WEIGHTS,
 )
 from util.bundle import bundle_lines
 from util.collections import (
@@ -488,7 +489,11 @@ def render(
 )
 @click.option("--write-dir", default="./", help="directory to write the output to")
 @click.option("--dataset", default="imdb/imdb_10", help="dataset to load")
-@click.option("--strategy", default='heuristic', type=click.Choice(["opt", "heuristic"], case_sensitive=False))
+@click.option(
+    "--strategy",
+    default="heuristic",
+    type=click.Choice(["opt", "heuristic"], case_sensitive=False),
+)
 @click.option("--grid-width", "-w", default=10, help="grid width as # cols")
 @click.option("--grid-height", "-h", default=10, help="grid height as # rows")
 @click.option(
@@ -533,6 +538,7 @@ def vis(
     GRID_HEIGHT.set(grid_height)
     READ_DIR.set(read_dir)
     WRITE_DIR.set(write_dir)
+    NUM_WEIGHTS.set(num_weights)
 
     fun = partial(
         render,
