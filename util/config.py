@@ -45,3 +45,14 @@ DRAW_GRID_CELLS = ContextVar(
 SET_COLORS = ContextVar(
     "SET_COLORS", default=config.get("DRAW", "SetColors").split(",")
 )
+
+SUB_SUPPORT_TYPE = ContextVar(
+    'SUB_SUPPORT_TYPE', default = config.get('ROUTE', 'SubSupportType')
+)
+SUB_SUPPORT_GROUPING = ContextVar(
+    'SUB_SUPPORT_GROUPING', default = config.get('ROUTE', 'SubSupportGrouping')
+)
+
+STRATEGY = ContextVar(
+    'STRATEGY', default= config.get('GENERAL', 'Strategy')
+)

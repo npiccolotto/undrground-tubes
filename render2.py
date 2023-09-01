@@ -14,7 +14,13 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 
-from util.config import DRAW_GLYPHS
+from util.config import (
+    DRAW_GLYPHS,
+    CELL_SIZE_PX,
+    SUB_SUPPORT_GROUPING,
+    SUB_SUPPORT_TYPE,
+    STRATEGY
+)
 from util.bundle import bundle_lines
 from util.collections import (
     group_by_intersection_group,
@@ -23,7 +29,6 @@ from util.collections import (
     list_of_lists_to_set_system_dict,
 )
 from util.draw import (
-    CELL_SIZE_PX,
     draw_svg,
     geometrize,
     draw_support,
@@ -273,21 +278,15 @@ def render(
     read_dir,
     write_dir,
     dataset,
-    opt,
     num_weights,
     grid_width,
     grid_height,
-    support_type,
-    support_partition,
 ):
     instance = read_instance(read_dir, dataset)
     lattice_type = "sqr"
     instance["grid_x"] = grid_width
     instance["grid_y"] = grid_height
     instance["num_layers"] = num_weights
-    instance["support_type"] = support_type
-    instance["strategy"] = "opt" if opt else "heuristic"
-    instance["support_partition_by"] = support_partition
 
     with timing("layout"):
         instance["glyph_positions"] = layout_dr_multiple(
@@ -304,7 +303,7 @@ def render(
 
         element_set_partition = (
             group_by_intersection_group(instance["set_system"])
-            if instance["support_partition_by"] == "intersection-group"
+            if SUB_SUPPORT_GROUPING.get() == "intersection-group"
             else group_by_set(instance["set_system"])
         )
         element_set_partition = sorted(
@@ -313,7 +312,7 @@ def render(
 
         print("element partition", element_set_partition)
 
-        if instance["strategy"] == "opt":
+        if STRATEGY.get() == "opt":
             L = route_multilayer_ilp(
                 instance,
                 nx.subgraph_view(
@@ -322,14 +321,12 @@ def render(
                     filter_node=lambda n: G.nodes[n]["node"] == NodeType.CENTER,
                 ),
                 element_set_partition,
-                support_type=instance["support_type"],
             )
         else:
             L = route_multilayer_heuristic(
                 instance,
                 G,
                 element_set_partition,
-                support_type=instance["support_type"],
             )
 
     for layer in range(num_weights):
@@ -339,7 +336,7 @@ def render(
     with timing("bundle lines"):
         L = bundle_lines(instance, L)
 
-    if instance["strategy"] == "opt":
+    if STRATEGY.get() == "opt":
         # merge grid graph data (ports at nodes) with line graph data (routing and bundling info)
         # we have
         # G = multigraph with center and physical nodes/edges
@@ -479,7 +476,9 @@ def render(
             )
             geometries = geometrize(instance, L, element_set_partition, layer=layer)
             img = draw_svg(
-                geometries, grid_width * CELL_SIZE_PX.get(), grid_height * CELL_SIZE_PX.get()
+                geometries,
+                grid_width * CELL_SIZE_PX.get(),
+                grid_height * CELL_SIZE_PX.get(),
             )
             with open(f"{write_dir}drawing_{layer}.svg", "w") as f:
                 f.write(img)
@@ -494,7 +493,7 @@ def render(
 )
 @click.option("--write-dir", default="./", help="directory to write the output to")
 @click.option("--dataset", default="imdb/imdb_10", help="dataset to load")
-@click.option("--opt", default=False, help="try optimal solutions")
+@click.option("--strategy", default='heuristic', type=click.Choice(["opt", "heuristic"], case_sensitive=False))
 @click.option("--grid-width", "-w", default=10, help="grid width as # cols")
 @click.option("--grid-height", "-h", default=10, help="grid height as # rows")
 @click.option(
@@ -522,7 +521,7 @@ def vis(
     read_dir,
     write_dir,
     dataset,
-    opt,
+    strategy,
     num_weights,
     grid_width,
     grid_height,
@@ -532,17 +531,18 @@ def vis(
 ):
 
     DRAW_GLYPHS.set(draw_glyphs)
+    SUB_SUPPORT_GROUPING.set(support_partition)
+    SUB_SUPPORT_TYPE.set(support_type)
+    STRATEGY.set(strategy)
+
     fun = partial(
         render,
         read_dir,
         write_dir,
         dataset,
-        opt,
         num_weights,
         grid_width,
         grid_height,
-        support_type,
-        support_partition,
     )
     ctx = contextvars.copy_context()
     ctx.run(fun)

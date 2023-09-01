@@ -8,6 +8,7 @@ from collections import defaultdict
 from util.enums import EdgeType, EdgePenalty, NodeType, PortDirs
 from util.geometry import get_angle
 from util.perf import timing
+from util.config import SUB_SUPPORT_TYPE
 from util.graph import (
     update_weights_for_support_edge,
     get_shortest_path_between_sets,
@@ -56,8 +57,9 @@ def get_bend(e1, e2):
 
 
 def route_single_layer_heuristic(
-    instance, G, element_set_partition, support_type="steiner-tree", layer=0
+    instance, G, element_set_partition, layer=0
 ):
+    support_type = SUB_SUPPORT_TYPE.get()
     # TODO 100ms spent here
     G_ = nx.Graph()
     G_.add_nodes_from(
@@ -242,7 +244,6 @@ def route_multilayer_heuristic(
     instance,
     G,
     element_set_partition,
-    support_type="steiner-tree",
     multilayer_strategy=("k-of-n", 1),  # 'k-of-n' or 'prev-k'
 ):
     num_layers = instance.get("num_layers", 2)
@@ -256,7 +257,6 @@ def route_multilayer_heuristic(
             instance,
             G.copy(),
             element_set_partition,
-            support_type=support_type,
             layer=layer,
         )
         for u, v, k in L.edges(keys=True):
@@ -303,7 +303,6 @@ def route_multilayer_heuristic(
             instance,
             G.copy(),
             element_set_partition,
-            support_type=support_type,
             layer=layer,
         )
         for u, v, k in L.edges(keys=True):
@@ -315,8 +314,9 @@ def route_multilayer_heuristic(
 
 
 def route_multilayer_ilp(
-    instance, G, element_set_partition, support_type="steiner-tree"
+    instance, G, element_set_partition
 ):
+    support_type = SUB_SUPPORT_TYPE.get()
     num_layers = instance.get("num_layers", 2)
     el_idx_lookup = instance["elements_inv"]
 
