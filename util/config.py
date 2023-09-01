@@ -58,3 +58,15 @@ GRID_HEIGHT = ContextVar("GRID_HEIGHT", default=config.getint("GENERAL", "GridHe
 
 READ_DIR = ContextVar("READ_DIR", default=config.get("GENERAL", "ReadDir"))
 WRITE_DIR = ContextVar("WRITE_DIR", default=config.get("GENERAL", "WriteDir"))
+
+
+EDGE_SOFT_CONSTRAINT_WEIGHT = ContextVar(
+    "EDGE_SOFT_CONSTRAINT_WEIGHT", default=config.getint("ROUTE", "EdgeLengthFactor")
+)
+EDGE_LAYER_SOFT_CONSTRAINT_WEIGHT = ContextVar(
+    "EDGE_LAYER_SOFT_CONSTRAINT_WEIGHT",
+    default=config.getint("ROUTE", "EdgeLayerLengthFactor"),
+)
+BEND_SOFT_CONSTRAINT_WEIGHT = ContextVar(
+    "BEND_SOFT_CONSTRAINT_WEIGHT", default=config.getint("ROUTE", "BendLayerFactor")
+)

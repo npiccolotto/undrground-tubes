@@ -23,13 +23,14 @@ from util.graph import (
     path_to_edges,
 )
 from util.collections import set_contains
-
-# factor for edges on all layers
-EDGE_SOFT_CONSTRAINT_WEIGHT = 1
-# factor for edges of one line
-EDGE_LAYER_SOFT_CONSTRAINT_WEIGHT = 1
-# factor for bends
-BEND_SOFT_CONSTRAINT_WEIGHT = 10
+from util.config import (
+    # factor for total edge length on all layers
+    EDGE_SOFT_CONSTRAINT_WEIGHT,
+    # factor for total edge length on one layer
+    EDGE_LAYER_SOFT_CONSTRAINT_WEIGHT,
+    # factor for bends on one layer
+    BEND_SOFT_CONSTRAINT_WEIGHT,
+)
 
 
 def get_bend(e1, e2):
@@ -56,9 +57,7 @@ def get_bend(e1, e2):
     raise BaseException(f"invalid bend: {bend}")
 
 
-def route_single_layer_heuristic(
-    instance, G, element_set_partition, layer=0
-):
+def route_single_layer_heuristic(instance, G, element_set_partition, layer=0):
     support_type = SUB_SUPPORT_TYPE.get()
     # TODO 100ms spent here
     G_ = nx.Graph()
@@ -209,9 +208,7 @@ def route_single_layer_heuristic(
                     nodes_in_components = list(
                         map(
                             lambda g: [
-                                n
-                                for n in g
-                                if G_.nodes[n]["node"] == NodeType.CENTER
+                                n for n in g if G_.nodes[n]["node"] == NodeType.CENTER
                             ],
                             nodes_in_components,
                         )
@@ -313,9 +310,7 @@ def route_multilayer_heuristic(
     return G_
 
 
-def route_multilayer_ilp(
-    instance, G, element_set_partition
-):
+def route_multilayer_ilp(instance, G, element_set_partition):
     support_type = SUB_SUPPORT_TYPE.get()
     num_layers = instance.get("num_layers", 2)
     el_idx_lookup = instance["elements_inv"]
@@ -455,7 +450,7 @@ def route_multilayer_ilp(
                     model.addConstr(sum_in == sum_out)
 
     obj = (
-        BEND_SOFT_CONSTRAINT_WEIGHT
+        BEND_SOFT_CONSTRAINT_WEIGHT.get()
         * gp.quicksum(
             [
                 b[(k, i, n, 1)] + b[(k, i, n, 2)] * 2 + b[(k, i, n, 3)] * 3
@@ -464,8 +459,8 @@ def route_multilayer_ilp(
                 for n in G.nodes()
             ]
         )
-        + EDGE_SOFT_CONSTRAINT_WEIGHT * gp.quicksum(x_all)
-        + EDGE_LAYER_SOFT_CONSTRAINT_WEIGHT * gp.quicksum(x)
+        + EDGE_SOFT_CONSTRAINT_WEIGHT.get() * gp.quicksum(x_all)
+        + EDGE_LAYER_SOFT_CONSTRAINT_WEIGHT.get() * gp.quicksum(x)
     )
 
     crossings = set()
@@ -710,9 +705,9 @@ def route_multilayer_ilp_gg(
                 if is_steiner:
                     model.addConstr(sum_in == sum_out)
 
-    obj = EDGE_SOFT_CONSTRAINT_WEIGHT * gp.quicksum(
+    obj = EDGE_SOFT_CONSTRAINT_WEIGHT.get() * gp.quicksum(
         [x_all[e] * edge_weights[i] for i, e in enumerate(edges)]
-    ) + EDGE_LAYER_SOFT_CONSTRAINT_WEIGHT * gp.quicksum(
+    ) + EDGE_LAYER_SOFT_CONSTRAINT_WEIGHT.get() * gp.quicksum(
         [
             x[(k, i, a)] * arc_weights[j]
             for k in range(num_layers)
