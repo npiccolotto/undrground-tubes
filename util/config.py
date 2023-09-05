@@ -71,3 +71,10 @@ EDGE_LAYER_SOFT_CONSTRAINT_WEIGHT = ContextVar(
 BEND_SOFT_CONSTRAINT_WEIGHT = ContextVar(
     "BEND_SOFT_CONSTRAINT_WEIGHT", default=config.getint("ROUTE", "BendLayerFactor")
 )
+
+LOOM_SOLVER = ContextVar(
+    'LOOM_SOLVER', default=config.get('LOOM', 'Solver')
+)
+LOOM_TIMEOUT = ContextVar(
+    'LOOM_TIMEOUT', default=config.getint('LOOM', 'TimeoutSecs')
+)

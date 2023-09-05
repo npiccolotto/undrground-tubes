@@ -25,6 +25,8 @@ from util.config import (
     READ_DIR,
     WRITE_DIR,
     NUM_WEIGHTS,
+    LOOM_SOLVER,
+    LOOM_TIMEOUT,
 )
 from util.bundle import bundle_lines
 from util.collections import (
@@ -327,7 +329,7 @@ def render(
 
     for layer in range(num_weights):
         M = extract_support_layer(L, layer)
-        draw_support(instance, M, WRITE_DIR.get(), layer)
+        draw_support(instance, M, layer)
 
     with timing("bundle lines"):
         L = bundle_lines(instance, L)
@@ -517,6 +519,13 @@ def render(
     default=True,
     help="draw glyphs (true) or circles (false)",
 )
+@click.option(
+    "--loom-solver",
+    type=click.Choice(["gurobi", "glpk"], case_sensitive=False),
+    default="glpk",
+    help="the solver for loom",
+)
+@click.option("--loom-timeout", default=180, help="timeout for loom in secs")
 def vis(
     read_dir,
     write_dir,
@@ -528,6 +537,8 @@ def vis(
     support_type,
     support_partition,
     draw_glyphs,
+    loom_solver,
+    loom_timeout,
 ):
 
     DRAW_GLYPHS.set(draw_glyphs)
@@ -539,6 +550,8 @@ def vis(
     READ_DIR.set(read_dir)
     WRITE_DIR.set(write_dir)
     NUM_WEIGHTS.set(num_weights)
+    LOOM_SOLVER.set(loom_solver)
+    LOOM_TIMEOUT.set(loom_timeout)
 
     fun = partial(
         render,

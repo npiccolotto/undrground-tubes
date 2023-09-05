@@ -34,6 +34,7 @@ from util.config import (
     SET_COLORS,
     GRID_WIDTH,
     GRID_HEIGHT,
+    WRITE_DIR,
 )
 
 
@@ -55,7 +56,7 @@ def draw_biarc(line, barc):
         line.M(arc2_x, arc2_y)
 
 
-def draw_embedding(X, path, **kwargs):
+def draw_embedding(X, filename, **kwargs):
     r = kwargs.get("r", 0.5)
     w = kwargs.get("width", 100)
     h = kwargs.get("height", 100)
@@ -70,7 +71,7 @@ def draw_embedding(X, path, **kwargs):
         geometries.append(
             svg.Circle(cx=x, cy=y, r=r, fill="white" if DARK_MODE.get() else "black")
         )
-    with open(path, "w") as f:
+    with open(os.path.join(WRITE_DIR.get(), filename), "w") as f:
         f.write(draw_svg(geometries, w + 2 * mx, h + 2 * my))
 
 
@@ -83,7 +84,8 @@ def draw_svg(geometries, width, height):
     return d.as_svg()
 
 
-def draw_support(instance, M, dir="./", layer=0):
+def draw_support(instance, M, layer=0):
+    dir = WRITE_DIR.get()
     path = os.path.join(dir, f"support_{layer}.svg")
 
     geometries = []
