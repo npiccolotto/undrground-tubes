@@ -71,6 +71,12 @@ EDGE_LAYER_SOFT_CONSTRAINT_WEIGHT = ContextVar(
 BEND_SOFT_CONSTRAINT_WEIGHT = ContextVar(
     "BEND_SOFT_CONSTRAINT_WEIGHT", default=config.getint("ROUTE", "BendLayerFactor")
 )
+ILP_MIP_GAP = ContextVar(
+    "ILP_MIP_GAP", default=config.getfloat("ROUTE", "ILPMIPGap")
+)
+ILP_TIMEOUT =  ContextVar(
+    "ILP_TIMEOUT", default=config.getfloat("ROUTE", "ILPTimeoutSecs")
+)
 
 LOOM_SOLVER = ContextVar(
     'LOOM_SOLVER', default=config.get('LOOM', 'Solver')

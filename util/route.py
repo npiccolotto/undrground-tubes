@@ -31,6 +31,8 @@ from util.config import (
     EDGE_LAYER_SOFT_CONSTRAINT_WEIGHT,
     # factor for bends on one layer
     BEND_SOFT_CONSTRAINT_WEIGHT,
+    ILP_MIP_GAP,
+    ILP_TIMEOUT,
 )
 
 
@@ -325,8 +327,10 @@ def route_multilayer_ilp(instance, G, element_set_partition):
     M = nx.DiGraph(incoming_graph_data=G)
 
     model = gp.Model("multilayer-route")
-    # model.params.timeLimit = 10
-    model.params.MIPGap = 0
+    if ILP_TIMEOUT.get() > 0:
+        model.params.timeLimit = ILP_TIMEOUT.get()
+
+    model.params.MIPGap = ILP_MIP_GAP.get()
 
     arcs = list(M.edges())
     edges = list(G.edges())
@@ -604,8 +608,10 @@ def route_multilayer_ilp_gg(
     M = nx.DiGraph(incoming_graph_data=G)
 
     model = gp.Model("multilayer-route-grid-graph")
-    # model.params.timeLimit = 10
-    model.params.MIPGap = 0
+    if ILP_TIMEOUT.get() > 0:
+        model.params.timeLimit = ILP_TIMEOUT.get()
+
+    model.params.MIPGap = ILP_MIP_GAP.get()
 
     arcs = list(M.edges())
     arc_weights = list([M.edges[a]["weight"] for a in arcs])
