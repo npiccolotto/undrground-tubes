@@ -28,11 +28,19 @@ class EdgePenalty(float, Enum):
     HOP = 2
 
     # crossings relative to node
-    # ie between edges of different nodes
+    # diagonal edges between different nodes
+    # there aren't too many in the grid graph of those so the effect is meh
     CROSSING_OUTSIDE = 1000
-    # ie between port edge of the same node
+
+    # at port edge of an occupied node
+    # would not recommend to set that because we often can't work around them anyways
     CROSSING_INSIDE_GLYPH = 0
-    CROSSING_INSIDE_CELL = 1000
+
+    # at port edge of an unoccupied node
+    # attention when setting this one
+    # if port edges of the same node are penalized it tries to go over the center instead
+    # so to avoid that, set the center penalty to the same value
+    CROSSING_INSIDE_CELL = 0
 
 
 class EdgeType(IntEnum):

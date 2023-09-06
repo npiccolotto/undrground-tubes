@@ -205,7 +205,10 @@ def approximate_steiner_tree(G, S, C=None):
     if len(unconnected_nodes) > 1:
         groups.append(flatten(unconnected_nodes))
         ST = approximate_steiner_tree_nx(G_, flatten(unconnected_nodes))
-        R.add_edges_from(ST.edges())
+        # R.add_edges_from(ST.edges())
+        R.add_weighted_edges_from(
+            [(u, v, G_.edges[u, v]["weight"]) for u, v in ST.edges()]
+        )
 
     R.add_weighted_edges_from([(u, v, G_.edges[u, v]["weight"]) for u, v in C.edges()])
 
@@ -262,6 +265,7 @@ def approximate_steiner_tree(G, S, C=None):
                     [(u, v, G_.edges[u, v]["weight"]) for u, v in path_to_edges(sp)]
                 )
                 update_edge_weights(G_, path_to_edges(sp), math.inf)
+    assert nx.is_connected(R)
     return R
 
 
@@ -630,6 +634,9 @@ def update_weights_for_support_edge(G, edge):
 
 
 def are_port_edges_crossing(us, ut, vs, vt):
+    if frozenset([ut["port"], us["port"]]) == frozenset([vs["port"], vt["port"]]):
+        return False
+
     cw_dirs = PortDirs + PortDirs
 
     # order cw
@@ -648,16 +655,21 @@ def are_port_edges_crossing(us, ut, vs, vt):
     offset_j = cw_dirs[(i + 1) :].index(u1["port"])
     ccw_set = cw_dirs[(i + 1) : (i + offset_j + 1)]
 
+    assert len(cw_set) > 0 or len(ccw_set) > 0, (
+        us["port"],
+        ut["port"],
+        vs["port"],
+        vt["port"],
+    )
+
     # edges cross iff vs in former and vt in latter set (or vice versa)
     port1 = vs["port"]
     port2 = vt["port"]
 
-    are_crossing = True
     if (port1 in cw_set and port2 in cw_set) or (port1 in ccw_set and port2 in ccw_set):
-        are_crossing = False
-    if port1 in [ut["port"], us["port"]] or port2 in [ut["port"], us["port"]]:
-        are_crossing = False
-    return are_crossing
+        return False
+
+    return True
 
 
 def get_crossing_port_edges(G):

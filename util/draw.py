@@ -222,7 +222,10 @@ def geometrize(instance, L, element_set_partition, layer=0):
         # this draws all the connections at non-occupied nodes
         # because at occupied nodes the lines go through the center node
         for u, v, d in M.edges(data=True):
-            if not edge_filter_ports(M, u, v, same_centers=True):
+            if (
+                not edge_filter_ports(M, u, v, same_centers=True)
+                or set_id not in M.edges[(u, v)]["sets"]
+            ):
                 continue
             uparent = M.nodes[u]["belongs_to"]
 
@@ -244,12 +247,6 @@ def geometrize(instance, L, element_set_partition, layer=0):
 
             if uu is None or vv is None:
                 print("howw")
-                continue
-
-            if (
-                set_id not in M.edges[(uu, u)]["edge_pos"]
-                or set_id not in M.edges[(v, vv)]["edge_pos"]
-            ):
                 continue
 
             uupos, upos = M.edges[(uu, u)]["edge_pos"][set_id][(uu, u)]

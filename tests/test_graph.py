@@ -31,18 +31,31 @@ class TestCrossingPortEdges(unittest.TestCase):
                 are_port_edges_crossing(u, v, {"port": w}, {"port": x}), (w, x)
             )
 
-    def test_no_crossing_overlap(self):
+    def test_crossing_overlap(self):
+        self.assertTrue(
+            are_port_edges_crossing(
+                {"port": "e"}, {"port": "se"}, {"port": "e"}, {"port": "w"}
+            )
+        )
+
         u = {"port": "nw"}
         v = {"port": "s"}
-        for w, x in [("nw", "e"), ("n", "s"), ("s", "nw")]:
-            self.assertFalse(
+        for w, x in [("nw", "e"), ("n", "s")]:
+            self.assertTrue(
                 are_port_edges_crossing(u, v, {"port": w}, {"port": x}), (w, x)
             )
+
+    def test_same_edge(self):
+        self.assertFalse(
+            are_port_edges_crossing(
+                {"port": "e"}, {"port": "se"}, {"port": "se"}, {"port": "e"}
+            )
+        )
 
     def test_crossing(self):
         u = {"port": "nw"}
         v = {"port": "s"}
-        crossings = list(product(['sw', 'w'], ['n', 'ne', 'e', 'se']))
+        crossings = list(product(["sw", "w"], ["n", "ne", "e", "se"]))
         for w, x in crossings:
             self.assertTrue(
                 are_port_edges_crossing(u, v, {"port": w}, {"port": x}), (w, x)

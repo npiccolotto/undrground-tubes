@@ -245,8 +245,6 @@ def route_multilayer_heuristic(
     multilayer_strategy=("k-of-n", 1),  # 'k-of-n' or 'prev-k'
 ):
     num_layers = NUM_WEIGHTS.get()
-    G_ = nx.MultiGraph()
-    G_.add_nodes_from(list(G.nodes(data=True)))
 
     edge_used_in_layers = defaultdict(list)
 
@@ -261,7 +259,6 @@ def route_multilayer_heuristic(
             if k != EdgeType.SUPPORT:
                 continue
             edge_used_in_layers[(u, v)].append(k)
-            G_.add_edge(u, v, (layer, k), **L.edges[u, v, k])
 
     # down-weight edges used in many layers
     # either if used in all of the previous k layers (at current layer)
