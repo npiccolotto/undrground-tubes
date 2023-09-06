@@ -442,8 +442,8 @@ def layout_dr(elements, D_EA, D_SR, m=10, n=10, weight=0.5, skip_overlap_removal
         w = x_max - x_min
         h = y_max - y_min
 
-        H_mds[:, 0] = ((H_mds[:, 0] - x_min) / w) * (n)
-        H_mds[:, 1] = ((H_mds[:, 1] - y_min) / h) * (m)
+        H_mds[:, 0] = ((H_mds[:, 0] - x_min) / w) * (m)
+        H_mds[:, 1] = ((H_mds[:, 1] - y_min) / h) * (n)
 
         h_overlap_removed = DGrid(glyph_width=1, glyph_height=1, delta=1).fit_transform(
             H_mds
@@ -511,8 +511,8 @@ def layout_dr_multiple(D_EA, D_SR, m=10, n=10, num_samples=10):
         w = x_max - x_min
         h = y_max - y_min
 
-        H_mds[:, 0] = ((H_mds[:, 0] - x_min) / w) * (n)
-        H_mds[:, 1] = ((H_mds[:, 1] - y_min) / h) * (m)
+        H_mds[:, 0] = ((H_mds[:, 0] - x_min) / w) * (m)
+        H_mds[:, 1] = ((H_mds[:, 1] - y_min) / h) * (n)
 
         h_overlap_removed = DGrid(glyph_width=1, glyph_height=1, delta=1).fit_transform(
             H_mds
