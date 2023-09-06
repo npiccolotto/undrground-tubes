@@ -27,7 +27,12 @@ class EdgePenalty(float, Enum):
     # so that an otherwise short path with one 135deg bend isn't more expensive than a very long straight line
     HOP = 2
 
-    CROSSING = 1000
+    # crossings relative to node
+    # ie between edges of different nodes
+    CROSSING_OUTSIDE = 1000
+    # ie between port edge of the same node
+    CROSSING_INSIDE_GLYPH = 0
+    CROSSING_INSIDE_CELL = 1000
 
 
 class EdgeType(IntEnum):
