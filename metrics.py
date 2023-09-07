@@ -19,24 +19,38 @@ def figure_out_num_layers(G):
     return max_layer
 
 
+def compute_total_edges_used(G):
+    result = {}
+
+    for u,v,k,d in G.edges(keys=True,data=True):
+        layer, _ = k
+        if layer not in result:
+            result[layer] = 0
+        if edge_filter_ports(G, u, v, possibly_with_center=False, same_centers=False):
+            result[layer] += 1
+
+    return result
+
+
 def compute_total_line_length(G):
     result = {}
 
     for u, v, k, d in G.edges(keys=True, data=True):
         layer, _ = k
         if layer not in result:
-            result[layer] = {"between-node": 0}
+            result[layer] = 0
         num_sets_at_edge = len(d["sets"])
         if edge_filter_ports(G, u, v, possibly_with_center=False, same_centers=False):
-            result[layer]["between-node"] += num_sets_at_edge
+            result[layer] += num_sets_at_edge
 
     return result
 
 
 def compute_metrics(G):
-    total_line_length = compute_total_line_length(G)
-
-    return {"total_line_length": total_line_length}
+    return {
+        "total_line_length": compute_total_line_length(G),
+        "total_edges": compute_total_edges_used(G),
+    }
 
 
 @click.command()
