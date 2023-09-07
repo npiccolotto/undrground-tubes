@@ -2,7 +2,9 @@ import click
 import json
 import re
 import networkx as nx
+import math
 from itertools import combinations
+from util.geometry import get_angle
 from util.enums import EdgeType, NodeType, PortDirs
 from util.graph import edge_filter_ports, extract_support_layer, are_port_edges_crossing
 
@@ -19,10 +21,93 @@ def figure_out_num_layers(G):
             max_layer = layer
     return max_layer
 
+def figure_out_size(G):
+    max_x = 0
+    max_y = 0
+    for n in G.nodes():
+        x,y = n
+        if x > max_x:
+            max_x = x
+        if y > max_y:
+            max_y = y
 
-def compute_crossings_outside(G):
+    return (max_x, max_y)
+
+
+def compute_crossings_outside(G, size = (10,10)):
     # between diagional nodes
-    pass
+    result = 0
+    m,n = size
+
+    for u, v, d in G.edges(data=True):
+        if not edge_filter_ports(
+            G, u, v, same_centers=False, possibly_with_center=False
+        ):
+            continue
+
+        uparent = G.nodes[u]["belongs_to"]
+        vparent = G.nodes[v]["belongs_to"]
+
+        ux, uy = uparent
+        vx, vy = vparent
+        dx = vx - ux
+        dy = vy - uy
+
+        if (
+            dx != 0
+            and dy != 0
+            and ux + dx >= 0
+            and ux + dx < m
+            and uy + dy >= 0
+            and uy + dy < n
+        ):
+            crossing_edge = ((ux + dx, uy), (ux, uy + dy))
+
+            # found crossing edge with centers as nodes
+            # that won't be in the support graph so we have to look for
+            # the same edge using the centers' repsective ports
+
+            # so let the new edge be (w,x)
+            w, x = crossing_edge
+            # then get the angle from w to x, select appropriate port
+            angle = get_angle(w, x) * 180 / math.pi
+
+            wport = "ne"
+
+            if int(angle) == 45:
+                # w is southwest of x, use ne port and sw port
+                pass
+            elif int(angle) == 315:
+                # w is northwest of x, use se port and nw port
+                wport = "se"
+            else:
+                raise BaseException(f"did not expect angle {angle}")
+
+            xport = "nw" if wport == "se" else "sw"
+
+            xp_node = list(
+                [
+                    p
+                    for p in G.nodes()
+                    if G.nodes[p]['node'] == NodeType.PORT
+                    and G.nodes[p]["belongs_to"] == x
+                    and G.nodes[p]["port"] == xport
+                ]
+            )[0]
+            wp_node = list(
+                [
+                    p
+                    for p in G.nodes()
+                    if G.nodes[p]['node'] == NodeType.PORT
+                    and G.nodes[p]["belongs_to"] == w
+                    and G.nodes[p]["port"] == wport
+                ]
+            )[0]
+
+            if (wp_node, xp_node) in G.edges:
+                result += 1
+
+    return result
 
 
 def compute_crossings_inside(G):
@@ -88,12 +173,13 @@ def compute_metrics(G):
     layers = figure_out_num_layers(G)
     for layer in range(layers + 1):
         G_ = extract_support_layer(G, layer)
-        #print("layer", layer)
+        # print("layer", layer)
         result.append(
             {
                 "total_line_length": compute_total_line_length(G_),
                 "total_edges": compute_total_edges_used(G_),
                 "total_crossing_inside": compute_crossings_inside(G_),
+                "total_crossings_outside": compute_crossings_outside(G_, size = figure_out_size(G)),
             }
         )
     return result
