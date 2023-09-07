@@ -1,6 +1,7 @@
 import click
 import json
 import re
+import os
 import networkx as nx
 import math
 from itertools import combinations
@@ -189,7 +190,8 @@ def compute_metrics(G):
 @click.option(
     "--graph-path", default="serialized.json", help="path to serialized json graph"
 )
-def main(graph_path):
+@click.option('--write-dir', default='./', help='where to write the results to')
+def main(graph_path, write_dir):
     with open(graph_path, "r") as f:
         jayson = json.load(f)
 
@@ -232,7 +234,11 @@ def main(graph_path):
         for n, d in G.nodes(data=True):
             d["node"] = NodeType.CENTER if d["node"] == 0 else NodeType.PORT
 
-        print(compute_metrics(G))
+        metrics = compute_metrics(G)
+        print(metrics)
+        with open(os.path.join(write_dir, 'metrics.json'), 'w') as f_out:
+            json.dump(metrics, f_out)
+
 
 
 if __name__ == "__main__":
