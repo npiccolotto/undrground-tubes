@@ -40,6 +40,8 @@ class EdgePenalty(float, Enum):
     # attention when setting this one
     # if port edges of the same node are penalized it tries to go over the center instead
     # so to avoid that, set the center penalty to the same value
+    # attention #2: setting this also prevents parallel lines unless they connect exactly the same nodes
+    # reason being that because of the former reason, a turn away from an otherwise parallel path is considered a crossing
     CROSSING_INSIDE_CELL = 0
 
 
