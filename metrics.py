@@ -3,7 +3,7 @@ import json
 import re
 import networkx as nx
 from util.enums import EdgeType, NodeType
-from util.graph import edge_filter_ports
+from util.graph import edge_filter_ports, extract_support_layer
 
 DOUBLE_TUPLE_REGEX = re.compile(
     "\\((?P<u>\\(-?\\d+(?:\\.\\d+)?, -?\\d+(?:\\.\\d+)?\\)), (?P<v>\\(-?\\d+(?:\\.\\d+)?, -?\\d+(?:\\.\\d+)?\\))\\)"
@@ -19,38 +19,49 @@ def figure_out_num_layers(G):
     return max_layer
 
 
-def compute_total_edges_used(G):
-    result = {}
+def compute_crossings_outside(G):
+    # between diagional nodes
+    pass
 
-    for u,v,k,d in G.edges(keys=True,data=True):
-        layer, _ = k
-        if layer not in result:
-            result[layer] = 0
+
+def compute_crossings_inside(G):
+    # in unoccupied nodes
+    pass
+
+
+def compute_total_edges_used(G):
+    result = 0
+
+    for u, v, d in G.edges(data=True):
         if edge_filter_ports(G, u, v, possibly_with_center=False, same_centers=False):
-            result[layer] += 1
+            result += 1
 
     return result
 
 
 def compute_total_line_length(G):
-    result = {}
+    result = 0
 
-    for u, v, k, d in G.edges(keys=True, data=True):
-        layer, _ = k
-        if layer not in result:
-            result[layer] = 0
+    for u, v, d in G.edges(data=True):
         num_sets_at_edge = len(d["sets"])
         if edge_filter_ports(G, u, v, possibly_with_center=False, same_centers=False):
-            result[layer] += num_sets_at_edge
+            result += num_sets_at_edge
 
     return result
 
 
 def compute_metrics(G):
-    return {
-        "total_line_length": compute_total_line_length(G),
-        "total_edges": compute_total_edges_used(G),
-    }
+    result = []
+    layers = figure_out_num_layers(G)
+    for layer in range(layers + 1):
+        G_ = extract_support_layer(G, layer)
+        result.append(
+            {
+                "total_line_length": compute_total_line_length(G_),
+                "total_edges": compute_total_edges_used(G_),
+            }
+        )
+    return result
 
 
 @click.command()

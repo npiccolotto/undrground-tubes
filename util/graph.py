@@ -633,7 +633,7 @@ def update_weights_for_support_edge(G, edge):
     return G
 
 
-def are_port_edges_crossing(us, ut, vs, vt):
+def are_port_edges_crossing(us, ut, vs, vt, cross_when_node_shared = True):
     if frozenset([ut["port"], us["port"]]) == frozenset([vs["port"], vt["port"]]):
         return False
 
@@ -668,6 +668,10 @@ def are_port_edges_crossing(us, ut, vs, vt):
 
     if (port1 in cw_set and port2 in cw_set) or (port1 in ccw_set and port2 in ccw_set):
         return False
+
+    if not cross_when_node_shared:
+        if u1 in [port1,port2] or u2 in [port1,port2]:
+            return False
 
     return True
 
