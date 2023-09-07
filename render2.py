@@ -280,11 +280,13 @@ def read_instance(directory, name):
 
 def render(
     dataset,
-    num_weights,
 ):
     instance = read_instance(READ_DIR.get(), dataset)
     lattice_type = "sqr"
+    num_weights = NUM_WEIGHTS.get()
     instance["num_layers"] = num_weights
+
+    print(isinstance(num_weights, int))
 
     with timing("layout"):
         instance["glyph_positions"] = layout_dr_multiple(
@@ -486,46 +488,39 @@ def render(
 
 
 @click.command()
-@click.option(
-    "--read-dir", default="./data", help="directory to read the datasets from"
-)
-@click.option("--write-dir", default="./", help="directory to write the output to")
 @click.option("--dataset", default="imdb/imdb_10", help="dataset to load")
+@click.option("--read-dir", help="directory to read the datasets from")
+@click.option("--write-dir", help="directory to write the output to")
 @click.option(
     "--strategy",
-    default="heuristic",
     type=click.Choice(["opt", "heuristic"], case_sensitive=False),
 )
-@click.option("--grid-width", "-w", default=10, help="grid width as # cols")
-@click.option("--grid-height", "-h", default=10, help="grid height as # rows")
+@click.option("--grid-width", "-w", type=int, help="grid width as # cols")
+@click.option("--grid-height", "-h", type=int, help="grid height as # rows")
 @click.option(
-    "--num-weights", default=2, help="how many samples between 0..1 to use for weights"
+    "--num-weights", type=int, help="how many samples between 0..1 to use for weights"
 )
 @click.option(
     "--support-type",
     type=click.Choice(["path", "steiner-tree"], case_sensitive=False),
-    default="path",
     help="the support type",
 )
 @click.option(
     "--support-partition",
     type=click.Choice(["set", "intersection-group"], case_sensitive=False),
-    default="intersection-group",
     help="the partition type",
 )
 @click.option(
     "--draw-glyphs/--no-draw-glyphs",
     type=bool,
-    default=True,
     help="draw glyphs (true) or circles (false)",
 )
 @click.option(
     "--loom-solver",
     type=click.Choice(["gurobi", "glpk"], case_sensitive=False),
-    default="glpk",
     help="the solver for loom",
 )
-@click.option("--loom-timeout", default=180, help="timeout for loom in secs")
+@click.option("--loom-timeout", type=int, default=180, help="timeout for loom in secs")
 def vis(
     read_dir,
     write_dir,
@@ -541,22 +536,32 @@ def vis(
     loom_timeout,
 ):
 
-    DRAW_GLYPHS.set(draw_glyphs)
-    SUB_SUPPORT_GROUPING.set(support_partition)
-    SUB_SUPPORT_TYPE.set(support_type)
-    STRATEGY.set(strategy)
-    GRID_WIDTH.set(grid_width)
-    GRID_HEIGHT.set(grid_height)
-    READ_DIR.set(read_dir)
-    WRITE_DIR.set(write_dir)
-    NUM_WEIGHTS.set(num_weights)
-    LOOM_SOLVER.set(loom_solver)
-    LOOM_TIMEOUT.set(loom_timeout)
+    if support_partition is not None:
+        SUB_SUPPORT_GROUPING.set(support_partition)
+    if support_type is not None:
+        SUB_SUPPORT_TYPE.set(support_type)
+    if strategy is not None:
+        STRATEGY.set(strategy)
+    if grid_width is not None:
+        GRID_WIDTH.set(grid_width)
+    if grid_height is not None:
+        GRID_HEIGHT.set(grid_height)
+    if read_dir is not None:
+        READ_DIR.set(read_dir)
+    if write_dir is not None:
+        WRITE_DIR.set(write_dir)
+    if num_weights is not None:
+        NUM_WEIGHTS.set(num_weights)
+    if draw_glyphs is not None:
+        DRAW_GLYPHS.set(draw_glyphs)
+    if loom_solver is not None:
+        LOOM_SOLVER.set(loom_solver)
+    if loom_timeout is not None:
+        LOOM_TIMEOUT.set(loom_timeout)
 
     fun = partial(
         render,
         dataset,
-        num_weights,
     )
     ctx = contextvars.copy_context()
     ctx.run(fun)
