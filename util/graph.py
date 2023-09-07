@@ -670,7 +670,7 @@ def are_port_edges_crossing(us, ut, vs, vt, cross_when_node_shared = True):
         return False
 
     if not cross_when_node_shared:
-        if u1 in [port1,port2] or u2 in [port1,port2]:
+        if u1['port'] in [port1,port2] or u2['port'] in [port1,port2]:
             return False
 
     return True

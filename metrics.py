@@ -2,8 +2,9 @@ import click
 import json
 import re
 import networkx as nx
-from util.enums import EdgeType, NodeType
-from util.graph import edge_filter_ports, extract_support_layer
+from itertools import combinations
+from util.enums import EdgeType, NodeType, PortDirs
+from util.graph import edge_filter_ports, extract_support_layer, are_port_edges_crossing
 
 DOUBLE_TUPLE_REGEX = re.compile(
     "\\((?P<u>\\(-?\\d+(?:\\.\\d+)?, -?\\d+(?:\\.\\d+)?\\)), (?P<v>\\(-?\\d+(?:\\.\\d+)?, -?\\d+(?:\\.\\d+)?\\))\\)"
@@ -26,7 +27,39 @@ def compute_crossings_outside(G):
 
 def compute_crossings_inside(G):
     # in unoccupied nodes
-    pass
+    result = 0
+    for n, d in G.nodes(data=True):
+        if d["node"] != NodeType.CENTER or d["occupied"]:
+            continue
+
+        all_ports = set(
+            [
+                p
+                for p in G.nodes()
+                if G.nodes[p]["node"] == NodeType.PORT and G.nodes[p]["belongs_to"] == n
+            ]
+        )
+
+        if len(all_ports) < 2:
+            continue
+
+        all_edges_at_ports = set()
+        for p1, p2 in combinations(all_ports, 2):
+            if (p1, p2) in G.edges:
+                all_edges_at_ports.add((p1, p2))
+
+        for uv, wx in combinations(all_edges_at_ports, 2):
+            u, v = uv
+            w, x = wx
+            if are_port_edges_crossing(
+                G.nodes[u],
+                G.nodes[v],
+                G.nodes[w],
+                G.nodes[x],
+                cross_when_node_shared=False,
+            ):
+                result += 1
+    return result
 
 
 def compute_total_edges_used(G):
@@ -55,10 +88,12 @@ def compute_metrics(G):
     layers = figure_out_num_layers(G)
     for layer in range(layers + 1):
         G_ = extract_support_layer(G, layer)
+        #print("layer", layer)
         result.append(
             {
                 "total_line_length": compute_total_line_length(G_),
                 "total_edges": compute_total_edges_used(G_),
+                "total_crossing_inside": compute_crossings_inside(G_),
             }
         )
     return result

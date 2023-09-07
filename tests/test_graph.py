@@ -45,6 +45,14 @@ class TestCrossingPortEdges(unittest.TestCase):
                 are_port_edges_crossing(u, v, {"port": w}, {"port": x}), (w, x)
             )
 
+        for w, x in [("nw", "e"), ("n", "s")]:
+            self.assertFalse(
+                are_port_edges_crossing(
+                    u, v, {"port": w}, {"port": x}, cross_when_node_shared=False
+                ),
+                (u, v, w, x),
+            )
+
     def test_same_edge(self):
         self.assertFalse(
             are_port_edges_crossing(
