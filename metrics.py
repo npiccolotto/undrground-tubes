@@ -22,11 +22,12 @@ def figure_out_num_layers(G):
             max_layer = layer
     return max_layer
 
+
 def figure_out_size(G):
     max_x = 0
     max_y = 0
     for n in G.nodes():
-        x,y = n
+        x, y = n
         if x > max_x:
             max_x = x
         if y > max_y:
@@ -35,10 +36,13 @@ def figure_out_size(G):
     return (max_x, max_y)
 
 
-def compute_crossings_outside(G, size = (10,10)):
+def compute_crossings_outside(G, size=(10, 10), what="edges"):
     # between diagional nodes
     result = 0
-    m,n = size
+    m, n = size
+
+    if what not in ["edges", "lines"]:
+        raise BaseException(f"unsure what to count: {what}")
 
     for u, v, d in G.edges(data=True):
         if not edge_filter_ports(
@@ -90,7 +94,7 @@ def compute_crossings_outside(G, size = (10,10)):
                 [
                     p
                     for p in G.nodes()
-                    if G.nodes[p]['node'] == NodeType.PORT
+                    if G.nodes[p]["node"] == NodeType.PORT
                     and G.nodes[p]["belongs_to"] == x
                     and G.nodes[p]["port"] == xport
                 ]
@@ -99,21 +103,30 @@ def compute_crossings_outside(G, size = (10,10)):
                 [
                     p
                     for p in G.nodes()
-                    if G.nodes[p]['node'] == NodeType.PORT
+                    if G.nodes[p]["node"] == NodeType.PORT
                     and G.nodes[p]["belongs_to"] == w
                     and G.nodes[p]["port"] == wport
                 ]
             )[0]
 
             if (wp_node, xp_node) in G.edges:
-                result += 1
+                result += (
+                    1
+                    if what == "edges"
+                    else len(G.edges[uparent, vparent]["sets"])
+                    * len(G.edges[wp_node, xp_node]["sets"])
+                )
 
     return result
 
 
-def compute_crossings_inside(G):
+def compute_crossings_inside(G, what="edges"):
     # in unoccupied nodes
     result = 0
+
+    if what not in ["edges", "lines"]:
+        raise BaseException(f"unsure what to count: {what}")
+
     for n, d in G.nodes(data=True):
         if d["node"] != NodeType.CENTER or d["occupied"]:
             continue
@@ -144,27 +157,23 @@ def compute_crossings_inside(G):
                 G.nodes[x],
                 cross_when_node_shared=False,
             ):
-                result += 1
+                result += (
+                    1
+                    if what == "edges"
+                    else len(G.edges[u, v]["sets"]) * len(G.edges[w, x]["sets"])
+                )
     return result
 
 
-def compute_total_edges_used(G):
+def compute_total_length(G, what="edges"):
     result = 0
+
+    if what not in ["edges", "lines"]:
+        raise BaseException(f"unsure what to count: {what}")
 
     for u, v, d in G.edges(data=True):
         if edge_filter_ports(G, u, v, possibly_with_center=False, same_centers=False):
-            result += 1
-
-    return result
-
-
-def compute_total_line_length(G):
-    result = 0
-
-    for u, v, d in G.edges(data=True):
-        num_sets_at_edge = len(d["sets"])
-        if edge_filter_ports(G, u, v, possibly_with_center=False, same_centers=False):
-            result += num_sets_at_edge
+            result += 1 if what == "edges" else len(d["sets"])
 
     return result
 
@@ -177,10 +186,12 @@ def compute_metrics(G):
         # print("layer", layer)
         result.append(
             {
-                "total_line_length": compute_total_line_length(G_),
-                "total_edges": compute_total_edges_used(G_),
-                "total_crossing_inside": compute_crossings_inside(G_),
-                "total_crossings_outside": compute_crossings_outside(G_, size = figure_out_size(G)),
+                "total_lines": compute_total_length(G_, what="lines"),
+                "total_edges": compute_total_length(G_, what="edges"),
+                "total_line_crossings": compute_crossings_inside(G_, what="lines")
+                + compute_crossings_outside(G_, what="lines", size=figure_out_size(G)),
+                "total_edge_crossings": compute_crossings_inside(G_, what="edges")
+                + compute_crossings_outside(G_, what="edges", size=figure_out_size(G)),
             }
         )
     return result
@@ -190,7 +201,7 @@ def compute_metrics(G):
 @click.option(
     "--graph-path", default="serialized.json", help="path to serialized json graph"
 )
-@click.option('--write-dir', default='./', help='where to write the results to')
+@click.option("--write-dir", default="./", help="where to write the results to")
 def main(graph_path, write_dir):
     with open(graph_path, "r") as f:
         jayson = json.load(f)
@@ -236,9 +247,8 @@ def main(graph_path, write_dir):
 
         metrics = compute_metrics(G)
         print(metrics)
-        with open(os.path.join(write_dir, 'metrics.json'), 'w') as f_out:
+        with open(os.path.join(write_dir, "metrics.json"), "w") as f_out:
             json.dump(metrics, f_out)
-
 
 
 if __name__ == "__main__":
