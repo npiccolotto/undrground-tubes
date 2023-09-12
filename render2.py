@@ -511,11 +511,6 @@ def render(
     help="the partition type",
 )
 @click.option(
-    "--draw-glyphs/--no-draw-glyphs",
-    type=bool,
-    help="draw glyphs (true) or circles (false)",
-)
-@click.option(
     "--loom-solver",
     type=click.Choice(["gurobi", "glpk"], case_sensitive=False),
     help="the solver for loom",
@@ -531,7 +526,6 @@ def vis(
     grid_height,
     support_type,
     support_partition,
-    draw_glyphs,
     loom_solver,
     loom_timeout,
 ):
@@ -552,8 +546,6 @@ def vis(
         WRITE_DIR.set(write_dir)
     if num_weights is not None:
         NUM_WEIGHTS.set(num_weights)
-    if draw_glyphs is not None:
-        DRAW_GLYPHS.set(draw_glyphs)
     if loom_solver is not None:
         LOOM_SOLVER.set(loom_solver)
     if loom_timeout is not None:
