@@ -6,12 +6,28 @@ import copy
 import click
 from collections import defaultdict
 from itertools import chain, combinations, pairwise, product
+import contextvars
+from functools import partial
 
 import drawsvg as svg
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 
+from util.config import (
+    DRAW_GLYPHS,
+    CELL_SIZE_PX,
+    SUB_SUPPORT_GROUPING,
+    SUB_SUPPORT_TYPE,
+    STRATEGY,
+    GRID_WIDTH,
+    GRID_HEIGHT,
+    READ_DIR,
+    WRITE_DIR,
+    NUM_WEIGHTS,
+    LOOM_SOLVER,
+    LOOM_TIMEOUT,
+)
 from util.bundle import bundle_lines
 from util.collections import (
     group_by_intersection_group,
@@ -20,7 +36,6 @@ from util.collections import (
     list_of_lists_to_set_system_dict,
 )
 from util.draw import (
-    CELL_SIZE_PX,
     draw_svg,
     geometrize,
     draw_support,
@@ -256,9 +271,6 @@ def read_instance(directory, name):
         "D_EA": data["EA"],
         "D_SR": data["SA"],
         "set_ftb_order": list(sorted(sets)),
-        # pipeline config
-        "dr_method": "mds",
-        "dr_gridification": "hagrid",  #  'hagrid' or 'dgrid'
     }
     if "glyph_ids" in data:
         inst["glyph_ids"] = data["glyph_ids"]
@@ -266,66 +278,32 @@ def read_instance(directory, name):
     return inst
 
 
-@click.command()
-@click.option(
-    "--read-dir", default="./data", help="directory to read the datasets from"
-)
-@click.option("--write-dir", default="./", help="directory to write the output to")
-@click.option("--dataset", default="imdb/imdb_10", help="dataset to load")
-@click.option("--opt", default=False, help="try optimal solutions")
-@click.option("--grid-width", "-w", default=10, help="grid width as # cols")
-@click.option("--grid-height", "-h", default=10, help="grid height as # rows")
-@click.option(
-    "--num-weights", default=2, help="how many samples between 0..1 to use for weights"
-)
-@click.option(
-    "--support-type",
-    type=click.Choice(["path", "steiner-tree"], case_sensitive=False),
-    default="path",
-    help="the support type",
-)
-@click.option(
-    "--support-partition",
-    type=click.Choice(["set", "intersection-group"], case_sensitive=False),
-    default="intersection-group",
-    help="the partition type",
-)
 def render(
-    read_dir,
-    write_dir,
     dataset,
-    opt,
-    num_weights,
-    grid_width,
-    grid_height,
-    support_type,
-    support_partition,
 ):
-    instance = read_instance(read_dir, dataset)
+    instance = read_instance(READ_DIR.get(), dataset)
     lattice_type = "sqr"
-    instance["grid_x"] = grid_width
-    instance["grid_y"] = grid_height
+    num_weights = NUM_WEIGHTS.get()
     instance["num_layers"] = num_weights
-    instance["support_type"] = support_type
-    instance["strategy"] = "opt" if opt else "heuristic"
-    instance["support_partition_by"] = support_partition
+
+    print(isinstance(num_weights, int))
 
     with timing("layout"):
         instance["glyph_positions"] = layout_dr_multiple(
             instance["D_EA"],
             instance["D_SR"],
-            m=grid_width,
-            n=grid_height,
+            m=GRID_WIDTH.get(),
+            n=GRID_HEIGHT.get(),
             num_samples=num_weights,
         )
 
     with timing("routing"):
-        G = get_routing_graph(lattice_type, (grid_width, grid_height))
+        G = get_routing_graph(lattice_type, (GRID_WIDTH.get(), GRID_HEIGHT.get()))
         G = add_glyphs_to_nodes(instance, G)
 
         element_set_partition = (
             group_by_intersection_group(instance["set_system"])
-            if instance["support_partition_by"] == "intersection-group"
+            if SUB_SUPPORT_GROUPING.get() == "intersection-group"
             else group_by_set(instance["set_system"])
         )
         element_set_partition = sorted(
@@ -334,7 +312,7 @@ def render(
 
         print("element partition", element_set_partition)
 
-        if instance["strategy"] == "opt":
+        if STRATEGY.get() == "opt":
             L = route_multilayer_ilp(
                 instance,
                 nx.subgraph_view(
@@ -343,24 +321,22 @@ def render(
                     filter_node=lambda n: G.nodes[n]["node"] == NodeType.CENTER,
                 ),
                 element_set_partition,
-                support_type=instance["support_type"],
             )
         else:
             L = route_multilayer_heuristic(
                 instance,
                 G,
                 element_set_partition,
-                support_type=instance["support_type"],
             )
 
     for layer in range(num_weights):
         M = extract_support_layer(L, layer)
-        draw_support(instance, M, write_dir, layer)
+        draw_support(instance, M, layer)
 
     with timing("bundle lines"):
         L = bundle_lines(instance, L)
 
-    if instance["strategy"] == "opt":
+    if STRATEGY.get() == "opt":
         # merge grid graph data (ports at nodes) with line graph data (routing and bundling info)
         # we have
         # G = multigraph with center and physical nodes/edges
@@ -485,7 +461,7 @@ def render(
                     d["oeb_order"][str(key)] = [*d["oeb_order"][key]]
                     del d["oeb_order"][key]
 
-        with open(f"{write_dir}serialized.json", "w") as f:
+        with open(f"{WRITE_DIR.get()}serialized.json", "w") as f:
             json.dump(nx.node_link_data(L_), f)
 
     with timing("draw+write svg"):
@@ -500,14 +476,96 @@ def render(
             )
             geometries = geometrize(instance, L, element_set_partition, layer=layer)
             img = draw_svg(
-                geometries, grid_width * CELL_SIZE_PX, grid_height * CELL_SIZE_PX
+                geometries,
+                GRID_WIDTH.get() * CELL_SIZE_PX.get(),
+                GRID_HEIGHT.get() * CELL_SIZE_PX.get(),
             )
-            with open(f"{write_dir}drawing_{layer}.svg", "w") as f:
+            with open(f"{WRITE_DIR.get()}drawing_{layer}.svg", "w") as f:
                 f.write(img)
                 f.flush()
 
     print("Done.")
 
 
+@click.command()
+@click.option("--dataset", default="imdb/imdb_10", help="dataset to load")
+@click.option("--read-dir", help="directory to read the datasets from")
+@click.option("--write-dir", help="directory to write the output to")
+@click.option(
+    "--strategy",
+    type=click.Choice(["opt", "heuristic"], case_sensitive=False),
+)
+@click.option("--grid-width", "-w", type=int, help="grid width as # cols")
+@click.option("--grid-height", "-h", type=int, help="grid height as # rows")
+@click.option(
+    "--num-weights", type=int, help="how many samples between 0..1 to use for weights"
+)
+@click.option(
+    "--support-type",
+    type=click.Choice(["path", "steiner-tree"], case_sensitive=False),
+    help="the support type",
+)
+@click.option(
+    "--support-partition",
+    type=click.Choice(["set", "intersection-group"], case_sensitive=False),
+    help="the partition type",
+)
+@click.option(
+    "--draw-glyphs/--no-draw-glyphs",
+    type=bool,
+    help="draw glyphs (true) or circles (false)",
+)
+@click.option(
+    "--loom-solver",
+    type=click.Choice(["gurobi", "glpk"], case_sensitive=False),
+    help="the solver for loom",
+)
+@click.option("--loom-timeout", type=int, default=180, help="timeout for loom in secs")
+def vis(
+    read_dir,
+    write_dir,
+    dataset,
+    strategy,
+    num_weights,
+    grid_width,
+    grid_height,
+    support_type,
+    support_partition,
+    draw_glyphs,
+    loom_solver,
+    loom_timeout,
+):
+
+    if support_partition is not None:
+        SUB_SUPPORT_GROUPING.set(support_partition)
+    if support_type is not None:
+        SUB_SUPPORT_TYPE.set(support_type)
+    if strategy is not None:
+        STRATEGY.set(strategy)
+    if grid_width is not None:
+        GRID_WIDTH.set(grid_width)
+    if grid_height is not None:
+        GRID_HEIGHT.set(grid_height)
+    if read_dir is not None:
+        READ_DIR.set(read_dir)
+    if write_dir is not None:
+        WRITE_DIR.set(write_dir)
+    if num_weights is not None:
+        NUM_WEIGHTS.set(num_weights)
+    if draw_glyphs is not None:
+        DRAW_GLYPHS.set(draw_glyphs)
+    if loom_solver is not None:
+        LOOM_SOLVER.set(loom_solver)
+    if loom_timeout is not None:
+        LOOM_TIMEOUT.set(loom_timeout)
+
+    fun = partial(
+        render,
+        dataset,
+    )
+    ctx = contextvars.copy_context()
+    ctx.run(fun)
+
+
 if __name__ == "__main__":
-    render()
+    vis()
