@@ -35,6 +35,7 @@ from util.config import (
     GRID_WIDTH,
     GRID_HEIGHT,
     WRITE_DIR,
+    GLYPH_TITLE,
 )
 
 
@@ -122,6 +123,7 @@ def draw_support(instance, M, layer=0):
                 sy=uv,
                 ex=vx,
                 ey=vy,
+                data_sets=str(M.edges[u,v]['sets']),
                 stroke_width=STROKE_WIDTH.get(),
                 stroke="white" if DARK_MODE.get() else "black",
             )
@@ -155,11 +157,13 @@ def geometrize(instance, L, element_set_partition, layer=0):
                         height=h,
                         path=M.nodes[i]["glyph"],
                     )
-                    img.append_title(M.nodes[i]["label"])
+                    if GLYPH_TITLE.get():
+                        img.append_title(M.nodes[i]["label"])
                     geometries.append(img)
                 else:
                     c = svg.Circle(cx=px, cy=py, r=NODE_CIRCLE_RADIUS.get())
-                    c.append_title(M.nodes[i]["label"])
+                    if GLYPH_TITLE.get():
+                        c.append_title(M.nodes[i]["label"])
                     geometries.append(c)
             elif DRAW_GRID_CELLS.get():
                 c = svg.Circle(
