@@ -466,7 +466,6 @@ def render(
 
     with timing("draw+write svg"):
         for layer in range(num_weights):
-            # TODO dump L in some format we can read again
             L.add_edges_from(
                 [
                     (u, v, k, d)
@@ -510,12 +509,6 @@ def render(
     type=click.Choice(["set", "intersection-group"], case_sensitive=False),
     help="the partition type",
 )
-@click.option(
-    "--loom-solver",
-    type=click.Choice(["gurobi", "glpk"], case_sensitive=False),
-    help="the solver for loom",
-)
-@click.option("--loom-timeout", type=int, default=180, help="timeout for loom in secs")
 def vis(
     read_dir,
     write_dir,
@@ -526,8 +519,6 @@ def vis(
     grid_height,
     support_type,
     support_partition,
-    loom_solver,
-    loom_timeout,
 ):
 
     if support_partition is not None:
@@ -546,10 +537,6 @@ def vis(
         WRITE_DIR.set(write_dir)
     if num_weights is not None:
         NUM_WEIGHTS.set(num_weights)
-    if loom_solver is not None:
-        LOOM_SOLVER.set(loom_solver)
-    if loom_timeout is not None:
-        LOOM_TIMEOUT.set(loom_timeout)
 
     fun = partial(
         render,

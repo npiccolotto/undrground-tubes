@@ -122,6 +122,7 @@ def draw_support(instance, M, layer=0):
                 sy=uv,
                 ex=vx,
                 ey=vy,
+                data_sets=str(M.edges[u,v]['sets']),
                 stroke_width=STROKE_WIDTH.get(),
                 stroke="white" if DARK_MODE.get() else "black",
             )
