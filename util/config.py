@@ -44,6 +44,9 @@ DRAW_GRID_CELLS = ContextVar(
 SET_COLORS = ContextVar(
     "SET_COLORS", default=config.get("DRAW", "SetColors").split(",")
 )
+GLYPH_TITLE = ContextVar(
+    'GLYPH_TITLE', default = config.getboolean('DRAW', 'GlyphTitle')
+)
 
 SUB_SUPPORT_TYPE = ContextVar(
     "SUB_SUPPORT_TYPE", default=config.get("ROUTE", "SubSupportType")
