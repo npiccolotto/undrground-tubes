@@ -42,7 +42,7 @@ from util.graph import (
     extract_support_layer,
     get_ports,
 )
-from util.layout import layout_dr, layout_dr_multiple, layout_qsap
+from util.layout import layout
 from util.perf import timing
 from util.route import route_multilayer_ilp, route_multilayer_heuristic
 
@@ -277,12 +277,12 @@ def render(
     instance["num_layers"] = num_weights
 
     with timing("layout"):
-        instance["glyph_positions"] = layout_dr_multiple(
+        instance["glyph_positions"] = layout(
             instance["D_EA"],
             instance["D_SR"],
             m=config_vars["general.gridwidth"].get(),
             n=config_vars["general.gridheight"].get(),
-            num_samples=num_weights,
+            num_weights=num_weights,
         )
 
     with timing("routing"):

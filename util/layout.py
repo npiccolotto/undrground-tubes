@@ -14,11 +14,7 @@ from scipy.spatial import procrustes
 
 from util.draw import draw_embedding
 from util.DGrid import DGrid
-
-# import umap
-# import umap.plot
-# import umap.utils as utils
-# import umap.aligned_umap
+from util.config import config_vars
 
 
 def get_bounds(P):
@@ -379,153 +375,57 @@ def naive_matching(L1, L2):
     return rot, scale
 
 
-def layout_dr_umap(
-    elements, D_EA, D_SR, m=10, n=10, weight=0.5, skip_overlap_removal=False
-):
+def layout_single(D_EA, D_SR, m=10, n=10, weight=0.5):
     DE = (D_EA - np.min(D_EA)) / (np.max(D_EA) - np.min(D_EA))
     DS = np.array(D_SR)
     D = (1 - weight) * DE + weight * DS
 
-    mds = MDS(n_components=2, metric=True, random_state=2, dissimilarity="precomputed")
+    mds = MDS(
+        n_components=2, metric=True, random_state=2, dissimilarity="precomputed", normalized_stress='auto'
+    )
     H_mds = mds.fit_transform(D)
 
-    # sns.scatterplot(x=H_mds[:,0], y=H_mds[:,1], palette='Set1')
-    # plt.show()
-
-    if not skip_overlap_removal:
-        x_min = np.min(H_mds[:, 0])
-        y_min = np.min(H_mds[:, 1])
-        x_max = np.max(H_mds[:, 0])
-        y_max = np.max(H_mds[:, 1])
-
-        w = x_max - x_min
-        h = y_max - y_min
-
-        H_mds[:, 0] = ((H_mds[:, 0] - x_min) / w) * (n)
-        H_mds[:, 1] = ((H_mds[:, 1] - y_min) / h) * (m)
-
-        h_overlap_removed = DGrid(glyph_width=1, glyph_height=1, delta=1).fit_transform(
-            H_mds
-        )
-
-        pos = []
-        for i in range(len(DE)):
-            pos.append((int(h_overlap_removed[i, 0]), int(h_overlap_removed[i, 1])))
-    else:
-        pos = []
-        for i in range(len(DE)):
-            pos.append((H_mds[i, 0], H_mds[i, 1]))
-
-    return pos
+    return H_mds
 
 
-def layout_dr(elements, D_EA, D_SR, m=10, n=10, weight=0.5, skip_overlap_removal=False):
-    """dimensionality reduction onto grid, for now assuming constant space between cells."""
-
-    # 1) make distance matrix D by combining D_EA and D_SR using weight
-    # TODO try what ranking instead of minmax norm does
-    DE = (D_EA - np.min(D_EA)) / (np.max(D_EA) - np.min(D_EA))
-    DS = np.array(D_SR)
-    D = (1 - weight) * DE + weight * DS
-
-    mds = MDS(n_components=2, metric=True, random_state=2, dissimilarity="precomputed")
-    H_mds = mds.fit_transform(D)
-
-    draw_embedding(H_mds, "./embedding_raw.svg")
-
-    if not skip_overlap_removal:
-        x_min = np.min(H_mds[:, 0])
-        y_min = np.min(H_mds[:, 1])
-        x_max = np.max(H_mds[:, 0])
-        y_max = np.max(H_mds[:, 1])
-
-        w = x_max - x_min
-        h = y_max - y_min
-
-        H_mds[:, 0] = ((H_mds[:, 0] - x_min) / w) * (m)
-        H_mds[:, 1] = ((H_mds[:, 1] - y_min) / h) * (n)
-
-        h_overlap_removed = DGrid(glyph_width=1, glyph_height=1, delta=1).fit_transform(
-            H_mds
-        )
-
-        draw_embedding(h_overlap_removed, "./embedding_gridded.svg")
-
-        pos = []
-        for i in range(len(DE)):
-            pos.append((int(h_overlap_removed[i, 0]), int(h_overlap_removed[i, 1])))
-    else:
-        pos = []
-        for i in range(len(DE)):
-            pos.append((H_mds[i, 0], H_mds[i, 1]))
-
-    return pos
-
-
-def layout_dr_multiple(D_EA, D_SR, m=10, n=10, num_samples=10):
-    N = len(D_EA)
-
-    pos_mtx = []
-    for weight in np.linspace(0, 1, num_samples):
-        print(f'weight={weight}')
-        DE = (D_EA - np.min(D_EA)) / (np.max(D_EA) - np.min(D_EA))
-        DS = np.array(D_SR)
-        D = (1 - weight) * DE + weight * DS
-
-        mds = MDS(
-            n_components=2, metric=True, random_state=2, dissimilarity="precomputed", normalized_stress='auto'
-        )
-        H_mds = mds.fit_transform(D)
-
-        # sns.scatterplot(x=H_mds[:,0], y=H_mds[:,1], palette='Set1')
-        # plt.show()
-
-        pos = np.zeros((len(DE), 2))
-        for i in range(len(DE)):
-            pos[i][0] = H_mds[i, 0]
-            pos[i][1] = H_mds[i, 1]
-
-        pos_mtx.append(pos)
-
-    transformation_mtx = []
-
+def align_layouts(layouts):
     output_pos = []
-    output_pos.append(pos_mtx[0])
-    mtx_old = pos_mtx[0]
+    output_pos.append(layouts[0])
+    mtx_old = layouts[0]
 
-    for i in range(1, num_samples):
-        mtx1, mtx2, disparity = procrustes(mtx_old, pos_mtx[i])
+    for i in range(1, len(layouts)):
+        mtx1, mtx2, disparity = procrustes(mtx_old, layouts[i])
 
         mtx_old = mtx2
         output_pos.append(mtx2)
 
-    layouts = []
+    return output_pos
 
-    for i in range(0, num_samples):
-        H_mds = output_pos[i]
-        x_min = H_mds.min(axis=0)[0]
-        y_min = H_mds.min(axis=0)[1]
-        x_max = H_mds.max(axis=0)[0]
-        y_max = H_mds.max(axis=0)[1]
+def remove_overlaps(layout, m=10, n=10):
+    x_min = layout.min(axis=0)[0]
+    y_min = layout.min(axis=0)[1]
+    x_max = layout.max(axis=0)[0]
+    y_max = layout.max(axis=0)[1]
 
-        w = x_max - x_min
-        h = y_max - y_min
+    w = x_max - x_min
+    h = y_max - y_min
 
-        H_mds[:, 0] = ((H_mds[:, 0] - x_min) / w) * (m)
-        H_mds[:, 1] = ((H_mds[:, 1] - y_min) / h) * (n)
+    layout[:, 0] = ((layout[:, 0] - x_min) / w) * (m)
+    layout[:, 1] = ((layout[:, 1] - y_min) / h) * (n)
 
-        h_overlap_removed = DGrid(glyph_width=1, glyph_height=1, delta=1).fit_transform(
-            H_mds
-        )
+    h_overlap_removed = DGrid(glyph_width=1, glyph_height=1, delta=1).fit_transform(
+        layout
+    )
+    return h_overlap_removed.astype(int)
 
-        pos = []
-        for i in range(len(DE)):
-            pos.append((int(h_overlap_removed[i, 0]), int(h_overlap_removed[i, 1])))
 
-        layouts.append(pos)
+def layout(D_EA, D_SR, m=10, n=10, num_weights=3):
 
-    print(pos_mtx)
+    layouts = [layout_single(D_EA, D_SR, m=m, n=n, weight=w) for w in np.linspace(0,1,num_weights)]
+    layouts = align_layouts(layouts)
+    layouts = [remove_overlaps(layout, m=m, n=n) for layout in layouts]
 
+    layouts = list(map(lambda layout: list(map(tuple,layout)),layouts))
     return layouts
 
 
