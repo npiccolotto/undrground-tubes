@@ -3,7 +3,6 @@ import time
 import os
 import traceback
 import copy
-import sys
 import click
 from collections import defaultdict
 from itertools import chain, combinations, pairwise, product
@@ -537,6 +536,8 @@ def vis(
         config_vars["general.writedir"].set(write_dir)
     if num_weights is not None:
         config_vars["general.numlayers"].set(num_weights)
+
+    os.makedirs(write_dir,exist_ok=True)
 
     start = time.time()
     try:
