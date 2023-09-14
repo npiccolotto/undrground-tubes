@@ -1,5 +1,6 @@
 import networkx as nx
 import numpy as np
+import os
 import json
 import subprocess
 from itertools import combinations, pairwise
@@ -470,7 +471,10 @@ def bundle_lines(instance, M):
         G_for_loom = convert_to_geojson(G)
 
         with open(
-            f"{config_vars['general.writedir'].get()}/loom_input_{layer}.json", "w"
+            os.path.join(
+                config_vars["general.writedir"].get(), f"loom_input_{layer}.json"
+            ),
+            "w",
         ) as f:
             f.write(G_for_loom)
             loom = subprocess.run(
@@ -491,7 +495,10 @@ def bundle_lines(instance, M):
             )
         G = read_loom_output(loom.stdout.decode(), G)
         with open(
-            f"{config_vars['general.writedir'].get()}/loom_output_{layer}.json", "w"
+            os.path.join(
+                config_vars["general.writedir"].get(), f"loom_output_{layer}.json"
+            ),
+            "w",
         ) as f:
             f.write(loom.stdout.decode())
 

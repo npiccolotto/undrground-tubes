@@ -523,8 +523,9 @@ def layout_dr_multiple(D_EA, D_SR, m=10, n=10, num_samples=10):
             pos.append((int(h_overlap_removed[i, 0]), int(h_overlap_removed[i, 1])))
 
         layouts.append(pos)
-
-    print(pos_mtx)
+    print(layouts)
+    for i,l in enumerate(layouts):
+        draw_embedding(np.array(l), f"./embedding_gridded_{i}.svg")
 
     return layouts
 

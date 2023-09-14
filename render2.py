@@ -249,7 +249,7 @@ def add_glyphs_to_nodes(instance, G):
 
 
 def read_instance(directory, name):
-    with open(f"{directory}/{name}.json") as f:
+    with open(os.path.join(directory, f"{name}.json")) as f:
         data = json.load(f)
     elements = data["E"]
     sets = data["S"]
@@ -455,7 +455,9 @@ def render(
                     d["oeb_order"][str(key)] = [*d["oeb_order"][key]]
                     del d["oeb_order"][key]
 
-        with open(f"{config_vars['general.writedir'].get()}serialized.json", "w") as f:
+        with open(
+            os.path.join(config_vars["general.writedir"].get(), "serialized.json"), "w"
+        ) as f:
             json.dump(nx.node_link_data(L_), f)
 
     with timing("draw+write svg"):
@@ -476,7 +478,10 @@ def render(
                 * config_vars["draw.cellsizepx"].get(),
             )
             with open(
-                f"{config_vars['general.writedir'].get()}drawing_{layer}.svg", "w"
+                os.path.join(
+                    config_vars["general.writedir"].get(), f"drawing_{layer}.svg"
+                ),
+                "w",
             ) as f:
                 f.write(img)
                 f.flush()
@@ -516,7 +521,6 @@ def vis(
     support_type,
     support_partition,
 ):
-
     if support_partition is not None:
         config_vars["route.subsupporttype"].set(support_partition)
     if support_type is not None:
