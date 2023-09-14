@@ -381,7 +381,11 @@ def layout_single(D_EA, D_SR, m=10, n=10, weight=0.5):
     D = (1 - weight) * DE + weight * DS
 
     mds = MDS(
-        n_components=2, metric=True, random_state=2, dissimilarity="precomputed", normalized_stress='auto'
+        n_components=2,
+        metric=True,
+        random_state=2,
+        dissimilarity="precomputed",
+        normalized_stress="auto",
     )
     H_mds = mds.fit_transform(D)
 
@@ -400,6 +404,7 @@ def align_layouts(layouts):
         output_pos.append(mtx2)
 
     return output_pos
+
 
 def remove_overlaps(layout, m=10, n=10):
     x_min = layout.min(axis=0)[0]
@@ -420,12 +425,14 @@ def remove_overlaps(layout, m=10, n=10):
 
 
 def layout(D_EA, D_SR, m=10, n=10, num_weights=3):
-
-    layouts = [layout_single(D_EA, D_SR, m=m, n=n, weight=w) for w in np.linspace(0,1,num_weights)]
+    layouts = [
+        layout_single(D_EA, D_SR, m=m, n=n, weight=w)
+        for w in np.linspace(0, 1, num_weights)
+    ]
     layouts = align_layouts(layouts)
     layouts = [remove_overlaps(layout, m=m, n=n) for layout in layouts]
 
-    layouts = list(map(lambda layout: list(map(tuple,layout)),layouts))
+    layouts = list(map(lambda layout: list(map(tuple, layout)), layouts))
     return layouts
 
 
