@@ -556,7 +556,7 @@ def vis(
             json.dump(
                 {
                     "success": True,
-                    "duration_ms": duration,
+                    "duration_ms": duration * 1000,
                     "ctx": {key: value.get() for key, value in config_vars.items()},
                 },
                 f,
@@ -572,7 +572,7 @@ def vis(
             json.dump(
                 {
                     "success": False,
-                    "duration_ms": duration,
+                    "duration_ms": duration * 1000,
                     "traceback": traceback.format_exc(),
                     "ctx": {key: value.get() for key, value in config_vars.items()},
                 },
