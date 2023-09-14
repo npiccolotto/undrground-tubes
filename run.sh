@@ -1,11 +1,24 @@
 #!/bin/bash
 
-base='/home1/npiccolotto/ensemble-sets'
-source $base/.venv/bin/activate
+base='/home1/npiccolotto/ensemble-sets/code'
+# adapt for local use
+#base='/Users/npiccolotto/Projects/cvast/bssvis/ensemble-set-rendering'
+#export TMPDIR='/tmp/garbage'
 
-python -V
-echo $1
+# test that all the binaries exist: pyenv, loom
+if ! command -v pyenv 1>/dev/null 2>&1; then
+  echo "pyenv not installed, can't continue." >&2
+  exit 1
+fi
 
-python $base/code/render2.py --write-dir $TMPDIR --read-dir $base/code/data
+if ! command -v loom 1>/dev/null 2>&1; then
+  echo "loom not installed, can't continue." >&2
+  exit 1
+fi
 
-cp -r $TMPDIR /home1/npiccolotto/ensemble-sets/results/$1
+# set python version
+pyenv local 3.10
+
+python $base/render2.py --read-dir $base/data --write-dir $TMPDIR
+
+cp -r $TMPDIR $base/$1
