@@ -278,6 +278,7 @@ def render(
 
     with timing("layout"):
         instance["glyph_positions"] = layout(
+            instance["elements"],
             instance["D_EA"],
             instance["D_SR"],
             m=config_vars["general.gridwidth"].get(),
@@ -516,7 +517,6 @@ def vis(
     support_type,
     support_partition,
 ):
-
     if support_partition is not None:
         config_vars["route.subsupporttype"].set(support_partition)
     if support_type is not None:

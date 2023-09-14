@@ -126,9 +126,8 @@ def solve_qsap_linearized(a, A, b, B):
     mapping, diff = gp.multidict(d)
 
     model = gp.Model("qsap")
-    # model.params.nonConvex = 2
-    model.params.timeLimit = 10
-    model.params.MIPGap = 0.5
+    model.params.timeLimit = config_vars["layout.ilptimeoutsecs"].get()
+    model.params.MIPGap = config_vars["layout.ilpmipgap"].get()
 
     el_to_pos = model.addVars(
         list(product(rla, rlb)),
@@ -159,17 +158,11 @@ def solve_qsap_linearized(a, A, b, B):
         for j in rlb:
             if model.getVarByName(f"el_to_pos[{i},{j}]").X > 0:
                 result.append(b[j])
-    return result
+    return np.array(result)
 
 
-def layout_qsap(elements, D_EA, D_SR, m=10, n=10, weight=0.5):
+def layout_qsap(elements, D, m=10, n=10, weight=0.5):
     """Quadratic assignment onto grid, for now assuming constant space between cells."""
-
-    # 1) make distance matrix D by combining D_EA and D_SR using weight
-    # TODO try what ranking instead of minmax norm does
-    DE = normalize(np.array(D_EA))
-    DS = normalize(np.array(D_SR))
-    D = (1 - weight) * DE + weight * DS
 
     # 2) make host distances H
     grid = list(product(range(m), range(n)))
@@ -240,7 +233,7 @@ def solve_hagrid_optimal_comb(max_domain, pos):
     model.write("hagrid_comb.lp")
     model.optimize()
 
-    #for i in range(el_count):
+    # for i in range(el_count):
     #    for j in range(max_domain):
     #        if model.getVarByName(f"p[{i},{j}]").X > 0:
     #            print(
@@ -326,7 +319,7 @@ def solve_hagrid_optimal(max_domain, pos):
     model.write("hagrid.lp")
     model.optimize(callback)
 
-    #for i in rle:
+    # for i in rle:
     #    print(
     #        pos[i],
     #        "->",
@@ -375,22 +368,32 @@ def naive_matching(L1, L2):
     return rot, scale
 
 
-def layout_single(D_EA, D_SR, m=10, n=10, weight=0.5):
-    DE = (D_EA - np.min(D_EA)) / (np.max(D_EA) - np.min(D_EA))
-    DS = np.array(D_SR)
-    D = (1 - weight) * DE + weight * DS
-
-    # TODO can choose QSAP here
-    mds = MDS(
+def layout_mds(D, m=10, n=10, weight=0.5):
+    return MDS(
         n_components=2,
         metric=True,
         random_state=2,
         dissimilarity="precomputed",
         normalized_stress="auto",
-    )
-    H_mds = mds.fit_transform(D)
+    ).fit_transform(D)
 
-    return H_mds
+
+def layout_single(elements, D_EA, D_SR, m=10, n=10, weight=0.5):
+    layouter = config_vars["layout.layouter"].get()
+
+    if layouter == "auto":
+        strat = config_vars["general.strategy"].get()
+        layouter = "mds" if strat == "heuristic" else "qsap"
+
+    DE = (D_EA - np.min(D_EA)) / (np.max(D_EA) - np.min(D_EA))
+    DS = np.array(D_SR)
+    D = (1 - weight) * DE + weight * DS
+
+    match layouter:
+        case "mds":
+            return layout_mds(D, m=m, n=n, weight=weight)
+        case "qsap":
+            return layout_qsap(elements, D, m=m, n=n, weight=weight)
 
 
 def align_layouts(layouts):
@@ -441,9 +444,9 @@ def remove_overlaps(layout, m=10, n=10):
             )
 
 
-def layout(D_EA, D_SR, m=10, n=10, num_weights=3):
+def layout(elements, D_EA, D_SR, m=10, n=10, num_weights=3):
     layouts = [
-        layout_single(D_EA, D_SR, m=m, n=n, weight=w)
+        layout_single(elements, D_EA, D_SR, m=m, n=n, weight=w)
         for w in np.linspace(0, 1, num_weights)
     ]
 
