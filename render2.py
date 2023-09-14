@@ -537,7 +537,7 @@ def vis(
     if num_weights is not None:
         config_vars["general.numlayers"].set(num_weights)
 
-    os.makedirs(write_dir,exist_ok=True)
+    os.makedirs(config_vars["general.writedir"].get(), exist_ok=True)
 
     start = time.time()
     try:
