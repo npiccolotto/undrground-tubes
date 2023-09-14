@@ -161,7 +161,7 @@ def solve_qsap_linearized(a, A, b, B):
     return np.array(result)
 
 
-def layout_qsap(elements, D, m=10, n=10, weight=0.5):
+def layout_qsap(elements, D, m=10, n=10):
     """Quadratic assignment onto grid, for now assuming constant space between cells."""
 
     # 2) make host distances H
@@ -368,7 +368,7 @@ def naive_matching(L1, L2):
     return rot, scale
 
 
-def layout_mds(D, m=10, n=10, weight=0.5):
+def layout_mds(D, m=10, n=10):
     return MDS(
         n_components=2,
         metric=True,
@@ -391,9 +391,9 @@ def layout_single(elements, D_EA, D_SR, m=10, n=10, weight=0.5):
 
     match layouter:
         case "mds":
-            return layout_mds(D, m=m, n=n, weight=weight)
+            return layout_mds(D, m=m, n=n)
         case "qsap":
-            return layout_qsap(elements, D, m=m, n=n, weight=weight)
+            return layout_qsap(elements, D, m=m, n=n)
 
 
 def align_layouts(layouts):
