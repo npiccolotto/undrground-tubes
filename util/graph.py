@@ -205,7 +205,10 @@ def approximate_steiner_tree(G, S, C=None):
     if len(unconnected_nodes) > 1:
         groups.append(flatten(unconnected_nodes))
         ST = approximate_steiner_tree_nx(G_, flatten(unconnected_nodes))
-        R.add_edges_from(ST.edges())
+        # R.add_edges_from(ST.edges())
+        R.add_weighted_edges_from(
+            [(u, v, G_.edges[u, v]["weight"]) for u, v in ST.edges()]
+        )
 
     R.add_weighted_edges_from([(u, v, G_.edges[u, v]["weight"]) for u, v in C.edges()])
 
@@ -262,6 +265,7 @@ def approximate_steiner_tree(G, S, C=None):
                     [(u, v, G_.edges[u, v]["weight"]) for u, v in path_to_edges(sp)]
                 )
                 update_edge_weights(G_, path_to_edges(sp), math.inf)
+    assert nx.is_connected(R)
     return R
 
 
@@ -592,48 +596,84 @@ def update_weights_for_support_edge(G, edge):
 
         if is_left_tilt:
             e = get_port_edge_between_centers(G, (ux, uy + 1), (ux + 1, uy))
-            G.edges[e]["weight"] = G.edges[e]["weight"] + EdgePenalty.CROSSING
+            G.edges[e]["weight"] = G.edges[e]["weight"] + EdgePenalty.CROSSING_OUTSIDE
         if is_right_tilt:
             e = get_port_edge_between_centers(G, (ux - 1, uy), (ux, uy + 1))
-            G.edges[e]["weight"] = G.edges[e]["weight"] + EdgePenalty.CROSSING
+            G.edges[e]["weight"] = G.edges[e]["weight"] + EdgePenalty.CROSSING_OUTSIDE
+    else:
+        # nope, within a node
+        all_ports = set(
+            [p for p in nx.neighbors(G, uparent) if G.nodes[p]["node"] == NodeType.PORT]
+        )
+        all_edges_at_ports = set()
+        for port in all_ports:
+            edges_at_port = [
+                (a, b)
+                if PortDirs.index(G.nodes[a]["port"])
+                < PortDirs.index(G.nodes[b]["port"])
+                else (b, a)
+                for a, b in G.edges(nbunch=port)
+                if G.nodes[a]["node"] == NodeType.PORT
+                and G.nodes[b]["node"] == NodeType.PORT
+                and G.nodes[a]["belongs_to"] == uparent
+                and G.nodes[b]["belongs_to"] == uparent
+            ]
+
+            all_edges_at_ports = all_edges_at_ports.union(set(edges_at_port))
+
+        for w, x in all_edges_at_ports:
+            if are_port_edges_crossing(G.nodes[u], G.nodes[v], G.nodes[w], G.nodes[x]):
+                penalty = (
+                    EdgePenalty.CROSSING_INSIDE_GLYPH
+                    if G.nodes[uparent]["occupied"]
+                    else EdgePenalty.CROSSING_INSIDE_CELL
+                )
+                G.edges[(w, x)]["weight"] = G.edges[(w, x)]["weight"] + penalty
 
     return G
 
 
-def are_port_edges_crossing(us, ut, vs, vt):
+def are_port_edges_crossing(us, ut, vs, vt, cross_when_node_shared = True):
+    if frozenset([ut["port"], us["port"]]) == frozenset([vs["port"], vt["port"]]):
+        return False
+
     cw_dirs = PortDirs + PortDirs
 
-    ccw_dirs = (
-        [PortDirs[0]]
-        + list(reversed(PortDirs[1:]))
-        + [PortDirs[0]]
-        + list(reversed(PortDirs[1:]))
-    )
+    # order cw
+    u1 = us if PortDirs.index(us["port"]) < PortDirs.index(ut["port"]) else ut
+    u2 = ut if PortDirs.index(us["port"]) < PortDirs.index(ut["port"]) else us
 
     # start at us and go clockwise to ut, collect all ports in between
     cw_set = []
-    i = cw_dirs.index(us["port"]) + 1
-    j = cw_dirs.index(ut["port"])
-    if j > i:
-        cw_set = cw_dirs[i:j]
+    i = cw_dirs.index(u1["port"])
+    j = cw_dirs.index(u2["port"])
+    cw_set = cw_dirs[(i + 1) : j]
 
-    # then start at us and go ccw to ut, collect all ports in between
+    # then start at ut and go cw to us, collect all ports in between
     ccw_set = []
-    i = ccw_dirs.index(ut["port"]) + 1
-    j = ccw_dirs.index(us["port"])
-    if j > i:
-        ccw_set = ccw_dirs[i:j]
+    i = cw_dirs.index(u2["port"])
+    offset_j = cw_dirs[(i + 1) :].index(u1["port"])
+    ccw_set = cw_dirs[(i + 1) : (i + offset_j + 1)]
+
+    assert len(cw_set) > 0 or len(ccw_set) > 0, (
+        us["port"],
+        ut["port"],
+        vs["port"],
+        vt["port"],
+    )
 
     # edges cross iff vs in former and vt in latter set (or vice versa)
     port1 = vs["port"]
     port2 = vt["port"]
 
-    are_crossing = True
-    if port1 in cw_set and port2 in cw_set and port1 in ccw_set and port2 in ccw_set:
-        are_crossing = False
-    if port1 in [ut["port"], us["port"]] or port2 in [ut["port"], us["port"]]:
-        are_crossing = False
-    return are_crossing
+    if (port1 in cw_set and port2 in cw_set) or (port1 in ccw_set and port2 in ccw_set):
+        return False
+
+    if not cross_when_node_shared:
+        if u1['port'] in [port1,port2] or u2['port'] in [port1,port2]:
+            return False
+
+    return True
 
 
 def get_crossing_port_edges(G):

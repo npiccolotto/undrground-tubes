@@ -1,8 +1,9 @@
 import json
-import math
-import subprocess
-import sys
+import time
+import os
+import traceback
 import copy
+import sys
 import click
 from collections import defaultdict
 from itertools import chain, combinations, pairwise, product
@@ -15,16 +16,7 @@ import networkx as nx
 import numpy as np
 
 from util.config import (
-    DRAW_GLYPHS,
-    CELL_SIZE_PX,
-    SUB_SUPPORT_GROUPING,
-    SUB_SUPPORT_TYPE,
-    STRATEGY,
-    GRID_WIDTH,
-    GRID_HEIGHT,
-    READ_DIR,
-    WRITE_DIR,
-    NUM_WEIGHTS,
+    config_vars,
 )
 from util.bundle import bundle_lines
 from util.collections import (
@@ -278,28 +270,34 @@ def read_instance(directory, name):
 
 def render(
     dataset,
-    num_weights,
 ):
-    instance = read_instance(READ_DIR.get(), dataset)
+    instance = read_instance(config_vars["general.readdir"].get(), dataset)
     lattice_type = "sqr"
+    num_weights = config_vars["general.numlayers"].get()
     instance["num_layers"] = num_weights
 
     with timing("layout"):
         instance["glyph_positions"] = layout_dr_multiple(
             instance["D_EA"],
             instance["D_SR"],
-            m=GRID_WIDTH.get(),
-            n=GRID_HEIGHT.get(),
+            m=config_vars["general.gridwidth"].get(),
+            n=config_vars["general.gridheight"].get(),
             num_samples=num_weights,
         )
 
     with timing("routing"):
-        G = get_routing_graph(lattice_type, (GRID_WIDTH.get(), GRID_HEIGHT.get()))
+        G = get_routing_graph(
+            lattice_type,
+            (
+                config_vars["general.gridwidth"].get(),
+                config_vars["general.gridheight"].get(),
+            ),
+        )
         G = add_glyphs_to_nodes(instance, G)
 
         element_set_partition = (
             group_by_intersection_group(instance["set_system"])
-            if SUB_SUPPORT_GROUPING.get() == "intersection-group"
+            if config_vars["route.subsupportgrouping"].get() == "intersection-group"
             else group_by_set(instance["set_system"])
         )
         element_set_partition = sorted(
@@ -308,7 +306,7 @@ def render(
 
         print("element partition", element_set_partition)
 
-        if STRATEGY.get() == "opt":
+        if config_vars["general.strategy"].get() == "opt":
             L = route_multilayer_ilp(
                 instance,
                 nx.subgraph_view(
@@ -327,12 +325,12 @@ def render(
 
     for layer in range(num_weights):
         M = extract_support_layer(L, layer)
-        draw_support(instance, M, WRITE_DIR.get(), layer)
+        draw_support(instance, M, layer)
 
     with timing("bundle lines"):
         L = bundle_lines(instance, L)
 
-    if STRATEGY.get() == "opt":
+    if config_vars["general.strategy"].get() == "opt":
         # merge grid graph data (ports at nodes) with line graph data (routing and bundling info)
         # we have
         # G = multigraph with center and physical nodes/edges
@@ -457,12 +455,11 @@ def render(
                     d["oeb_order"][str(key)] = [*d["oeb_order"][key]]
                     del d["oeb_order"][key]
 
-        with open(f"{WRITE_DIR.get()}serialized.json", "w") as f:
+        with open(f"{config_vars['general.writedir'].get()}serialized.json", "w") as f:
             json.dump(nx.node_link_data(L_), f)
 
     with timing("draw+write svg"):
         for layer in range(num_weights):
-            # TODO dump L in some format we can read again
             L.add_edges_from(
                 [
                     (u, v, k, d)
@@ -473,49 +470,40 @@ def render(
             geometries = geometrize(instance, L, element_set_partition, layer=layer)
             img = draw_svg(
                 geometries,
-                GRID_WIDTH.get() * CELL_SIZE_PX.get(),
-                GRID_HEIGHT.get() * CELL_SIZE_PX.get(),
+                config_vars["general.gridwidth"].get()
+                * config_vars["draw.cellsizepx"].get(),
+                config_vars["general.gridheight"].get()
+                * config_vars["draw.cellsizepx"].get(),
             )
-            with open(f"{WRITE_DIR.get()}drawing_{layer}.svg", "w") as f:
+            with open(
+                f"{config_vars['general.writedir'].get()}drawing_{layer}.svg", "w"
+            ) as f:
                 f.write(img)
                 f.flush()
 
-    print("Done.")
-
 
 @click.command()
-@click.option(
-    "--read-dir", default="./data", help="directory to read the datasets from"
-)
-@click.option("--write-dir", default="./", help="directory to write the output to")
 @click.option("--dataset", default="imdb/imdb_10", help="dataset to load")
+@click.option("--read-dir", help="directory to read the datasets from")
+@click.option("--write-dir", help="directory to write the output to")
 @click.option(
     "--strategy",
-    default="heuristic",
     type=click.Choice(["opt", "heuristic"], case_sensitive=False),
 )
-@click.option("--grid-width", "-w", default=10, help="grid width as # cols")
-@click.option("--grid-height", "-h", default=10, help="grid height as # rows")
+@click.option("--grid-width", "-w", type=int, help="grid width as # cols")
+@click.option("--grid-height", "-h", type=int, help="grid height as # rows")
 @click.option(
-    "--num-weights", default=2, help="how many samples between 0..1 to use for weights"
+    "--num-weights", type=int, help="how many samples between 0..1 to use for weights"
 )
 @click.option(
     "--support-type",
     type=click.Choice(["path", "steiner-tree"], case_sensitive=False),
-    default="path",
     help="the support type",
 )
 @click.option(
     "--support-partition",
     type=click.Choice(["set", "intersection-group"], case_sensitive=False),
-    default="intersection-group",
     help="the partition type",
-)
-@click.option(
-    "--draw-glyphs/--no-draw-glyphs",
-    type=bool,
-    default=True,
-    help="draw glyphs (true) or circles (false)",
 )
 def vis(
     read_dir,
@@ -527,26 +515,67 @@ def vis(
     grid_height,
     support_type,
     support_partition,
-    draw_glyphs,
 ):
 
-    DRAW_GLYPHS.set(draw_glyphs)
-    SUB_SUPPORT_GROUPING.set(support_partition)
-    SUB_SUPPORT_TYPE.set(support_type)
-    STRATEGY.set(strategy)
-    GRID_WIDTH.set(grid_width)
-    GRID_HEIGHT.set(grid_height)
-    READ_DIR.set(read_dir)
-    WRITE_DIR.set(write_dir)
-    NUM_WEIGHTS.set(num_weights)
+    if support_partition is not None:
+        config_vars["route.subsupporttype"].set(support_partition)
+    if support_type is not None:
+        config_vars["route.subsupportgrouping"].set(support_type)
+    if strategy is not None:
+        config_vars["general.strategy"].set(strategy)
+    if grid_width is not None:
+        config_vars["general.gridwidth"].set(grid_width)
+    if grid_height is not None:
+        config_vars["general.gridheight"].set(grid_height)
+    if read_dir is not None:
+        config_vars["general.readdir"].set(read_dir)
+    if write_dir is not None:
+        config_vars["general.writedir"].set(write_dir)
+    if num_weights is not None:
+        config_vars["general.numlayers"].set(num_weights)
 
-    fun = partial(
-        render,
-        dataset,
-        num_weights,
-    )
-    ctx = contextvars.copy_context()
-    ctx.run(fun)
+    start = time.time()
+    try:
+        fun = partial(
+            render,
+            dataset,
+        )
+        ctx = contextvars.copy_context()
+        ctx.run(fun)
+        end = time.time()
+
+        duration = end - start
+
+        with open(
+            os.path.join(config_vars["general.writedir"].get(), "call.json"), "w"
+        ) as f:
+            json.dump(
+                {
+                    "success": True,
+                    "duration_ms": duration,
+                    "ctx": {key: value.get() for key, value in config_vars.items()},
+                },
+                f,
+            )
+            print("SUCCESS")
+
+    except BaseException as e:
+        end = time.time()
+        duration = end - start
+        with open(
+            os.path.join(config_vars["general.writedir"].get(), "call.json"), "w"
+        ) as f:
+            json.dump(
+                {
+                    "success": False,
+                    "duration_ms": duration,
+                    "traceback": traceback.format_exc(),
+                    "ctx": {key: value.get() for key, value in config_vars.items()},
+                },
+                f,
+            )
+        print("ERROR")
+        raise e
 
 
 if __name__ == "__main__":
