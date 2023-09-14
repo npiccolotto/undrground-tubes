@@ -240,17 +240,17 @@ def solve_hagrid_optimal_comb(max_domain, pos):
     model.write("hagrid_comb.lp")
     model.optimize()
 
-    for i in range(el_count):
-        for j in range(max_domain):
-            if model.getVarByName(f"p[{i},{j}]").X > 0:
-                print(
-                    pos[i],
-                    "->",
-                    domain[j] - 1,
-                    "(",
-                    model.getVarByName(f"diff[{i}]").X,
-                    ")",
-                )
+    #for i in range(el_count):
+    #    for j in range(max_domain):
+    #        if model.getVarByName(f"p[{i},{j}]").X > 0:
+    #            print(
+    #                pos[i],
+    #                "->",
+    #                domain[j] - 1,
+    #                "(",
+    #                model.getVarByName(f"diff[{i}]").X,
+    #                ")",
+    #            )
 
 
 def solve_hagrid_optimal(max_domain, pos):
@@ -326,15 +326,15 @@ def solve_hagrid_optimal(max_domain, pos):
     model.write("hagrid.lp")
     model.optimize(callback)
 
-    for i in rle:
-        print(
-            pos[i],
-            "->",
-            model.getVarByName(f"p[{i}]").X,
-            "(",
-            model.getVarByName(f"diff_abs[{i}]").X,
-            ")",
-        )
+    #for i in rle:
+    #    print(
+    #        pos[i],
+    #        "->",
+    #        model.getVarByName(f"p[{i}]").X,
+    #        "(",
+    #        model.getVarByName(f"diff_abs[{i}]").X,
+    #        ")",
+    #    )
 
     return [int(model.getVarByName(f"p[{i}]").X) for i in rle]
 
@@ -380,6 +380,7 @@ def layout_single(D_EA, D_SR, m=10, n=10, weight=0.5):
     DS = np.array(D_SR)
     D = (1 - weight) * DE + weight * DS
 
+    # TODO can choose QSAP here
     mds = MDS(
         n_components=2,
         metric=True,
@@ -418,14 +419,26 @@ def remove_overlaps(layout, m=10, n=10):
     layout[:, 0] = ((layout[:, 0] - x_min) / w) * (m)
     layout[:, 1] = ((layout[:, 1] - y_min) / h) * (n)
 
-    # TODO can decide here between dgrid and hagrid
-    # problem: dgrid can do any grid size, hagrid can only do square grids with side length = power of 2
-    # so if the config var wants hagrid, we have to check if the configured grid fits
+    remover = config_vars["layout.overlapremover"].get()
 
-    h_overlap_removed = DGrid(glyph_width=1, glyph_height=1, delta=1).fit_transform(
-        layout
-    )
-    return h_overlap_removed.astype(int)
+    is_square = m == n
+    power2_exp = math.log2(m)
+    is_power_of_2_square = is_square and power2_exp == int(power2_exp)
+    if remover == "hagrid" and not is_power_of_2_square:
+        print(
+            "WARN: Hagrid used as overlap remover, but grid size is not a power of 2 square. falling back to DGrid."
+        )
+        remover = "dgrid"
+
+    match remover:
+        case "hagrid":
+            return gridify_square(layout, int(power2_exp)).astype(int)
+        case "dgrid":
+            return (
+                DGrid(glyph_width=1, glyph_height=1, delta=1)
+                .fit_transform(layout)
+                .astype(int)
+            )
 
 
 def layout(D_EA, D_SR, m=10, n=10, num_weights=3):
@@ -434,13 +447,8 @@ def layout(D_EA, D_SR, m=10, n=10, num_weights=3):
         for w in np.linspace(0, 1, num_weights)
     ]
 
-    # TODO could decide here to reverse the order
     layouts = align_layouts(layouts)
     layouts = [remove_overlaps(layout, m=m, n=n) for layout in layouts]
 
     layouts = list(map(lambda layout: list(map(tuple, layout)), layouts))
     return layouts
-
-
-if __name__ == "__main__":
-    print(gridify_square(np.array([[0.2, 0.1], [0.1, 0.3], [4, 1.2]]), level=1))
