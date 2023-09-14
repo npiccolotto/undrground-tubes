@@ -8,7 +8,6 @@ from collections import defaultdict
 from util.enums import EdgeType, EdgePenalty, NodeType, PortDirs
 from util.geometry import get_angle
 from util.perf import timing
-from util.config import SUB_SUPPORT_TYPE
 from util.graph import (
     update_weights_for_support_edge,
     get_shortest_path_between_sets,
@@ -23,17 +22,7 @@ from util.graph import (
     path_to_edges,
 )
 from util.collections import set_contains
-from util.config import (
-    NUM_WEIGHTS,
-    # factor for total edge length on all layers
-    EDGE_SOFT_CONSTRAINT_WEIGHT,
-    # factor for total edge length on one layer
-    EDGE_LAYER_SOFT_CONSTRAINT_WEIGHT,
-    # factor for bends on one layer
-    BEND_SOFT_CONSTRAINT_WEIGHT,
-    ILP_MIP_GAP,
-    ILP_TIMEOUT,
-)
+from util.config import config_vars
 
 
 def get_bend(e1, e2):
@@ -61,7 +50,7 @@ def get_bend(e1, e2):
 
 
 def route_single_layer_heuristic(instance, G, element_set_partition, layer=0):
-    support_type = SUB_SUPPORT_TYPE.get()
+    support_type = config_vars["route.subsupporttype"].get()
     # TODO 100ms spent here
     G_ = nx.Graph()
     G_.add_nodes_from(
@@ -246,7 +235,7 @@ def route_multilayer_heuristic(
     element_set_partition,
     multilayer_strategy=("k-of-n", 1),  # 'k-of-n' or 'prev-k'
 ):
-    num_layers = NUM_WEIGHTS.get()
+    num_layers = config_vars["general.numlayers"].get()
 
     edge_used_in_layers = defaultdict(list)
 
@@ -311,8 +300,8 @@ def route_multilayer_heuristic(
 
 
 def route_multilayer_ilp(instance, G, element_set_partition):
-    support_type = SUB_SUPPORT_TYPE.get()
-    num_layers = NUM_WEIGHTS.get()
+    support_type = config_vars["route.subsupporttype"].get()
+    num_layers = config_vars["general.numlayers"].get()
     el_idx_lookup = instance["elements_inv"]
 
     match support_type:
@@ -327,10 +316,10 @@ def route_multilayer_ilp(instance, G, element_set_partition):
     M = nx.DiGraph(incoming_graph_data=G)
 
     model = gp.Model("multilayer-route")
-    if ILP_TIMEOUT.get() > 0:
-        model.params.timeLimit = ILP_TIMEOUT.get()
+    if config_vars["route.ilptimeoutsecs"].get() > 0:
+        model.params.timeLimit = config_vars["route.ilptimeoutsecs"].get()
 
-    model.params.MIPGap = ILP_MIP_GAP.get()
+    model.params.MIPGap = config_vars["route.ilpmipgap"].get()
 
     arcs = list(M.edges())
     edges = list(G.edges())
@@ -452,7 +441,7 @@ def route_multilayer_ilp(instance, G, element_set_partition):
                     model.addConstr(sum_in == sum_out)
 
     obj = (
-        BEND_SOFT_CONSTRAINT_WEIGHT.get()
+        config_vars["route.bendlayerfactor"].get()
         * gp.quicksum(
             [
                 b[(k, i, n, 1)] + b[(k, i, n, 2)] * 2 + b[(k, i, n, 3)] * 3
@@ -461,8 +450,8 @@ def route_multilayer_ilp(instance, G, element_set_partition):
                 for n in G.nodes()
             ]
         )
-        + EDGE_SOFT_CONSTRAINT_WEIGHT.get() * gp.quicksum(x_all)
-        + EDGE_LAYER_SOFT_CONSTRAINT_WEIGHT.get() * gp.quicksum(x)
+        + config_vars["route.edgelengthfactor"].get() * gp.quicksum(x_all)
+        + config_vars["route.edgelayerlengthfactor"].get() * gp.quicksum(x)
     )
 
     crossings = set()
@@ -593,7 +582,7 @@ def route_multilayer_ilp_gg(
     """Same function as the other but on a grid graph, i.e., the bend penalties are
     not modeled as variables but as edge weights. Seems worse than doing it on the
     line graph."""
-    num_layers = NUM_WEIGHTS.get()
+    num_layers = config_vars["general.numlayers"].get()
     el_idx_lookup = instance["elements_inv"]
 
     match support_type:
@@ -608,10 +597,10 @@ def route_multilayer_ilp_gg(
     M = nx.DiGraph(incoming_graph_data=G)
 
     model = gp.Model("multilayer-route-grid-graph")
-    if ILP_TIMEOUT.get() > 0:
-        model.params.timeLimit = ILP_TIMEOUT.get()
+    if config_vars["route.ilptimeoutsecs"].get() > 0:
+        model.params.timeLimit = config_vars["route.ilptimeoutsecs"].get()
 
-    model.params.MIPGap = ILP_MIP_GAP.get()
+    model.params.MIPGap = config_vars["route.ilpmipgap"].get()
 
     arcs = list(M.edges())
     arc_weights = list([M.edges[a]["weight"] for a in arcs])
@@ -709,9 +698,9 @@ def route_multilayer_ilp_gg(
                 if is_steiner:
                     model.addConstr(sum_in == sum_out)
 
-    obj = EDGE_SOFT_CONSTRAINT_WEIGHT.get() * gp.quicksum(
+    obj = config_vars["route.edgelengthfactor"].get() * gp.quicksum(
         [x_all[e] * edge_weights[i] for i, e in enumerate(edges)]
-    ) + EDGE_LAYER_SOFT_CONSTRAINT_WEIGHT.get() * gp.quicksum(
+    ) + config_vars["route.edgelayerlengthfactor"].get() * gp.quicksum(
         [
             x[(k, i, a)] * arc_weights[j]
             for k in range(num_layers)

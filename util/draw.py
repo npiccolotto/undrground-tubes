@@ -17,26 +17,7 @@ from util.geometry import (
     centroid,
     biarc,
 )
-from util.config import (
-    DARK_MODE,
-    DRAW_GLYPHS,
-    DRAW_GLYPHS_OVER_LINES,
-    STROKE_WIDTH,
-    LINE_GAP,
-    CELL_SIZE_PX,
-    GLYPH_SIZE_PX,
-    MARGINS,
-    NODE_CIRCLE_RADIUS,
-    DRAW_DEG1_MARKS,
-    DRAW_DEG1_MARK_SIZE_PX,
-    DRAW_HUBS,
-    DRAW_GRID_CELLS,
-    SET_COLORS,
-    GRID_WIDTH,
-    GRID_HEIGHT,
-    WRITE_DIR,
-    GLYPH_TITLE,
-)
+from util.config import config_vars
 
 
 def draw_biarc(line, barc):
@@ -65,14 +46,18 @@ def draw_embedding(X, filename, **kwargs):
     my = kwargs.get("margin_y", 5)
 
     Y = (mx, my) + ((X - np.min(X)) / np.ptp(X)) * (w - mx, h - my)
-
     geometries = []
     for i in range(len(Y)):
         x, y = Y[i, :]
         geometries.append(
-            svg.Circle(cx=x, cy=y, r=r, fill="white" if DARK_MODE.get() else "black")
+            svg.Circle(
+                cx=x,
+                cy=y,
+                r=r,
+                fill="white" if config_vars["draw.darkmode"].get() else "black",
+            )
         )
-    with open(os.path.join(WRITE_DIR.get(), filename), "w") as f:
+    with open(os.path.join(config_vars["general.writedir"].get(), filename), "w") as f:
         f.write(draw_svg(geometries, w + 2 * mx, h + 2 * my))
 
 
@@ -86,22 +71,29 @@ def draw_svg(geometries, width, height):
 
 
 def draw_support(instance, M, layer=0):
-    dir = WRITE_DIR.get()
+    dir = config_vars["general.writedir"].get()
     path = os.path.join(dir, f"support_{layer}.svg")
 
     geometries = []
     # project nodes
-    mx, my = MARGINS.get()
+    mx, my = (
+        config_vars["draw.marginhorizontal"].get(),
+        config_vars["draw.marginvertical"].get(),
+    )
+
     for i in M.nodes():
         (x, y) = M.nodes[i]["pos"]
-        px, py = (x * CELL_SIZE_PX.get() + mx, -y * CELL_SIZE_PX.get() + my)
+        px, py = (
+            x * config_vars["draw.cellsizepx"].get() + mx,
+            -y * config_vars["draw.cellsizepx"].get() + my,
+        )
         M.nodes[i]["pos"] = (px, py)
         if M.nodes[i]["node"] == NodeType.CENTER and M.nodes[i]["occupied"]:
             c = svg.Circle(
                 cx=px,
                 cy=py,
-                r=NODE_CIRCLE_RADIUS.get(),
-                fill="white" if DARK_MODE.get() else "black",
+                r=config_vars["draw.nodecircleradius"].get(),
+                fill="white" if config_vars["draw.darkmode"].get() else "black",
             )
             c.append_title(M.nodes[i]["label"])
             geometries.append(c)
@@ -123,33 +115,42 @@ def draw_support(instance, M, layer=0):
                 sy=uv,
                 ex=vx,
                 ey=vy,
-                data_sets=str(M.edges[u,v]['sets']),
-                stroke_width=STROKE_WIDTH.get(),
-                stroke="white" if DARK_MODE.get() else "black",
+                data_sets=str(M.edges[u, v]["sets"]),
+                stroke_width=config_vars["draw.strokewidth"].get(),
+                stroke="white" if config_vars["draw.darkmode"].get() else "black",
             )
         )
 
-    w = GRID_WIDTH.get() * CELL_SIZE_PX.get()
-    h = GRID_HEIGHT.get() * CELL_SIZE_PX.get()
+    w = config_vars["general.gridwidth"].get() * config_vars["draw.cellsizepx"].get()
+    h = config_vars["general.gridheight"].get() * config_vars["draw.cellsizepx"].get()
     with open(path, "w") as f:
         f.write(draw_svg(geometries, w, h))
 
 
 def geometrize(instance, L, element_set_partition, layer=0):
     geometries = []
-    mx, my = MARGINS.get()
+    mx, my = (
+        config_vars["draw.marginhorizontal"].get(),
+        config_vars["draw.marginvertical"].get(),
+    )
 
     M = extract_support_layer(L, layer)
 
     # project nodes
     for i in M.nodes():
         (x, y) = M.nodes[i]["pos"]
-        px, py = (x * CELL_SIZE_PX.get() + mx, -y * CELL_SIZE_PX.get() + my)
+        px, py = (
+            x * config_vars["draw.cellsizepx"].get() + mx,
+            -y * config_vars["draw.cellsizepx"].get() + my,
+        )
         M.nodes[i]["pos"] = (px, py)
         if M.nodes[i]["node"] == NodeType.CENTER:
             if M.nodes[i]["occupied"]:
-                if DRAW_GLYPHS.get() and "glyph" in M.nodes[i]:
-                    w, h = (GLYPH_SIZE_PX.get(), GLYPH_SIZE_PX.get())
+                if config_vars["draw.drawglyphs"].get() and "glyph" in M.nodes[i]:
+                    w, h = (
+                        config_vars["draw.glyphsizepx"].get(),
+                        config_vars["draw.glyphsizepx"].get(),
+                    )
                     img = svg.Image(
                         px - w / 2,
                         py - h / 2,
@@ -157,17 +158,22 @@ def geometrize(instance, L, element_set_partition, layer=0):
                         height=h,
                         path=M.nodes[i]["glyph"],
                     )
-                    if GLYPH_TITLE.get():
+                    if config_vars["draw.glyphtitle"].get():
                         img.append_title(M.nodes[i]["label"])
                     geometries.append(img)
                 else:
-                    c = svg.Circle(cx=px, cy=py, r=NODE_CIRCLE_RADIUS.get())
-                    if GLYPH_TITLE.get():
+                    c = svg.Circle(
+                        cx=px, cy=py, r=config_vars["draw.nodecircleradius"].get()
+                    )
+                    if config_vars["draw.glyphtitle"].get():
                         c.append_title(M.nodes[i]["label"])
                     geometries.append(c)
-            elif DRAW_GRID_CELLS.get():
+            elif config_vars["draw.drawgridcells"].get():
                 c = svg.Circle(
-                    cx=px, cy=py, r=NODE_CIRCLE_RADIUS.get() / 8, fill="gray"
+                    cx=px,
+                    cy=py,
+                    r=config_vars["draw.nodecircleradius"].get() / 8,
+                    fill="gray",
                 )
                 geometries.append(c)
 
@@ -180,11 +186,13 @@ def geometrize(instance, L, element_set_partition, layer=0):
         edge_angle = get_angle(src, tgt)
 
         paths_at_edge = M.edges[(u, v)]["oeb_order"][(u, v)]
-        centering_offset = ((len(paths_at_edge) - 1) / 2) * -LINE_GAP.get()
+        centering_offset = ((len(paths_at_edge) - 1) / 2) * -config_vars[
+            "draw.linegap"
+        ].get()
         M.edges[(u, v)]["edge_pos"] = {}
         for i, set_id in enumerate(paths_at_edge):
             offset_dir = 3 * math.pi / 2
-            offset_length = centering_offset + i * LINE_GAP.get()
+            offset_length = centering_offset + i * config_vars["draw.linegap"].get()
             o_u, o_v = offset_edge((src, tgt), edge_angle - offset_dir, offset_length)
 
             M.edges[(u, v)]["edge_pos"][set_id] = {
@@ -204,19 +212,27 @@ def geometrize(instance, L, element_set_partition, layer=0):
 
             u_intersect = get_segment_circle_intersection(
                 (upos, vpos),
-                (M.nodes[M.nodes[u]["belongs_to"]]["pos"], NODE_CIRCLE_RADIUS.get()),
+                (
+                    M.nodes[M.nodes[u]["belongs_to"]]["pos"],
+                    config_vars["draw.nodecircleradius"].get(),
+                ),
             )
             v_intersect = get_segment_circle_intersection(
                 (upos, vpos),
-                (M.nodes[M.nodes[v]["belongs_to"]]["pos"], NODE_CIRCLE_RADIUS.get()),
+                (
+                    M.nodes[M.nodes[v]["belongs_to"]]["pos"],
+                    config_vars["draw.nodecircleradius"].get(),
+                ),
             )
 
             line = svg.Path(
                 **{
                     "close": False,
-                    "stroke_width": STROKE_WIDTH.get(),
+                    "stroke_width": config_vars["draw.strokewidth"].get(),
                     "fill": "none",
-                    "stroke": SET_COLORS.get()[instance["set_ftb_order"].index(set_id)],
+                    "stroke": config_vars["draw.setcolors"].get()[
+                        instance["set_ftb_order"].index(set_id)
+                    ],
                 }
             )
             line.M(*u_intersect)
@@ -257,10 +273,12 @@ def geometrize(instance, L, element_set_partition, layer=0):
             vpos, vvpos = M.edges[(v, vv)]["edge_pos"][set_id][(v, vv)]
 
             u_intersect = get_segment_circle_intersection(
-                (uupos, upos), (M.nodes[uparent]["pos"], NODE_CIRCLE_RADIUS.get())
+                (uupos, upos),
+                (M.nodes[uparent]["pos"], config_vars["draw.nodecircleradius"].get()),
             )
             v_intersect = get_segment_circle_intersection(
-                (vpos, vvpos), (M.nodes[uparent]["pos"], NODE_CIRCLE_RADIUS.get())
+                (vpos, vvpos),
+                (M.nodes[uparent]["pos"], config_vars["draw.nodecircleradius"].get()),
             )
 
             uu_u_center = centroid([uupos, upos])
@@ -269,9 +287,11 @@ def geometrize(instance, L, element_set_partition, layer=0):
             line = svg.Path(
                 **{
                     "close": False,
-                    "stroke_width": STROKE_WIDTH.get(),
+                    "stroke_width": config_vars["draw.strokewidth"].get(),
                     "fill": "none",
-                    "stroke": SET_COLORS.get()[instance["set_ftb_order"].index(set_id)],
+                    "stroke": config_vars["draw.setcolors"].get()[
+                        instance["set_ftb_order"].index(set_id)
+                    ],
                 }
             )
             barc = biarc(uu_u_center, u_intersect, v_intersect, vv_v_center)
@@ -324,7 +344,7 @@ def geometrize(instance, L, element_set_partition, layer=0):
             if len(used_ports) < 1:
                 # cannot happen actually
                 continue
-            if len(used_ports) == 1 and DRAW_DEG1_MARKS.get():
+            if len(used_ports) == 1 and config_vars["draw.drawdeg1marks"].get():
                 # this is a deg 1 node for this set
                 # idk, could connect to center
                 # or maybe draw a small mark?
@@ -332,13 +352,16 @@ def geometrize(instance, L, element_set_partition, layer=0):
                 _, b = outward_edge_at_port[a]
                 apos, bpos = M.edges[(a, b)]["edge_pos"][set_id][(a, b)]
                 cx, cy = get_segment_circle_intersection(
-                    (apos, bpos), (M.nodes[node]["pos"], NODE_CIRCLE_RADIUS.get())
+                    (apos, bpos),
+                    (M.nodes[node]["pos"], config_vars["draw.nodecircleradius"].get()),
                 )
                 circle = svg.Circle(
                     cx=cx,
                     cy=cy,
-                    r=DRAW_DEG1_MARK_SIZE_PX.get(),
-                    fill=SET_COLORS.get()[instance["set_ftb_order"].index(set_id)],
+                    r=config_vars["draw.deg1marksize"].get(),
+                    fill=config_vars["draw.setcolors"].get()[
+                        instance["set_ftb_order"].index(set_id)
+                    ],
                 )
                 circle.append_title(set_id)
                 geometries.append(circle)
@@ -374,10 +397,10 @@ def geometrize(instance, L, element_set_partition, layer=0):
                 line = svg.Path(
                     **{
                         "close": False,
-                        "stroke_width": STROKE_WIDTH.get(),
+                        "stroke_width": config_vars["draw.strokewidth"].get(),
                         "fill": "none",
                         "data_weight": G_node.edges[a, b]["weight"],
-                        "stroke": SET_COLORS.get()[
+                        "stroke": config_vars["draw.setcolors"].get()[
                             instance["set_ftb_order"].index(set_id)
                         ],
                     }
@@ -389,10 +412,12 @@ def geometrize(instance, L, element_set_partition, layer=0):
                 bpos, xpos = M.edges[(b, x)]["edge_pos"][set_id][(b, x)]
 
                 a_intersect = get_segment_circle_intersection(
-                    (vpos, apos), (M.nodes[node]["pos"], NODE_CIRCLE_RADIUS.get())
+                    (vpos, apos),
+                    (M.nodes[node]["pos"], config_vars["draw.nodecircleradius"].get()),
                 )
                 b_intersect = get_segment_circle_intersection(
-                    (bpos, xpos), (M.nodes[node]["pos"], NODE_CIRCLE_RADIUS.get())
+                    (bpos, xpos),
+                    (M.nodes[node]["pos"], config_vars["draw.nodecircleradius"].get()),
                 )
 
                 av_center = centroid([apos, vpos])
@@ -403,111 +428,16 @@ def geometrize(instance, L, element_set_partition, layer=0):
 
                 geometries.append(line)
 
-    if False:
-        # TODO new approach
-        # find the root (first element in partition)
-        # iterate over other elements in partition
-        # shortest path
-        # at each occupied node draw the necessary segment
-        for elements, sets in element_set_partition:
-            for set_id in sets:
-                G_ = nx.subgraph_view(
-                    M,
-                    filter_edge=lambda u, v: set_id in M.edges[(u, v)]["sets"],
-                    filter_node=lambda n: True,
-                )
-
-                root = elements[0]
-                rootpos = instance["glyph_positions"][layer][
-                    instance["elements_inv"][root]
-                ]
-
-                for element in elements[1:]:
-                    elpos = instance["glyph_positions"][layer][
-                        instance["elements_inv"][element]
-                    ]
-
-                    shortest_path = path_to_edges(nx.shortest_path(G_, rootpos, elpos))
-                    edge_pairs = [
-                        (e1, e2)
-                        for e1, e2 in pairwise(shortest_path)
-                        if G_.nodes[e1[1]]["node"] == NodeType.CENTER
-                    ]
-
-                    for e1, e2 in edge_pairs:
-                        u, v = e1
-                        v, w = e2
-
-                        uparent = v
-                        u_adjacent = list(
-                            [x if w == u else w for w, x in M.edges(nbunch=[u])]
-                        )
-                        uu = None
-                        for x in u_adjacent:
-                            xparent = G_.nodes[x].get("belongs_to")
-                            if xparent is not None and xparent != uparent:
-                                uu = x
-                                break
-
-                        w_adjacent = list(
-                            [x if y == w else y for y, x in G_.edges(nbunch=[w])]
-                        )
-                        ww = None
-                        for x in w_adjacent:
-                            xparent = G_.nodes[x].get("belongs_to")
-                            if xparent is not None and xparent != uparent:
-                                ww = x
-                                break
-
-                        if uu is None or ww is None:
-                            print("howw")
-                            continue
-
-                        if (
-                            set_id not in G_.edges[(uu, u)]["edge_pos"]
-                            or set_id not in G_.edges[(w, ww)]["edge_pos"]
-                        ):
-                            continue
-
-                        uupos, upos = G_.edges[(uu, u)]["edge_pos"][set_id][(uu, u)]
-                        wpos, wwpos = G_.edges[(w, ww)]["edge_pos"][set_id][(w, ww)]
-
-                        u_intersect = get_segment_circle_intersection(
-                            (uupos, upos),
-                            (G_.nodes[uparent]["pos"], NODE_CIRCLE_RADIUS.get()),
-                        )
-                        v_intersect = get_segment_circle_intersection(
-                            (wpos, wwpos),
-                            (G_.nodes[uparent]["pos"], NODE_CIRCLE_RADIUS.get()),
-                        )
-
-                        uu_u_center = centroid([uupos, upos])
-                        vv_v_center = centroid([wwpos, wpos])
-
-                        line = svg.Path(
-                            **{
-                                "close": False,
-                                "stroke_width": STROKE_WIDTH.get(),
-                                "fill": "none",
-                                "stroke": SET_COLORS.get()[
-                                    instance["set_ftb_order"].index(set_id)
-                                ],
-                            }
-                        )
-                        barc = biarc(uu_u_center, u_intersect, v_intersect, vv_v_center)
-                        draw_biarc(line, barc)
-                        geometries.append(line)
-
-    if DRAW_HUBS.get():
+    if config_vars["draw.drawhubs"].get():
         hubs = [n for n in M.nodes() if M.degree[n] > 0]
         for hub in hubs:
             cx, cy = M.nodes[hub]["pos"]
-            r = 1 / 16 * CELL_SIZE_PX.get()
+            r = 1 / 16 * config_vars["draw.cellsizepx"].get()
             geometries.append(
                 svg.Circle(cx, cy, r, fill="none", stroke="gray", stroke_width=1)
             )
 
-    if DRAW_GLYPHS_OVER_LINES.get():
+    if config_vars["draw.drawglyphsoverlines"].get():
         geometries = list(reversed(geometries))
 
     return geometries

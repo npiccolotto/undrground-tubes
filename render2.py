@@ -17,18 +17,6 @@ import numpy as np
 
 from util.config import (
     config_vars,
-    DRAW_GLYPHS,
-    CELL_SIZE_PX,
-    SUB_SUPPORT_GROUPING,
-    SUB_SUPPORT_TYPE,
-    STRATEGY,
-    GRID_WIDTH,
-    GRID_HEIGHT,
-    READ_DIR,
-    WRITE_DIR,
-    NUM_WEIGHTS,
-    LOOM_SOLVER,
-    LOOM_TIMEOUT,
 )
 from util.bundle import bundle_lines
 from util.collections import (
@@ -283,29 +271,33 @@ def read_instance(directory, name):
 def render(
     dataset,
 ):
-    instance = read_instance(READ_DIR.get(), dataset)
+    instance = read_instance(config_vars["general.readdir"].get(), dataset)
     lattice_type = "sqr"
-    num_weights = NUM_WEIGHTS.get()
+    num_weights = config_vars["general.numlayers"].get()
     instance["num_layers"] = num_weights
-
-    print(isinstance(num_weights, int))
 
     with timing("layout"):
         instance["glyph_positions"] = layout_dr_multiple(
             instance["D_EA"],
             instance["D_SR"],
-            m=GRID_WIDTH.get(),
-            n=GRID_HEIGHT.get(),
+            m=config_vars["general.gridwidth"].get(),
+            n=config_vars["general.gridheight"].get(),
             num_samples=num_weights,
         )
 
     with timing("routing"):
-        G = get_routing_graph(lattice_type, (GRID_WIDTH.get(), GRID_HEIGHT.get()))
+        G = get_routing_graph(
+            lattice_type,
+            (
+                config_vars["general.gridwidth"].get(),
+                config_vars["general.gridheight"].get(),
+            ),
+        )
         G = add_glyphs_to_nodes(instance, G)
 
         element_set_partition = (
             group_by_intersection_group(instance["set_system"])
-            if SUB_SUPPORT_GROUPING.get() == "intersection-group"
+            if config_vars["route.subsupportgrouping"].get() == "intersection-group"
             else group_by_set(instance["set_system"])
         )
         element_set_partition = sorted(
@@ -314,7 +306,7 @@ def render(
 
         print("element partition", element_set_partition)
 
-        if STRATEGY.get() == "opt":
+        if config_vars["general.strategy"].get() == "opt":
             L = route_multilayer_ilp(
                 instance,
                 nx.subgraph_view(
@@ -338,7 +330,7 @@ def render(
     with timing("bundle lines"):
         L = bundle_lines(instance, L)
 
-    if STRATEGY.get() == "opt":
+    if config_vars["general.strategy"].get() == "opt":
         # merge grid graph data (ports at nodes) with line graph data (routing and bundling info)
         # we have
         # G = multigraph with center and physical nodes/edges
@@ -463,7 +455,7 @@ def render(
                     d["oeb_order"][str(key)] = [*d["oeb_order"][key]]
                     del d["oeb_order"][key]
 
-        with open(f"{WRITE_DIR.get()}serialized.json", "w") as f:
+        with open(f"{config_vars['general.writedir'].get()}serialized.json", "w") as f:
             json.dump(nx.node_link_data(L_), f)
 
     with timing("draw+write svg"):
@@ -478,10 +470,14 @@ def render(
             geometries = geometrize(instance, L, element_set_partition, layer=layer)
             img = draw_svg(
                 geometries,
-                GRID_WIDTH.get() * CELL_SIZE_PX.get(),
-                GRID_HEIGHT.get() * CELL_SIZE_PX.get(),
+                config_vars["general.gridwidth"].get()
+                * config_vars["draw.cellsizepx"].get(),
+                config_vars["general.gridheight"].get()
+                * config_vars["draw.cellsizepx"].get(),
             )
-            with open(f"{WRITE_DIR.get()}drawing_{layer}.svg", "w") as f:
+            with open(
+                f"{config_vars['general.writedir'].get()}drawing_{layer}.svg", "w"
+            ) as f:
                 f.write(img)
                 f.flush()
 
@@ -522,21 +518,21 @@ def vis(
 ):
 
     if support_partition is not None:
-        SUB_SUPPORT_GROUPING.set(support_partition)
+        config_vars["route.subsupporttype"].set(support_partition)
     if support_type is not None:
-        SUB_SUPPORT_TYPE.set(support_type)
+        config_vars["route.subsupportgrouping"].set(support_type)
     if strategy is not None:
-        STRATEGY.set(strategy)
+        config_vars["general.strategy"].set(strategy)
     if grid_width is not None:
-        GRID_WIDTH.set(grid_width)
+        config_vars["general.gridwidth"].set(grid_width)
     if grid_height is not None:
-        GRID_HEIGHT.set(grid_height)
+        config_vars["general.gridheight"].set(grid_height)
     if read_dir is not None:
-        READ_DIR.set(read_dir)
+        config_vars["general.readdir"].set(read_dir)
     if write_dir is not None:
-        WRITE_DIR.set(write_dir)
+        config_vars["general.writedir"].set(write_dir)
     if num_weights is not None:
-        NUM_WEIGHTS.set(num_weights)
+        config_vars["general.numlayers"].set(num_weights)
 
     start = time.time()
     try:
@@ -550,7 +546,9 @@ def vis(
 
         duration = end - start
 
-        with open(os.path.join(config_vars["GENERAL.writedir"].get(), "call.json"), "w") as f:
+        with open(
+            os.path.join(config_vars["general.writedir"].get(), "call.json"), "w"
+        ) as f:
             json.dump(
                 {
                     "success": True,
@@ -561,10 +559,12 @@ def vis(
             )
             print("SUCCESS")
 
-    except BaseException:
+    except BaseException as e:
         end = time.time()
         duration = end - start
-        with open(os.path.join(config_vars["GENERAL.writedir"].get(), "call.json"), "w") as f:
+        with open(
+            os.path.join(config_vars["general.writedir"].get(), "call.json"), "w"
+        ) as f:
             json.dump(
                 {
                     "success": False,
@@ -575,7 +575,7 @@ def vis(
                 f,
             )
         print("ERROR")
-        sys.exit(1)
+        raise e
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ from collections import defaultdict
 from util.graph import incident_edges, get_longest_simple_paths, extract_support_layer
 from util.geometry import get_side, get_linear_order, get_center_of_mass
 from util.enums import NodeType, EdgeType
-from util.config import NUM_WEIGHTS, LOOM_SOLVER, LOOM_TIMEOUT, WRITE_DIR
+from util.config import config_vars
 
 
 def find_edge_ordering_tree(G, k1, k2, u, v, initial_edge, exploring_other_way=False):
@@ -464,12 +464,14 @@ def bundle_lines(instance, M):
     # 3) feed it to LOOM
     # 4) read result back in - bam we have an ordering
 
-    for layer in range(NUM_WEIGHTS.get()):
+    for layer in range(config_vars["general.numlayers"].get()):
         G = extract_support_layer(M, layer)
         G = convert_to_line_graph(G)
         G_for_loom = convert_to_geojson(G)
 
-        with open(f"{WRITE_DIR.get()}/loom_input_{layer}.json", "w") as f:
+        with open(
+            f"{config_vars['general.writedir'].get()}/loom_input_{layer}.json", "w"
+        ) as f:
             f.write(G_for_loom)
             loom = subprocess.run(
                 [
@@ -477,18 +479,20 @@ def bundle_lines(instance, M):
                     "-m",
                     "ilp",
                     "--ilp-solver",
-                    LOOM_SOLVER.get(),
+                    config_vars["loom.solver"].get(),
                     "--ilp-num-threads",
                     "8",
                     "--ilp-time-limit",
-                    str(LOOM_TIMEOUT.get())
+                    str(config_vars["loom.timeoutsecs"].get()),
                 ],
                 input=G_for_loom.encode(),
                 check=True,
                 capture_output=True,
             )
         G = read_loom_output(loom.stdout.decode(), G)
-        with open(f"{WRITE_DIR.get()}/loom_output_{layer}.json", "w") as f:
+        with open(
+            f"{config_vars['general.writedir'].get()}/loom_output_{layer}.json", "w"
+        ) as f:
             f.write(loom.stdout.decode())
 
         for u, v, d in G.edges(data=True):
