@@ -418,6 +418,10 @@ def remove_overlaps(layout, m=10, n=10):
     layout[:, 0] = ((layout[:, 0] - x_min) / w) * (m)
     layout[:, 1] = ((layout[:, 1] - y_min) / h) * (n)
 
+    # TODO can decide here between dgrid and hagrid
+    # problem: dgrid can do any grid size, hagrid can only do square grids with side length = power of 2
+    # so if the config var wants hagrid, we have to check if the configured grid fits
+
     h_overlap_removed = DGrid(glyph_width=1, glyph_height=1, delta=1).fit_transform(
         layout
     )
@@ -429,6 +433,8 @@ def layout(D_EA, D_SR, m=10, n=10, num_weights=3):
         layout_single(D_EA, D_SR, m=m, n=n, weight=w)
         for w in np.linspace(0, 1, num_weights)
     ]
+
+    # TODO could decide here to reverse the order
     layouts = align_layouts(layouts)
     layouts = [remove_overlaps(layout, m=m, n=n) for layout in layouts]
 
