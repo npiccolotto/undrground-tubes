@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 
+from util.metrics import compute_metrics
 from util.config import (
     config_vars,
 )
@@ -481,6 +482,7 @@ def render(
             ) as f:
                 f.write(img)
                 f.flush()
+    return L_
 
 
 @click.command()
@@ -541,7 +543,7 @@ def vis(
             dataset,
         )
         ctx = contextvars.copy_context()
-        ctx.run(fun)
+        G = ctx.run(fun)
         end = time.time()
 
         duration = end - start
@@ -553,6 +555,7 @@ def vis(
                 {
                     "success": True,
                     "duration_ms": duration,
+                    'metrics': compute_metrics(G),
                     "ctx": {key: value.get() for key, value in config_vars.items()},
                 },
                 f,
