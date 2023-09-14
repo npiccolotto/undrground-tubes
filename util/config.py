@@ -1,10 +1,31 @@
 import configparser
 import numpy as np
+import re
 from contextvars import ContextVar
 
 config = configparser.ConfigParser()
 config.read("config.ini")
 
+config_vars = dict()
+for sec in config.sections():
+    for k in config[sec]:
+        # maybe not ideal but whatevs
+        # try guessing the appropriate type of the var
+        val = config.get(sec, k)
+        if val in ["True", "False"]:
+            # a bool
+            val = bool(val)
+        elif "," in val:
+            # a list
+            val = val.split(",")
+        elif bool(re.match("[0-9]+\.[0-9]+", val)):
+            # a float
+            val = float(val)
+        elif bool(re.match("[0-9]+", val)):
+            # int
+            val = int(val)
+
+        config_vars[f'{sec}.{k}'] = ContextVar(k, default=val)
 
 DARK_MODE = ContextVar("DARK_MODE", default=config.getboolean("DRAW", "DarkMode"))
 DRAW_GLYPHS = ContextVar("DRAW_GLYPHS", default=config.getboolean("DRAW", "DrawGlyphs"))
@@ -44,9 +65,7 @@ DRAW_GRID_CELLS = ContextVar(
 SET_COLORS = ContextVar(
     "SET_COLORS", default=config.get("DRAW", "SetColors").split(",")
 )
-GLYPH_TITLE = ContextVar(
-    'GLYPH_TITLE', default = config.getboolean('DRAW', 'GlyphTitle')
-)
+GLYPH_TITLE = ContextVar("GLYPH_TITLE", default=config.getboolean("DRAW", "GlyphTitle"))
 
 SUB_SUPPORT_TYPE = ContextVar(
     "SUB_SUPPORT_TYPE", default=config.get("ROUTE", "SubSupportType")
@@ -74,16 +93,10 @@ EDGE_LAYER_SOFT_CONSTRAINT_WEIGHT = ContextVar(
 BEND_SOFT_CONSTRAINT_WEIGHT = ContextVar(
     "BEND_SOFT_CONSTRAINT_WEIGHT", default=config.getint("ROUTE", "BendLayerFactor")
 )
-ILP_MIP_GAP = ContextVar(
-    "ILP_MIP_GAP", default=config.getfloat("ROUTE", "ILPMIPGap")
-)
-ILP_TIMEOUT =  ContextVar(
+ILP_MIP_GAP = ContextVar("ILP_MIP_GAP", default=config.getfloat("ROUTE", "ILPMIPGap"))
+ILP_TIMEOUT = ContextVar(
     "ILP_TIMEOUT", default=config.getfloat("ROUTE", "ILPTimeoutSecs")
 )
 
-LOOM_SOLVER = ContextVar(
-    'LOOM_SOLVER', default=config.get('LOOM', 'Solver')
-)
-LOOM_TIMEOUT = ContextVar(
-    'LOOM_TIMEOUT', default=config.getint('LOOM', 'TimeoutSecs')
-)
+LOOM_SOLVER = ContextVar("LOOM_SOLVER", default=config.get("LOOM", "Solver"))
+LOOM_TIMEOUT = ContextVar("LOOM_TIMEOUT", default=config.getint("LOOM", "TimeoutSecs"))

@@ -1,8 +1,9 @@
 import json
-import math
-import subprocess
-import sys
+import time
+import os
+import traceback
 import copy
+import sys
 import click
 from collections import defaultdict
 from itertools import chain, combinations, pairwise, product
@@ -15,6 +16,7 @@ import networkx as nx
 import numpy as np
 
 from util.config import (
+    config_vars,
     DRAW_GLYPHS,
     CELL_SIZE_PX,
     SUB_SUPPORT_GROUPING,
@@ -483,8 +485,6 @@ def render(
                 f.write(img)
                 f.flush()
 
-    print("Done.")
-
 
 @click.command()
 @click.option("--dataset", default="imdb/imdb_10", help="dataset to load")
@@ -538,12 +538,44 @@ def vis(
     if num_weights is not None:
         NUM_WEIGHTS.set(num_weights)
 
-    fun = partial(
-        render,
-        dataset,
-    )
-    ctx = contextvars.copy_context()
-    ctx.run(fun)
+    start = time.time()
+    try:
+        fun = partial(
+            render,
+            dataset,
+        )
+        ctx = contextvars.copy_context()
+        ctx.run(fun)
+        end = time.time()
+
+        duration = end - start
+
+        with open(os.path.join(config_vars["GENERAL.writedir"].get(), "call.json"), "w") as f:
+            json.dump(
+                {
+                    "success": True,
+                    "duration_ms": duration,
+                    "ctx": {key: value.get() for key, value in config_vars.items()},
+                },
+                f,
+            )
+            print("SUCCESS")
+
+    except BaseException:
+        end = time.time()
+        duration = end - start
+        with open(os.path.join(config_vars["GENERAL.writedir"].get(), "call.json"), "w") as f:
+            json.dump(
+                {
+                    "success": False,
+                    "duration_ms": duration,
+                    "traceback": traceback.format_exc(),
+                    "ctx": {key: value.get() for key, value in config_vars.items()},
+                },
+                f,
+            )
+        print("ERROR")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
