@@ -399,7 +399,8 @@ def calc_distance_matrix(graph, pathmatrix, weight="weight"):
 
 def approximate_tsp_tour(G, S):
     """Returns an approximation of the shortest tour in G visiting all nodes S exactly once while using each edge at most once.
-    Which is almost but not really a TSP tour (e.g., G is not completely connected), but let's continue calling it that."""
+    Which is almost but not really a TSP tour (e.g., G is not completely connected), but let's continue calling it that.
+    """
 
     if len(S) < 3:
         sp = get_shortest_path_between_sets(G, S[0], S[1])
@@ -633,7 +634,7 @@ def update_weights_for_support_edge(G, edge):
     return G
 
 
-def are_port_edges_crossing(us, ut, vs, vt, cross_when_node_shared = True):
+def are_port_edges_crossing(us, ut, vs, vt, cross_when_node_shared=True):
     if frozenset([ut["port"], us["port"]]) == frozenset([vs["port"], vt["port"]]):
         return False
 
@@ -670,7 +671,7 @@ def are_port_edges_crossing(us, ut, vs, vt, cross_when_node_shared = True):
         return False
 
     if not cross_when_node_shared:
-        if u1['port'] in [port1,port2] or u2['port'] in [port1,port2]:
+        if u1["port"] in [port1, port2] or u2["port"] in [port1, port2]:
             return False
 
     return True
@@ -752,48 +753,61 @@ def get_port(G, parent, side):
     return None
 
 
+def get_relative_ports(u, v):
+    ux, uy = u
+    vx, vy = v
+
+    dx = vx - ux
+    dy = vy - uy
+
+    northsouth_u = ""
+    match dy:
+        case 1:
+            northsouth_u = "s"
+        case -1:
+            northsouth_u = "n"
+        case 0:
+            northsouth_u = ""
+
+    eastwest_u = ""
+    match dx:
+        case 1:
+            eastwest_u = "e"
+        case -1:
+            eastwest_u = "w"
+        case 0:
+            eastwest_u = ""
+
+    v_relative_to_u = f"{northsouth_u}{eastwest_u}"
+
+    northsouth = ""
+    match -dy:
+        case 1:
+            northsouth = "s"
+        case -1:
+            northsouth = "n"
+        case 0:
+            northsouth = ""
+
+    eastwest = ""
+    match -dx:
+        case 1:
+            eastwest = "e"
+        case -1:
+            eastwest = "w"
+        case 0:
+            eastwest = ""
+
+    u_relative_to_v = f"{northsouth}{eastwest}"
+
+    return (u_relative_to_v, v_relative_to_u)
+
+
 def get_ports(G, u, v):
     """for two center nodes u and v in G, returns their respective ports that an edge would use"""
-    ux, uy = G.nodes[u]["logpos"]
-    vx, vy = G.nodes[v]["logpos"]
+    u_relative_to_v, v_relative_to_u = get_relative_ports(u, v)
 
-    dx = ux - vx
-    dy = uy - vy
-    delta = (dx, dy)
-
-    # dx = -1 -> ux - vx = -1 -> vx > ux -> v is west of u
-    # dx = 1 -> ux - vx = 1 -> ux > vx -> v is east of u
-    # dy = -1 -> uy - vy = -1 -> vy > uy -> v is south of u
-
-    match delta:
-        # v is west
-        case (-1, -1):
-            # v is in se of u
-            return (get_port(G, u, "sw"), get_port(G, v, "ne"))
-        case (-1, 0):
-            # v is east of u
-            return (get_port(G, u, "w"), get_port(G, v, "e"))
-        case (-1, 1):
-            # v is ne of u
-            return (get_port(G, u, "nw"), get_port(G, v, "se"))
-
-        case (0, -1):
-            # v is south of u
-            return (get_port(G, u, "s"), get_port(G, v, "n"))
-        # (0,0) not possible!
-        case (0, 1):
-            # v is north of u
-            return (get_port(G, u, "n"), get_port(G, v, "s"))
-
-        # v is east
-        case (1, -1):
-            return (get_port(G, u, "se"), get_port(G, v, "nw"))
-        case (1, 0):
-            return (get_port(G, u, "e"), get_port(G, v, "w"))
-        case (1, 1):
-            return (get_port(G, u, "ne"), get_port(G, v, "sw"))
-
-    raise BaseException(f"something went wrong: dx={dx}, dy={dy}, u={u}, v={v}")
+    return (get_port(G, u, v_relative_to_u), get_port(G, v, u_relative_to_v))
 
 
 def edge_filter_ports(G, u, v, same_centers=False, possibly_with_center=False):
@@ -819,3 +833,106 @@ def edge_filter_ports(G, u, v, same_centers=False, possibly_with_center=False):
                     return uparent != vparent
                 case None:
                     return True
+
+
+def convert_line_graph_to_grid_graph(instance, L, G, element_set_partition):
+    num_weights = instance["num_layers"]
+    for layer in range(num_weights):
+        for i, esp in enumerate(element_set_partition):
+            elements, sets = esp
+            root_pos = instance["glyph_positions"][layer][
+                instance["elements_inv"][elements[0]]
+            ]
+            for j, el in enumerate(elements):
+                if j == 0:
+                    continue
+                j_pos = instance["glyph_positions"][layer][instance["elements_inv"][el]]
+                P = nx.subgraph_view(
+                    L,
+                    filter_edge=lambda u, v, k: k == (layer, EdgeType.SUPPORT)
+                    and i in L.edges[u, v, k]["partitions"],
+                )
+                path_j = path_to_edges(
+                    nx.shortest_path(P, root_pos, j_pos)
+                )  # P should actually just be a path already but we do this to order edges
+
+                edge_pairs_path_j = list(pairwise(path_j))
+                for l, edge_pair in enumerate(edge_pairs_path_j):
+                    e1, e2 = edge_pair
+                    u, v = e1
+                    v, x = e2
+
+                    port_u, port_vu = get_ports(G, u, v)
+                    port_vx, port_x = get_ports(G, v, x)
+
+                    if l == 0:
+                        # add edge from center to first port
+                        G.add_edge(
+                            u,
+                            port_u,
+                            (layer, EdgeType.SUPPORT),
+                            edge=EdgeType.SUPPORT,
+                            sets=set(L.edges[u, v, (layer, EdgeType.SUPPORT)]["sets"]),
+                        )
+                    if l == len(edge_pairs_path_j) - 1:
+                        # add edge from last port to center
+                        G.add_edge(
+                            port_x,
+                            x,
+                            (layer, EdgeType.SUPPORT),
+                            edge=EdgeType.SUPPORT,
+                            sets=set(L.edges[v, x, (layer, EdgeType.SUPPORT)]["sets"]),
+                        )
+
+                    oeb_order_u_v = {
+                        (port_u, port_vu): L.edges[u, v, (layer, EdgeType.SUPPORT)][
+                            "oeb_order"
+                        ][(u, v)],
+                        (port_vu, port_u): L.edges[u, v, (layer, EdgeType.SUPPORT)][
+                            "oeb_order"
+                        ][(v, u)],
+                    }
+                    G.add_edge(
+                        port_u,
+                        port_vu,
+                        (layer, EdgeType.SUPPORT),
+                        **{
+                            **L.edges[u, v, (layer, EdgeType.SUPPORT)],
+                            "oeb_order": oeb_order_u_v,
+                        },
+                    )
+
+                    oeb_order_v_x = {
+                        (port_vx, port_x): L.edges[v, x, (layer, EdgeType.SUPPORT)][
+                            "oeb_order"
+                        ][(v, x)],
+                        (port_x, port_vx): L.edges[v, x, (layer, EdgeType.SUPPORT)][
+                            "oeb_order"
+                        ][(x, v)],
+                    }
+                    G.add_edge(
+                        port_vx,
+                        port_x,
+                        (layer, EdgeType.SUPPORT),
+                        **{
+                            **L.edges[v, x, (layer, EdgeType.SUPPORT)],
+                            "oeb_order": oeb_order_v_x,
+                        },
+                    )
+
+                    G.add_edge(
+                        port_vu,
+                        port_vx,
+                        (layer, EdgeType.SUPPORT),
+                        edge=EdgeType.SUPPORT,
+                        sets=set(
+                            L.edges[v, x, (layer, EdgeType.SUPPORT)]["sets"]
+                        ).intersection(
+                            set(L.edges[u, v, (layer, EdgeType.SUPPORT)]["sets"])
+                        ),
+                    )
+
+    G.remove_edges_from(
+        [(u, v, k) for u, v, k in G.edges(keys=True) if k == EdgeType.CENTER]
+    )
+    return G

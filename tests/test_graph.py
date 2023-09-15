@@ -1,9 +1,23 @@
 import unittest
 from itertools import product
 
-from util.graph import are_port_edges_crossing
+from util.graph import are_port_edges_crossing, get_relative_ports
 from util.enums import PortDirs
 
+class TestGetPorts(unittest.TestCase):
+    def test_getrelativeports(self):
+        self.assertEqual(
+            get_relative_ports((1,1),(2,2)), ('nw', 'se')
+        )
+        self.assertEqual(
+            get_relative_ports((1,1),(2,1)), ('w', 'e')
+        )
+        self.assertEqual(
+            get_relative_ports((1,1),(1,2)), ('n', 's')
+        )
+        self.assertEqual(
+            get_relative_ports((1,2),(1,1)), ('s', 'n')
+        )
 
 class TestCrossingPortEdges(unittest.TestCase):
     def test_commutative(self):
