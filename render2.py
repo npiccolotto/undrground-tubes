@@ -19,7 +19,7 @@ from util.metrics import compute_metrics
 from util.config import (
     config_vars,
 )
-from util.bundle import bundle_lines
+from util.bundle import bundle_lines_gg, bundle_lines_lg
 from util.collections import (
     group_by_intersection_group,
     group_by_set,
@@ -45,7 +45,7 @@ from util.graph import (
 )
 from util.layout import layout
 from util.perf import timing
-from util.route import route_multilayer_ilp, route_multilayer_heuristic
+from util.route import route, determine_router
 
 
 def add_ports_to_sqr_node(G, node, data, side_length=0.25):
@@ -306,34 +306,24 @@ def render(
             element_set_partition, key=lambda x: len(x[1]), reverse=True
         )
 
-        print("element partition", element_set_partition)
-
-        if config_vars["general.strategy"].get() == "opt":
-            L = route_multilayer_ilp(
-                instance,
-                nx.subgraph_view(
-                    G,
-                    filter_edge=lambda u, v, k: k == EdgeType.CENTER,
-                    filter_node=lambda n: G.nodes[n]["node"] == NodeType.CENTER,
-                ),
-                element_set_partition,
-            )
-        else:
-            L = route_multilayer_heuristic(
-                instance,
-                G,
-                element_set_partition,
-            )
+        L = route(instance, G, element_set_partition)
 
     for layer in range(num_weights):
         M = extract_support_layer(L, layer)
         draw_support(instance, M, layer)
 
+    router = determine_router()
     with timing("bundle lines"):
-        L = bundle_lines(instance, L)
+        L = (
+            bundle_lines_lg(instance, L)
+            if router == "opt"
+            else bundle_lines_gg(instance, L)
+        )
 
-    if config_vars["general.strategy"].get() == "opt":
-        # merge grid graph data (ports at nodes) with line graph data (routing and bundling info)
+    if router == "opt":
+        # the heuristic routing uses the grid graph (ie., with port nodes), but the optimal routing does not
+        # this is fine for the bundle step, which also uses the line graph (i.e., without port nodes)
+        # but for drawing we need the port nodes, so a postprocessing step is required that inserts them.
         # we have
         # G = multigraph with center and physical nodes/edges
         # L = a multigraph with (layer, support) edges and center nodes
@@ -390,8 +380,6 @@ def render(
                                 ),
                             )
 
-                        # TODO remove MST heurisitic in drawing code
-
                         oeb_order_u_v = {
                             (port_u, port_vu): L.edges[u, v, (layer, EdgeType.SUPPORT)][
                                 "oeb_order"
@@ -439,17 +427,22 @@ def render(
                                 set(L.edges[u, v, (layer, EdgeType.SUPPORT)]["sets"])
                             ),
                         )
+
+        G.remove_edges_from([(u,v,k) for u,v,k in G.edges(keys=True) if k == EdgeType.CENTER])
+
         L = G
 
     with timing("serialize graph"):
         # avoid referencing issues
         L_ = copy.deepcopy(L)
-
+        L_.remove_edges_from([(u,v,k) for u,v,k in L_.edges(keys=True) if not (isinstance(k,tuple) and k[1] == EdgeType.SUPPORT)])
         for u, v, d in L_.edges(data=True):
             # convert stuff that json doesn't like
             # sets
             if "sets" in d:
                 d["sets"] = list(d["sets"])
+            if "partitions" in d:
+                d["partitions"] = list(d["partitions"])
             # tuple keys
             if "oeb_order" in d:
                 keys = list(d["oeb_order"])
@@ -461,14 +454,14 @@ def render(
             json.dump(nx.node_link_data(L_), f)
     R = copy.deepcopy(L)
     with timing("draw+write svg"):
+        L.add_edges_from(
+            [
+                (u, v, k, d)
+                for u, v, k, d in G.edges(keys=True, data=True)
+                if k == EdgeType.PHYSICAL
+            ]
+        )
         for layer in range(num_weights):
-            L.add_edges_from(
-                [
-                    (u, v, k, d)
-                    for u, v, k, d in G.edges(keys=True, data=True)
-                    if k == EdgeType.PHYSICAL
-                ]
-            )
             geometries = geometrize(instance, L, element_set_partition, layer=layer)
             img = draw_svg(
                 geometries,
@@ -482,6 +475,7 @@ def render(
             ) as f:
                 f.write(img)
                 f.flush()
+    R.remove_edges_from([(u,v,k) for u,v,k in R.edges(keys=True) if not (isinstance(k,tuple) and k[1] == EdgeType.SUPPORT)])
     return R
 
 
@@ -520,9 +514,9 @@ def vis(
     support_partition,
 ):
     if support_partition is not None:
-        config_vars["route.subsupporttype"].set(support_partition)
+        config_vars["route.subsupportgrouping"].set(support_partition)
     if support_type is not None:
-        config_vars["route.subsupportgrouping"].set(support_type)
+        config_vars["route.subsupporttype"].set(support_type)
     if strategy is not None:
         config_vars["general.strategy"].set(strategy)
     if grid_width is not None:
@@ -555,7 +549,7 @@ def vis(
                 {
                     "success": True,
                     "duration_ms": duration,
-                    'metrics': compute_metrics(G),
+                    "metrics": compute_metrics(G),
                     "ctx": {key: value.get() for key, value in config_vars.items()},
                 },
                 f,

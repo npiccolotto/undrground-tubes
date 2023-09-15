@@ -304,13 +304,11 @@ def route_multilayer_ilp(instance, G, element_set_partition):
     num_layers = config_vars["general.numlayers"].get()
     el_idx_lookup = instance["elements_inv"]
 
-    match support_type:
-        case "steiner-tree":
-            MAX_OUT_TERMINAL = 4
-            MAX_OUT_ROOT = 4
-        case "path":
-            MAX_OUT_TERMINAL = 1
-            MAX_OUT_ROOT = 2
+    MAX_OUT_TERMINAL = 4
+    MAX_OUT_ROOT = 4
+    if support_type == "path":
+        MAX_OUT_TERMINAL = 1
+        MAX_OUT_ROOT = 2
 
     # convert to arcs
     M = nx.DiGraph(incoming_graph_data=G)
@@ -830,3 +828,35 @@ def route_multilayer_ilp_gg(
                         )
 
     return MM
+
+
+def determine_router():
+    router = config_vars["route.router"].get()
+    if router == "auto":
+        router = (
+            "opt" if config_vars["general.strategy"].get() == "opt" else "heuristic"
+        )
+    return router
+
+
+def route(instance, G, element_set_partition):
+    router = determine_router()
+
+    if router == "opt":
+        L = route_multilayer_ilp(
+            instance,
+            nx.subgraph_view(
+                G,
+                filter_edge=lambda u, v, k: k == EdgeType.CENTER,
+                filter_node=lambda n: G.nodes[n]["node"] == NodeType.CENTER,
+            ),
+            element_set_partition,
+        )
+    else:
+        L = route_multilayer_heuristic(
+            instance,
+            G,
+            element_set_partition,
+        )
+
+    return L

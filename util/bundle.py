@@ -206,131 +206,6 @@ def order_bundles(instance, M):
     return M
 
 
-def _order_bundles(instance, M):
-    """M is a nx MultiGraph with all edges to draw. Returned is an ordering of sets."""
-
-    # we have to preprocess M a little bit so that Pupyrev et al.'s algorithm (ordered edge bundles, OEB) works.
-    # 1. drawn edges for a set in M must not contain cycles.
-    #   - detect cycles, throw (for now) arbitrary edge away
-    #   - since drawn edges are built out of MSTs there can't currently be any cycles so it's fine
-    # 2. OEB expects that i) nodes are either terminals or intermediates, never both, and ii) lines are simple paths, i.e., don't fork/merge.
-    #   - convert M to separate simple paths. splitting it at nodes with deg > 2 should be sufficient. so each simple path starts and ends at a glyph center (=terminal).
-    #   - for each simple path, remove glyph centers that are not the first or last node in the path: replace adjacent edges (u,v),(v,w) with (u,w) if v is glyph center.
-    # after these steps, OEB should work.
-
-    paths = defaultdict(list)
-
-    # step 2: split forking paths
-    for set_id in instance["set_ftb_order"]:
-        # get edges for this set
-        G_ = nx.subgraph_view(
-            M, filter_edge=lambda i, j, e: M.edges[i, j, e]["set_id"] == set_id
-        )
-        # then, start at any node with deg=1
-        first = list([i for i in G_.nodes() if G_.degree[i] == 1])[0]
-        next = list(G_.neighbors(first))[0]
-        paths[set_id] = paths[set_id] + get_longest_simple_paths(G_, first, next)
-
-    # step 2: remove intermediate center nodes from paths
-    for set_id in instance["set_ftb_order"]:
-        paths[set_id] = [
-            [
-                n
-                for i, n in enumerate(path)
-                if i in [0, len(path) - 1] or M.nodes[n]["node"] != NodeType.CENTER
-            ]
-            for path in paths[set_id]
-        ]
-
-    # TODO unsure if good to modify this here, but whatevs
-    M.remove_edges_from(list(M.edges()))
-    for set_id in instance["set_ftb_order"]:
-        set_ftb_order = instance["set_ftb_order"].index(set_id) + 1
-        for i, path in enumerate(paths[set_id]):
-            for u, v in pairwise(path):
-                M.add_edge(
-                    u,
-                    v,
-                    set_ftb_order,
-                    set_id=set_id,
-                    path_id=f"{set_id}-{i}",
-                    edge=EdgeType.DRAW,
-                )
-
-    # then do the actual OEB algorithm
-    unique_edges = list(set(M.edges()))
-    for u, v in unique_edges:
-        # find paths using this edge,ie. all edges (u,v,k) for any k
-        this_edge = nx.subgraph_view(M, filter_edge=lambda w, x, _: (u, v) == (w, x))
-        p_uv = [k for u, v, k in this_edge.edges(keys=True)]
-        if len(p_uv) < 2:
-            # nothing to do here! only one path using this edge.
-            k = p_uv[0]
-            order = [M.edges[(u, v, k)]["path_id"]]
-            M.edges[(u, v, k)]["oeb_order"] = {
-                (u, v): order,
-                (v, u): order,
-            }
-            continue
-
-        path_ids = [
-            (k, this_edge.edges[(u, v, k)]["path_id"])
-            for u, v, k in this_edge.edges(keys=True)
-        ]
-
-        # make a square matrix holding the relative orderings: O[a,b] = -1 -> a precedes b. 0 = don't matter, 1 = succeeds, else = don't know
-        O = np.empty(shape=(len(p_uv), len(p_uv)))
-        np.fill_diagonal(O, 0)
-
-        # direction of (u,v): u -> v
-        # (acc. to paper apparently it doesn't matter)
-
-        # for each pair of paths
-        for pi1, pi2 in combinations(path_ids, 2):
-            k1, p1 = pi1
-            k2, p2 = pi2
-            # filter here to path ids identified earlier so that we don't deal here with the path itself forking
-            M_ = nx.subgraph_view(
-                M, filter_edge=lambda w, x, k: M.edges[(w, x, k)]["path_id"] in [p1, p2]
-            )
-            order = find_edge_ordering(M_, p1, p2, u, v, (u, v))
-            # print((u, v), p1, p2, order)
-            k1i = p_uv.index(k1)
-            k2i = p_uv.index(k2)
-            O[k1i, k2i] = order
-            O[k2i, k1i] = -order
-
-        # linearize O to something like (b,a,d,...,z)
-        path_id_dict = dict(path_ids)
-        linear_O = [path_id_dict[p_uv[i]] for i in get_linear_order(O)]
-        # save order on all multiedges between u and v
-        for k in p_uv:
-            M.edges[(u, v, k)]["oeb_order"] = {
-                (u, v): linear_O,
-                (v, u): list(reversed(linear_O)),
-            }
-
-    return M
-
-
-def convert_to_bundleable(instance, G):
-    # G is a multigraph with SUPPORT type edges that have a `sets` property
-    # we split those edges up into single edges having a `set_id` property and drop other edges
-    G_ = nx.MultiGraph()
-    G_support = nx.subgraph_view(G, filter_edge=lambda u, v, k: k == EdgeType.SUPPORT)
-    for u, v, d in G_support.edges(data=True):
-        G_.add_node(u, **G.nodes[u])
-        G_.add_node(v, **G.nodes[v])
-        for set_id in d["sets"]:
-            set_idx = instance["set_ftb_order"].index(set_id)
-            k = set_idx + 1
-            G_.add_edge(
-                u, v, k, set_id=set_id, path_id=f"{set_id}-0", edge=EdgeType.DRAW
-            )
-
-    return G_
-
-
 def convert_to_line_graph(G):
     """G is a grid graph with support and physical edges. Construct a new graph without port nodes.
     Edges are only between centers."""
@@ -346,7 +221,7 @@ def convert_to_line_graph(G):
 
         if uparent is None and vparent is None:
             # both are centers
-            # this is actually impossible?
+            # this is a mistake if we get a grid graph but fine for a line graph
             raise BaseException("support edge connecting two centers?")
         else:
             if uparent is not None and vparent is not None:
@@ -455,8 +330,42 @@ def read_loom_output(output, G):
         }
     return G
 
+def bundle_lines_lg(instance, M):
+    for layer in range(config_vars["general.numlayers"].get()):
+        G = extract_support_layer(M, layer)
+        G_for_loom = convert_to_geojson(G)
 
-def bundle_lines(instance, M):
+        with open(
+            f"{config_vars['general.writedir'].get()}/loom_input_{layer}.json", "w"
+        ) as f:
+            f.write(G_for_loom)
+            loom = subprocess.run(
+                [
+                    "loom",
+                    "-m",
+                    "ilp",
+                    "--ilp-solver",
+                    config_vars["loom.solver"].get(),
+                    "--ilp-num-threads",
+                    "8",
+                    "--ilp-time-limit",
+                    str(config_vars["loom.timeoutsecs"].get()),
+                ],
+                input=G_for_loom.encode(),
+                check=True,
+                capture_output=True,
+            )
+        G = read_loom_output(loom.stdout.decode(), G)
+        for u, v, d in G.edges(data=True):
+            order = {(u, v): d["oeb_order"][(u, v)], (v, u): d["oeb_order"][(v, u)]}
+            M.edges[(u,v, (layer, EdgeType.SUPPORT))]["oeb_order"] = order
+        with open(
+            f"{config_vars['general.writedir'].get()}/loom_output_{layer}.json", "w"
+        ) as f:
+            f.write(loom.stdout.decode())
+    return M
+
+def bundle_lines_gg(instance, M):
     # bundling
     # LOOM is quite fast in bundling and can handle trees/cycles, so...
     # 1) from the grid graph with support, make a line graph again (basically keep centers of used nodes, drop ports)
