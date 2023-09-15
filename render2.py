@@ -459,7 +459,7 @@ def render(
 
         with open(f"{config_vars['general.writedir'].get()}serialized.json", "w") as f:
             json.dump(nx.node_link_data(L_), f)
-
+    R = copy.deepcopy(L)
     with timing("draw+write svg"):
         for layer in range(num_weights):
             L.add_edges_from(
@@ -482,7 +482,7 @@ def render(
             ) as f:
                 f.write(img)
                 f.flush()
-    return L_
+    return R
 
 
 @click.command()
