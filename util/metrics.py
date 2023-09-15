@@ -1,5 +1,6 @@
 import click
 import json
+import numpy as np
 import re
 import os
 import networkx as nx
@@ -34,6 +35,35 @@ def figure_out_size(G):
             max_y = y
 
     return (max_x, max_y)
+
+
+def get_node_positions(G, layer=0):
+    result = []
+    for n, d in G.nodes(data=True):
+        if d["node"] != NodeType.CENTER:
+            continue
+
+        if d["layers"][layer]["occupied"]:
+            result.append((d["layers"][layer]["label"], n))
+    result = list(map(lambda ln: ln[1], sorted(result, key=lambda ln: ln[0])))
+    return np.array(result)
+
+
+def compute_node_moves(G, layer1, layer2):
+    error = 0
+    if layer1 < 0 or layer2 < 0:
+        return error
+
+    prev_pos = get_node_positions(G, layer1)
+    this_pos = get_node_positions(G, layer2)
+
+    E = prev_pos - this_pos
+    nrow, _ = E.shape
+    for i in range(nrow):
+        dx, dy = E[i]
+        error += math.sqrt(dx**2 + dy**2)
+
+    return error
 
 
 def compute_crossings_outside(G, size=(10, 10), what="edges"):
@@ -157,6 +187,7 @@ def compute_crossings_inside(G, what="edges"):
                 G.nodes[x],
                 cross_when_node_shared=False,
             ):
+                # TODO there might still be a crossing if the line order is different between uv and wx
                 result += (
                     1
                     if what == "edges"
@@ -186,6 +217,7 @@ def compute_metrics(G):
         # print("layer", layer)
         result.append(
             {
+                "total_node_moves": compute_node_moves(G, layer, layer-1),
                 "total_lines": compute_total_length(G_, what="lines"),
                 "total_edges": compute_total_length(G_, what="edges"),
                 "total_line_crossings": compute_crossings_inside(G_, what="lines")
