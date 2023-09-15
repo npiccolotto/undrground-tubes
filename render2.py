@@ -401,6 +401,21 @@ def render(
     type=click.Choice(["set", "intersection-group"], case_sensitive=False),
     help="the partition type",
 )
+@click.option(
+    '--overlap-remover',
+    type=click.Choice(["dgrid", "hagrid"], case_sensitive=False),
+    help="the overlap removal algorithm",
+)
+@click.option(
+    '--layouter',
+    type=click.Choice(['auto', "mds", "qsap"], case_sensitive=False),
+    help="the layout algorithm",
+)
+@click.option(
+    '--router',
+    type=click.Choice(['auto', "opt", "heuristic"], case_sensitive=False),
+    help="optimal or heuristic routing",
+)
 def vis(
     read_dir,
     write_dir,
@@ -411,6 +426,9 @@ def vis(
     grid_height,
     support_type,
     support_partition,
+    overlap_remover,
+    layouter,
+    router
 ):
     if support_partition is not None:
         config_vars["route.subsupportgrouping"].set(support_partition)
@@ -428,6 +446,12 @@ def vis(
         config_vars["general.writedir"].set(write_dir)
     if num_weights is not None:
         config_vars["general.numlayers"].set(num_weights)
+    if overlap_remover is not None:
+        config_vars['layout.overlapremover'].set(overlap_remover)
+    if layouter is not None:
+        config_vars['layout.layouter'].set(layouter)
+    if router is not None:
+        config_vars['route.router'].set(router)
 
     start = time.time()
     try:
