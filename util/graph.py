@@ -856,81 +856,128 @@ def convert_line_graph_to_grid_graph(instance, L, G, element_set_partition):
                     nx.shortest_path(P, root_pos, j_pos)
                 )  # P should actually just be a path already but we do this to order edges
 
-                edge_pairs_path_j = list(pairwise(path_j))
-                for l, edge_pair in enumerate(edge_pairs_path_j):
-                    e1, e2 = edge_pair
-                    u, v = e1
-                    v, x = e2
+                if len(path_j) == 1:
+                    u, v = path_j[0]
+                    port_u, port_v = get_ports(G, u, v)
 
-                    port_u, port_vu = get_ports(G, u, v)
-                    port_vx, port_x = get_ports(G, v, x)
+                    # needs connection u_center -> port_u -> port_v -> v_center
 
-                    if l == 0:
-                        # add edge from center to first port
-                        G.add_edge(
-                            u,
-                            port_u,
-                            (layer, EdgeType.SUPPORT),
-                            edge=EdgeType.SUPPORT,
-                            sets=set(L.edges[u, v, (layer, EdgeType.SUPPORT)]["sets"]),
-                        )
-                    if l == len(edge_pairs_path_j) - 1:
-                        # add edge from last port to center
-                        G.add_edge(
-                            port_x,
-                            x,
-                            (layer, EdgeType.SUPPORT),
-                            edge=EdgeType.SUPPORT,
-                            sets=set(L.edges[v, x, (layer, EdgeType.SUPPORT)]["sets"]),
-                        )
+                    # u_center -> port_u
+                    G.add_edge(
+                        u,
+                        port_u,
+                        (layer, EdgeType.SUPPORT),
+                        edge=EdgeType.SUPPORT,
+                        sets=set(L.edges[u, v, (layer, EdgeType.SUPPORT)]["sets"]),
+                    )
 
-                    oeb_order_u_v = {
-                        (port_u, port_vu): L.edges[u, v, (layer, EdgeType.SUPPORT)][
+                    # port_u -> port_v
+                    oeb_order_pu_pv = {
+                        (port_u, port_v): L.edges[u, v, (layer, EdgeType.SUPPORT)][
                             "oeb_order"
                         ][(u, v)],
-                        (port_vu, port_u): L.edges[u, v, (layer, EdgeType.SUPPORT)][
+                        (port_v, port_u): L.edges[u, v, (layer, EdgeType.SUPPORT)][
                             "oeb_order"
                         ][(v, u)],
                     }
                     G.add_edge(
                         port_u,
-                        port_vu,
+                        port_v,
                         (layer, EdgeType.SUPPORT),
                         **{
                             **L.edges[u, v, (layer, EdgeType.SUPPORT)],
-                            "oeb_order": oeb_order_u_v,
+                            "oeb_order": oeb_order_pu_pv,
                         },
                     )
 
-                    oeb_order_v_x = {
-                        (port_vx, port_x): L.edges[v, x, (layer, EdgeType.SUPPORT)][
-                            "oeb_order"
-                        ][(v, x)],
-                        (port_x, port_vx): L.edges[v, x, (layer, EdgeType.SUPPORT)][
-                            "oeb_order"
-                        ][(x, v)],
-                    }
+                    # port_v -> v_center
                     G.add_edge(
-                        port_vx,
-                        port_x,
-                        (layer, EdgeType.SUPPORT),
-                        **{
-                            **L.edges[v, x, (layer, EdgeType.SUPPORT)],
-                            "oeb_order": oeb_order_v_x,
-                        },
-                    )
-
-                    G.add_edge(
-                        port_vu,
-                        port_vx,
+                        port_v,
+                        v,
                         (layer, EdgeType.SUPPORT),
                         edge=EdgeType.SUPPORT,
-                        sets=set(
-                            L.edges[v, x, (layer, EdgeType.SUPPORT)]["sets"]
-                        ).intersection(
-                            set(L.edges[u, v, (layer, EdgeType.SUPPORT)]["sets"])
-                        ),
+                        sets=set(L.edges[u, v, (layer, EdgeType.SUPPORT)]["sets"]),
                     )
+                else:
+                    edge_pairs_path_j = list(pairwise(path_j))
+                    for l, edge_pair in enumerate(edge_pairs_path_j):
+                        e1, e2 = edge_pair
+                        u, v = e1
+                        v, x = e2
+
+                        port_u, port_vu = get_ports(G, u, v)
+                        port_vx, port_x = get_ports(G, v, x)
+
+                        if l == 0:
+                            # add edge from center to first port
+                            G.add_edge(
+                                u,
+                                port_u,
+                                (layer, EdgeType.SUPPORT),
+                                edge=EdgeType.SUPPORT,
+                                sets=set(
+                                    L.edges[u, v, (layer, EdgeType.SUPPORT)]["sets"]
+                                ),
+                            )
+                        if l == len(edge_pairs_path_j) - 1:
+                            # add edge from last port to center
+                            G.add_edge(
+                                port_x,
+                                x,
+                                (layer, EdgeType.SUPPORT),
+                                edge=EdgeType.SUPPORT,
+                                sets=set(
+                                    L.edges[v, x, (layer, EdgeType.SUPPORT)]["sets"]
+                                ),
+                            )
+
+                        oeb_order_u_v = {
+                            (port_u, port_vu): L.edges[u, v, (layer, EdgeType.SUPPORT)][
+                                "oeb_order"
+                            ][(u, v)],
+                            (port_vu, port_u): L.edges[u, v, (layer, EdgeType.SUPPORT)][
+                                "oeb_order"
+                            ][(v, u)],
+                        }
+                        G.add_edge(
+                            port_u,
+                            port_vu,
+                            (layer, EdgeType.SUPPORT),
+                            **{
+                                **L.edges[u, v, (layer, EdgeType.SUPPORT)],
+                                "oeb_order": oeb_order_u_v,
+                            },
+                        )
+
+                        oeb_order_v_x = {
+                            (port_vx, port_x): L.edges[v, x, (layer, EdgeType.SUPPORT)][
+                                "oeb_order"
+                            ][(v, x)],
+                            (port_x, port_vx): L.edges[v, x, (layer, EdgeType.SUPPORT)][
+                                "oeb_order"
+                            ][(x, v)],
+                        }
+                        G.add_edge(
+                            port_vx,
+                            port_x,
+                            (layer, EdgeType.SUPPORT),
+                            **{
+                                **L.edges[v, x, (layer, EdgeType.SUPPORT)],
+                                "oeb_order": oeb_order_v_x,
+                            },
+                        )
+
+                        G.add_edge(
+                            port_vu,
+                            port_vx,
+                            (layer, EdgeType.SUPPORT),
+                            edge=EdgeType.SUPPORT,
+                            sets=set(
+                                L.edges[v, x, (layer, EdgeType.SUPPORT)]["sets"]
+                            ).intersection(
+                                set(L.edges[u, v, (layer, EdgeType.SUPPORT)]["sets"])
+                            ),
+                        )
 
     G.remove_edges_from(
         [(u, v, k) for u, v, k in G.edges(keys=True) if k == EdgeType.CENTER]
