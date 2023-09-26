@@ -1,10 +1,11 @@
 import click
 import json
+import numpy as np
 import re
 import os
 import networkx as nx
 import math
-from itertools import combinations
+from itertools import combinations, product
 from util.geometry import get_angle
 from util.enums import EdgeType, NodeType, PortDirs
 from util.graph import edge_filter_ports, extract_support_layer, are_port_edges_crossing
@@ -34,6 +35,35 @@ def figure_out_size(G):
             max_y = y
 
     return (max_x, max_y)
+
+
+def get_node_positions(G, layer=0):
+    result = []
+    for n, d in G.nodes(data=True):
+        if d["node"] != NodeType.CENTER:
+            continue
+
+        if d["layers"][layer]["occupied"]:
+            result.append((d["layers"][layer]["label"], n))
+    result = list(map(lambda ln: ln[1], sorted(result, key=lambda ln: ln[0])))
+    return np.array(result)
+
+
+def compute_node_moves(G, layer1, layer2):
+    error = 0
+    if layer1 < 0 or layer2 < 0:
+        return error
+
+    prev_pos = get_node_positions(G, layer1)
+    this_pos = get_node_positions(G, layer2)
+
+    E = prev_pos - this_pos
+    nrow, _ = E.shape
+    for i in range(nrow):
+        dx, dy = E[i]
+        error += math.sqrt(dx**2 + dy**2)
+
+    return error
 
 
 def compute_crossings_outside(G, size=(10, 10), what="edges"):
@@ -150,18 +180,77 @@ def compute_crossings_inside(G, what="edges"):
         for uv, wx in combinations(all_edges_at_ports, 2):
             u, v = uv
             w, x = wx
-            if are_port_edges_crossing(
+
+            are_edges_crossing = are_port_edges_crossing(
                 G.nodes[u],
                 G.nodes[v],
                 G.nodes[w],
                 G.nodes[x],
                 cross_when_node_shared=False,
-            ):
-                result += (
-                    1
-                    if what == "edges"
-                    else len(G.edges[u, v]["sets"]) * len(G.edges[w, x]["sets"])
-                )
+            )
+            if what == "edges" and are_edges_crossing:
+                result += 1
+
+            if what == "lines":
+                # 1) find out if they have a shared port
+                has_shared_port = len(set(uv).intersection(wx)) > 0
+
+                sets_uv = G.edges[uv]["sets"]
+                sets_wx = G.edges[wx]["sets"]
+
+                if has_shared_port:
+                    # 2) if so, find line order on support edge of that port
+                    shared_port = set(uv).intersection(wx).pop()
+                    port_uv = v if shared_port == u else u
+                    port_wx = x if shared_port == w else w
+
+                    _, a = list(
+                        [
+                            (shared_port, a)
+                            for _, a in G.edges(nbunch=shared_port)
+                            if G.nodes[a]["belongs_to"] != n
+                        ]
+                    )[0]
+                    # not a mistake, loom orders lines from right, we need from left, hence reverse
+                    order = list(
+                        reversed(
+                            G.edges[(a, shared_port)]["oeb_order"][(a, shared_port)]
+                        )
+                    )
+
+                    # 3) there is actually a crossing if the line order on that edge does not equal clockwise order of ports
+                    #  (i.e., s1 is left of s2 on that edge going into the nw port, but s2 connects to east and s1 to south)
+                    dir_port_uv = G.nodes[port_uv]["port"]
+                    dir_port_wx = G.nodes[port_wx]["port"]
+
+                    dir_shared = G.nodes[shared_port]["port"]
+                    cw_order = (PortDirs + PortDirs)[PortDirs.index(dir_shared) :]
+                    port_uv_clockwise_before_port_wx = cw_order.index(
+                        dir_port_uv
+                    ) < cw_order.index(dir_port_wx)
+
+                    line_crossings = 0
+                    for s_uv, s_wx in product(sets_uv, sets_wx):
+                        # forks/merges of the same line cannot cross
+                        if s_uv == s_wx:
+                            continue
+
+                        set_uv_is_left_on_ingoing_edge = order.index(
+                            s_uv
+                        ) < order.index(s_wx)
+                        are_lines_crossing = (
+                            set_uv_is_left_on_ingoing_edge
+                            != port_uv_clockwise_before_port_wx
+                        )
+                        if are_lines_crossing:
+                            line_crossings += 1
+                else:
+                    # if the edges don't have a shared port, we can multiply the number of sets if there's an edge crossing
+                    line_crossings = (
+                        len(sets_uv) * len(sets_wx) if are_edges_crossing else 0
+                    )
+
+                result += line_crossings
     return result
 
 
@@ -183,9 +272,10 @@ def compute_metrics(G):
     layers = figure_out_num_layers(G)
     for layer in range(layers + 1):
         G_ = extract_support_layer(G, layer)
-        # print("layer", layer)
+        print("compute metrics for layer", layer)
         result.append(
             {
+                "total_node_moves": compute_node_moves(G, layer, layer - 1),
                 "total_lines": compute_total_length(G_, what="lines"),
                 "total_edges": compute_total_length(G_, what="edges"),
                 "total_line_crossings": compute_crossings_inside(G_, what="lines")

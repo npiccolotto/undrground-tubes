@@ -17,6 +17,7 @@ from util.geometry import (
     centroid,
     biarc,
 )
+from util.route import determine_router
 from util.config import config_vars
 
 
@@ -186,13 +187,12 @@ def geometrize(instance, L, element_set_partition, layer=0):
         edge_angle = get_angle(src, tgt)
 
         paths_at_edge = M.edges[(u, v)]["oeb_order"][(u, v)]
-        centering_offset = ((len(paths_at_edge) - 1) / 2) * -config_vars[
-            "draw.linegap"
-        ].get()
+        linegap = config_vars["draw.linegap"].get()
+        centering_offset = ((len(paths_at_edge) - 1) / 2) * -linegap
         M.edges[(u, v)]["edge_pos"] = {}
         for i, set_id in enumerate(paths_at_edge):
             offset_dir = 3 * math.pi / 2
-            offset_length = centering_offset + i * config_vars["draw.linegap"].get()
+            offset_length = centering_offset + i * linegap
             o_u, o_v = offset_edge((src, tgt), edge_angle - offset_dir, offset_length)
 
             M.edges[(u, v)]["edge_pos"][set_id] = {
@@ -299,134 +299,135 @@ def geometrize(instance, L, element_set_partition, layer=0):
             geometries.append(line)
 
         # so this then draws connections within occupied nodes
-        for node in [
-            n
-            for n, d in M.nodes(data=True)
-            if d["node"] == NodeType.CENTER and d["occupied"]
-        ]:
-            # strategy
-            # find out if this node is used for this set and by which ports
-            # this we do by checking outgoing edges from each port and looking at `sets` property
-            # when we identified the used ports by the current set
-            # we take the subset of all port-port edges that are between used ports
-            # we statically identify and penalize (possibly via block function?) crossing edges
-            # and on this graph we do a minimum spanning tree, which should result in the optimal line-routing=
-
-            all_used_ports = []
-            for p in [
-                p
-                for p in nx.neighbors(M, node)
-                if M.nodes[p]["node"] == NodeType.PORT
-                and M.nodes[p]["belongs_to"] == node
+        if determine_router() != 'opt':
+            for node in [
+                n
+                for n, d in M.nodes(data=True)
+                if d["node"] == NodeType.CENTER and d["occupied"]
             ]:
-                edges = [
-                    (a, b) for a, b, d in M.edges(nbunch=p, data=True) if "sets" in d
-                ]
-                if len(edges) > 0:
-                    all_used_ports.append(p)
+                # strategy
+                # find out if this node is used for this set and by which ports
+                # this we do by checking outgoing edges from each port and looking at `sets` property
+                # when we identified the used ports by the current set
+                # we take the subset of all port-port edges that are between used ports
+                # we statically identify and penalize (possibly via block function?) crossing edges
+                # and on this graph we do a minimum spanning tree, which should result in the optimal line-routing=
 
-            used_ports = set()
-            outward_edge_at_port = dict()
-            for port in all_used_ports:
-                p_adjacent = list(
-                    [
-                        x
-                        for w, x in M.edges(nbunch=[port])
-                        if M.nodes[x]["node"] == NodeType.PORT
+                all_used_ports = []
+                for p in [
+                    p
+                    for p in nx.neighbors(M, node)
+                    if M.nodes[p]["node"] == NodeType.PORT
+                    and M.nodes[p]["belongs_to"] == node
+                ]:
+                    edges = [
+                        (a, b) for a, b, d in M.edges(nbunch=p, data=True) if "sets" in d
                     ]
-                )
-                for x in p_adjacent:
-                    edge = M.edges[(port, x)]
-                    if "sets" in edge and set_id in edge["sets"]:
-                        used_ports = used_ports.union(set([port]))
-                        outward_edge_at_port[port] = (port, x)
+                    if len(edges) > 0:
+                        all_used_ports.append(p)
 
-            if len(used_ports) < 1:
-                # cannot happen actually
-                continue
-            if len(used_ports) == 1 and config_vars["draw.drawdeg1marks"].get():
-                # this is a deg 1 node for this set
-                # idk, could connect to center
-                # or maybe draw a small mark?
-                a = used_ports.pop()
-                _, b = outward_edge_at_port[a]
-                apos, bpos = M.edges[(a, b)]["edge_pos"][set_id][(a, b)]
-                cx, cy = get_segment_circle_intersection(
-                    (apos, bpos),
-                    (M.nodes[node]["pos"], config_vars["draw.nodecircleradius"].get()),
-                )
-                circle = svg.Circle(
-                    cx=cx,
-                    cy=cy,
-                    r=config_vars["draw.deg1marksize"].get(),
-                    fill=config_vars["draw.setcolors"].get()[
-                        instance["set_ftb_order"].index(set_id)
-                    ],
-                )
-                circle.append_title(set_id)
-                geometries.append(circle)
-                continue
+                used_ports = set()
+                outward_edge_at_port = dict()
+                for port in all_used_ports:
+                    p_adjacent = list(
+                        [
+                            x
+                            for w, x in M.edges(nbunch=[port])
+                            if M.nodes[x]["node"] == NodeType.PORT
+                        ]
+                    )
+                    for x in p_adjacent:
+                        edge = M.edges[(port, x)]
+                        if "sets" in edge and set_id in edge["sets"]:
+                            used_ports = used_ports.union(set([port]))
+                            outward_edge_at_port[port] = (port, x)
 
-            all_edges_at_ports = get_port_edges(L, node)
-            port_port_edges = [
-                (a, b, L.edges[(a, b, EdgeType.PHYSICAL)]["weight"])
-                for a, b in all_edges_at_ports
-                if a in used_ports and b in used_ports
-            ]
-
-            G_node = nx.Graph()
-            G_node.add_weighted_edges_from(port_port_edges)
-            for a, b, w in port_port_edges:
-                G_node.add_node(a, **M.nodes[a])
-                G_node.add_node(b, **M.nodes[b])
-
-            # identify crossing edges and penalize the one with more weight
-            for e1, e2 in get_crossing_port_edges(G_node):
-                u, v = e1
-                w, x = e2
-                weight_uv = G_node.edges[u, v]["weight"]
-                weight_wx = G_node.edges[w, x]["weight"]
-                edge_to_penalize = e1
-                if weight_wx > weight_uv:
-                    edge_to_penalize = e2
-                a, b = edge_to_penalize
-                G_node.edges[a, b]["weight"] = float("inf")
-
-            within_node_connections = nx.minimum_spanning_tree(G_node, weight="weight")
-            for a, b in within_node_connections.edges():
-                line = svg.Path(
-                    **{
-                        "close": False,
-                        "stroke_width": config_vars["draw.strokewidth"].get(),
-                        "fill": "none",
-                        "data_weight": G_node.edges[a, b]["weight"],
-                        "stroke": config_vars["draw.setcolors"].get()[
+                if len(used_ports) < 1:
+                    # cannot happen actually
+                    continue
+                if len(used_ports) == 1 and config_vars["draw.drawdeg1marks"].get():
+                    # this is a deg 1 node for this set
+                    # idk, could connect to center
+                    # or maybe draw a small mark?
+                    a = used_ports.pop()
+                    _, b = outward_edge_at_port[a]
+                    apos, bpos = M.edges[(a, b)]["edge_pos"][set_id][(a, b)]
+                    cx, cy = get_segment_circle_intersection(
+                        (apos, bpos),
+                        (M.nodes[node]["pos"], config_vars["draw.nodecircleradius"].get()),
+                    )
+                    circle = svg.Circle(
+                        cx=cx,
+                        cy=cy,
+                        r=config_vars["draw.deg1marksize"].get(),
+                        fill=config_vars["draw.setcolors"].get()[
                             instance["set_ftb_order"].index(set_id)
                         ],
-                    }
-                )
-                _, v = outward_edge_at_port[a]
-                _, x = outward_edge_at_port[b]
+                    )
+                    circle.append_title(set_id)
+                    geometries.append(circle)
+                    continue
 
-                apos, vpos = M.edges[(a, v)]["edge_pos"][set_id][(a, v)]
-                bpos, xpos = M.edges[(b, x)]["edge_pos"][set_id][(b, x)]
+                all_edges_at_ports = get_port_edges(L, node)
+                port_port_edges = [
+                    (a, b, L.edges[(a, b, EdgeType.PHYSICAL)]["weight"])
+                    for a, b in all_edges_at_ports
+                    if a in used_ports and b in used_ports
+                ]
 
-                a_intersect = get_segment_circle_intersection(
-                    (vpos, apos),
-                    (M.nodes[node]["pos"], config_vars["draw.nodecircleradius"].get()),
-                )
-                b_intersect = get_segment_circle_intersection(
-                    (bpos, xpos),
-                    (M.nodes[node]["pos"], config_vars["draw.nodecircleradius"].get()),
-                )
+                G_node = nx.Graph()
+                G_node.add_weighted_edges_from(port_port_edges)
+                for a, b, w in port_port_edges:
+                    G_node.add_node(a, **M.nodes[a])
+                    G_node.add_node(b, **M.nodes[b])
 
-                av_center = centroid([apos, vpos])
-                bx_center = centroid([bpos, xpos])
+                # identify crossing edges and penalize the one with more weight
+                for e1, e2 in get_crossing_port_edges(G_node):
+                    u, v = e1
+                    w, x = e2
+                    weight_uv = G_node.edges[u, v]["weight"]
+                    weight_wx = G_node.edges[w, x]["weight"]
+                    edge_to_penalize = e1
+                    if weight_wx > weight_uv:
+                        edge_to_penalize = e2
+                    a, b = edge_to_penalize
+                    G_node.edges[a, b]["weight"] = float("inf")
 
-                barc = biarc(av_center, a_intersect, b_intersect, bx_center)
-                draw_biarc(line, barc)
+                within_node_connections = nx.minimum_spanning_tree(G_node, weight="weight")
+                for a, b in within_node_connections.edges():
+                    line = svg.Path(
+                        **{
+                            "close": False,
+                            "stroke_width": config_vars["draw.strokewidth"].get(),
+                            "fill": "none",
+                            "data_weight": G_node.edges[a, b]["weight"],
+                            "stroke": config_vars["draw.setcolors"].get()[
+                                instance["set_ftb_order"].index(set_id)
+                            ],
+                        }
+                    )
+                    _, v = outward_edge_at_port[a]
+                    _, x = outward_edge_at_port[b]
 
-                geometries.append(line)
+                    apos, vpos = M.edges[(a, v)]["edge_pos"][set_id][(a, v)]
+                    bpos, xpos = M.edges[(b, x)]["edge_pos"][set_id][(b, x)]
+
+                    a_intersect = get_segment_circle_intersection(
+                        (vpos, apos),
+                        (M.nodes[node]["pos"], config_vars["draw.nodecircleradius"].get()),
+                    )
+                    b_intersect = get_segment_circle_intersection(
+                        (bpos, xpos),
+                        (M.nodes[node]["pos"], config_vars["draw.nodecircleradius"].get()),
+                    )
+
+                    av_center = centroid([apos, vpos])
+                    bx_center = centroid([bpos, xpos])
+
+                    barc = biarc(av_center, a_intersect, b_intersect, bx_center)
+                    draw_biarc(line, barc)
+
+                    geometries.append(line)
 
     if config_vars["draw.drawhubs"].get():
         hubs = [n for n in M.nodes() if M.degree[n] > 0]

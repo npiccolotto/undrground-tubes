@@ -14,11 +14,7 @@ from scipy.spatial import procrustes
 
 from util.draw import draw_embedding
 from util.DGrid import DGrid
-
-# import umap
-# import umap.plot
-# import umap.utils as utils
-# import umap.aligned_umap
+from util.config import config_vars
 
 
 def get_bounds(P):
@@ -130,9 +126,8 @@ def solve_qsap_linearized(a, A, b, B):
     mapping, diff = gp.multidict(d)
 
     model = gp.Model("qsap")
-    # model.params.nonConvex = 2
-    model.params.timeLimit = 10
-    model.params.MIPGap = 0.5
+    model.params.timeLimit = config_vars["layout.ilptimeoutsecs"].get()
+    model.params.MIPGap = config_vars["layout.ilpmipgap"].get()
 
     el_to_pos = model.addVars(
         list(product(rla, rlb)),
@@ -163,17 +158,11 @@ def solve_qsap_linearized(a, A, b, B):
         for j in rlb:
             if model.getVarByName(f"el_to_pos[{i},{j}]").X > 0:
                 result.append(b[j])
-    return result
+    return np.array(result)
 
 
-def layout_qsap(elements, D_EA, D_SR, m=10, n=10, weight=0.5):
+def layout_qsap(elements, D, m=10, n=10):
     """Quadratic assignment onto grid, for now assuming constant space between cells."""
-
-    # 1) make distance matrix D by combining D_EA and D_SR using weight
-    # TODO try what ranking instead of minmax norm does
-    DE = normalize(np.array(D_EA))
-    DS = normalize(np.array(D_SR))
-    D = (1 - weight) * DE + weight * DS
 
     # 2) make host distances H
     grid = list(product(range(m), range(n)))
@@ -244,17 +233,17 @@ def solve_hagrid_optimal_comb(max_domain, pos):
     model.write("hagrid_comb.lp")
     model.optimize()
 
-    for i in range(el_count):
-        for j in range(max_domain):
-            if model.getVarByName(f"p[{i},{j}]").X > 0:
-                print(
-                    pos[i],
-                    "->",
-                    domain[j] - 1,
-                    "(",
-                    model.getVarByName(f"diff[{i}]").X,
-                    ")",
-                )
+    # for i in range(el_count):
+    #    for j in range(max_domain):
+    #        if model.getVarByName(f"p[{i},{j}]").X > 0:
+    #            print(
+    #                pos[i],
+    #                "->",
+    #                domain[j] - 1,
+    #                "(",
+    #                model.getVarByName(f"diff[{i}]").X,
+    #                ")",
+    #            )
 
 
 def solve_hagrid_optimal(max_domain, pos):
@@ -330,15 +319,15 @@ def solve_hagrid_optimal(max_domain, pos):
     model.write("hagrid.lp")
     model.optimize(callback)
 
-    for i in rle:
-        print(
-            pos[i],
-            "->",
-            model.getVarByName(f"p[{i}]").X,
-            "(",
-            model.getVarByName(f"diff_abs[{i}]").X,
-            ")",
-        )
+    # for i in rle:
+    #    print(
+    #        pos[i],
+    #        "->",
+    #        model.getVarByName(f"p[{i}]").X,
+    #        "(",
+    #        model.getVarByName(f"diff_abs[{i}]").X,
+    #        ")",
+    #    )
 
     return [int(model.getVarByName(f"p[{i}]").X) for i in rle]
 
@@ -379,156 +368,90 @@ def naive_matching(L1, L2):
     return rot, scale
 
 
-def layout_dr_umap(
-    elements, D_EA, D_SR, m=10, n=10, weight=0.5, skip_overlap_removal=False
-):
+def layout_mds(D, m=10, n=10):
+    return MDS(
+        n_components=2,
+        metric=True,
+        random_state=2,
+        dissimilarity="precomputed",
+        normalized_stress="auto",
+    ).fit_transform(D)
+
+
+def layout_single(elements, D_EA, D_SR, m=10, n=10, weight=0.5):
+    layouter = config_vars["layout.layouter"].get()
+
+    if layouter == "auto":
+        strat = config_vars["general.strategy"].get()
+        layouter = "mds" if strat == "heuristic" else "qsap"
+
     DE = (D_EA - np.min(D_EA)) / (np.max(D_EA) - np.min(D_EA))
     DS = np.array(D_SR)
     D = (1 - weight) * DE + weight * DS
 
-    mds = MDS(n_components=2, metric=True, random_state=2, dissimilarity="precomputed")
-    H_mds = mds.fit_transform(D)
-
-    # sns.scatterplot(x=H_mds[:,0], y=H_mds[:,1], palette='Set1')
-    # plt.show()
-
-    if not skip_overlap_removal:
-        x_min = np.min(H_mds[:, 0])
-        y_min = np.min(H_mds[:, 1])
-        x_max = np.max(H_mds[:, 0])
-        y_max = np.max(H_mds[:, 1])
-
-        w = x_max - x_min
-        h = y_max - y_min
-
-        H_mds[:, 0] = ((H_mds[:, 0] - x_min) / w) * (n)
-        H_mds[:, 1] = ((H_mds[:, 1] - y_min) / h) * (m)
-
-        h_overlap_removed = DGrid(glyph_width=1, glyph_height=1, delta=1).fit_transform(
-            H_mds
-        )
-
-        pos = []
-        for i in range(len(DE)):
-            pos.append((int(h_overlap_removed[i, 0]), int(h_overlap_removed[i, 1])))
-    else:
-        pos = []
-        for i in range(len(DE)):
-            pos.append((H_mds[i, 0], H_mds[i, 1]))
-
-    return pos
+    match layouter:
+        case "mds":
+            return layout_mds(D, m=m, n=n)
+        case "qsap":
+            return layout_qsap(elements, D, m=m, n=n)
 
 
-def layout_dr(elements, D_EA, D_SR, m=10, n=10, weight=0.5, skip_overlap_removal=False):
-    """dimensionality reduction onto grid, for now assuming constant space between cells."""
-
-    # 1) make distance matrix D by combining D_EA and D_SR using weight
-    # TODO try what ranking instead of minmax norm does
-    DE = (D_EA - np.min(D_EA)) / (np.max(D_EA) - np.min(D_EA))
-    DS = np.array(D_SR)
-    D = (1 - weight) * DE + weight * DS
-
-    mds = MDS(n_components=2, metric=True, random_state=2, dissimilarity="precomputed")
-    H_mds = mds.fit_transform(D)
-
-    draw_embedding(H_mds, "./embedding_raw.svg")
-
-    if not skip_overlap_removal:
-        x_min = np.min(H_mds[:, 0])
-        y_min = np.min(H_mds[:, 1])
-        x_max = np.max(H_mds[:, 0])
-        y_max = np.max(H_mds[:, 1])
-
-        w = x_max - x_min
-        h = y_max - y_min
-
-        H_mds[:, 0] = ((H_mds[:, 0] - x_min) / w) * (m)
-        H_mds[:, 1] = ((H_mds[:, 1] - y_min) / h) * (n)
-
-        h_overlap_removed = DGrid(glyph_width=1, glyph_height=1, delta=1).fit_transform(
-            H_mds
-        )
-
-        draw_embedding(h_overlap_removed, "./embedding_gridded.svg")
-
-        pos = []
-        for i in range(len(DE)):
-            pos.append((int(h_overlap_removed[i, 0]), int(h_overlap_removed[i, 1])))
-    else:
-        pos = []
-        for i in range(len(DE)):
-            pos.append((H_mds[i, 0], H_mds[i, 1]))
-
-    return pos
-
-
-def layout_dr_multiple(D_EA, D_SR, m=10, n=10, num_samples=10):
-    N = len(D_EA)
-
-    pos_mtx = []
-    for weight in np.linspace(0, 1, num_samples):
-        print(f'weight={weight}')
-        DE = (D_EA - np.min(D_EA)) / (np.max(D_EA) - np.min(D_EA))
-        DS = np.array(D_SR)
-        D = (1 - weight) * DE + weight * DS
-
-        mds = MDS(
-            n_components=2, metric=True, random_state=2, dissimilarity="precomputed", normalized_stress='auto'
-        )
-        H_mds = mds.fit_transform(D)
-
-        # sns.scatterplot(x=H_mds[:,0], y=H_mds[:,1], palette='Set1')
-        # plt.show()
-
-        pos = np.zeros((len(DE), 2))
-        for i in range(len(DE)):
-            pos[i][0] = H_mds[i, 0]
-            pos[i][1] = H_mds[i, 1]
-
-        pos_mtx.append(pos)
-
-    transformation_mtx = []
-
+def align_layouts(layouts):
     output_pos = []
-    output_pos.append(pos_mtx[0])
-    mtx_old = pos_mtx[0]
+    output_pos.append(layouts[0])
+    mtx_old = layouts[0]
 
-    for i in range(1, num_samples):
-        mtx1, mtx2, disparity = procrustes(mtx_old, pos_mtx[i])
+    for i in range(1, len(layouts)):
+        mtx1, mtx2, disparity = procrustes(mtx_old, layouts[i])
 
         mtx_old = mtx2
         output_pos.append(mtx2)
 
-    layouts = []
+    return output_pos
 
-    for i in range(0, num_samples):
-        H_mds = output_pos[i]
-        x_min = H_mds.min(axis=0)[0]
-        y_min = H_mds.min(axis=0)[1]
-        x_max = H_mds.max(axis=0)[0]
-        y_max = H_mds.max(axis=0)[1]
 
-        w = x_max - x_min
-        h = y_max - y_min
+def remove_overlaps(layout, m=10, n=10):
+    x_min = layout.min(axis=0)[0]
+    y_min = layout.min(axis=0)[1]
+    x_max = layout.max(axis=0)[0]
+    y_max = layout.max(axis=0)[1]
 
-        H_mds[:, 0] = ((H_mds[:, 0] - x_min) / w) * (m)
-        H_mds[:, 1] = ((H_mds[:, 1] - y_min) / h) * (n)
+    w = x_max - x_min
+    h = y_max - y_min
 
-        h_overlap_removed = DGrid(glyph_width=1, glyph_height=1, delta=1).fit_transform(
-            H_mds
+    layout[:, 0] = ((layout[:, 0] - x_min) / w) * (m)
+    layout[:, 1] = ((layout[:, 1] - y_min) / h) * (n)
+
+    remover = config_vars["layout.overlapremover"].get()
+
+    is_square = m == n
+    power2_exp = math.log2(m)
+    is_power_of_2_square = is_square and power2_exp == int(power2_exp)
+    if remover == "hagrid" and not is_power_of_2_square:
+        print(
+            "WARN: Hagrid used as overlap remover, but grid size is not a power of 2 square. falling back to DGrid."
         )
+        remover = "dgrid"
 
-        pos = []
-        for i in range(len(DE)):
-            pos.append((int(h_overlap_removed[i, 0]), int(h_overlap_removed[i, 1])))
+    match remover:
+        case "hagrid":
+            return gridify_square(layout, int(power2_exp)).astype(int)
+        case "dgrid":
+            return (
+                DGrid(glyph_width=1, glyph_height=1, delta=1)
+                .fit_transform(layout)
+                .astype(int)
+            )
 
-        layouts.append(pos)
 
-    for i,l in enumerate(layouts):
-        draw_embedding(np.array(l), f"./embedding_gridded_{i}.svg")
+def layout(elements, D_EA, D_SR, m=10, n=10, num_weights=3):
+    layouts = [
+        layout_single(elements, D_EA, D_SR, m=m, n=n, weight=w)
+        for w in np.linspace(0, 1, num_weights)
+    ]
 
+    layouts = align_layouts(layouts)
+    layouts = [remove_overlaps(layout, m=m, n=n) for layout in layouts]
+
+    layouts = list(map(lambda layout: list(map(tuple, layout)), layouts))
     return layouts
-
-
-if __name__ == "__main__":
-    print(gridify_square(np.array([[0.2, 0.1], [0.1, 0.3], [4, 1.2]]), level=1))

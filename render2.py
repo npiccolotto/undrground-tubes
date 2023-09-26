@@ -14,10 +14,11 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 
+from util.metrics import compute_metrics
 from util.config import (
     config_vars,
 )
-from util.bundle import bundle_lines
+from util.bundle import bundle_lines_gg, bundle_lines_lg
 from util.collections import (
     group_by_intersection_group,
     group_by_set,
@@ -40,10 +41,11 @@ from util.graph import (
     path_to_edges,
     extract_support_layer,
     get_ports,
+    convert_line_graph_to_grid_graph,
 )
-from util.layout import layout_dr, layout_dr_multiple, layout_qsap
+from util.layout import layout
 from util.perf import timing
-from util.route import route_multilayer_ilp, route_multilayer_heuristic
+from util.route import route, determine_router
 
 
 def add_ports_to_sqr_node(G, node, data, side_length=0.25):
@@ -276,12 +278,13 @@ def render(
     instance["num_layers"] = num_weights
 
     with timing("layout"):
-        instance["glyph_positions"] = layout_dr_multiple(
+        instance["glyph_positions"] = layout(
+            instance["elements"],
             instance["D_EA"],
             instance["D_SR"],
             m=config_vars["general.gridwidth"].get(),
             n=config_vars["general.gridheight"].get(),
-            num_samples=num_weights,
+            num_weights=num_weights,
         )
 
     with timing("routing"):
@@ -303,150 +306,41 @@ def render(
             element_set_partition, key=lambda x: len(x[1]), reverse=True
         )
 
-        print("element partition", element_set_partition)
-
-        if config_vars["general.strategy"].get() == "opt":
-            L = route_multilayer_ilp(
-                instance,
-                nx.subgraph_view(
-                    G,
-                    filter_edge=lambda u, v, k: k == EdgeType.CENTER,
-                    filter_node=lambda n: G.nodes[n]["node"] == NodeType.CENTER,
-                ),
-                element_set_partition,
-            )
-        else:
-            L = route_multilayer_heuristic(
-                instance,
-                G,
-                element_set_partition,
-            )
+        L = route(instance, G, element_set_partition)
 
     for layer in range(num_weights):
         M = extract_support_layer(L, layer)
         draw_support(instance, M, layer)
 
+    router = determine_router()
     with timing("bundle lines"):
-        L = bundle_lines(instance, L)
+        L = (
+            bundle_lines_lg(instance, L)
+            if router == "opt"
+            else bundle_lines_gg(instance, L)
+        )
 
-    if config_vars["general.strategy"].get() == "opt":
-        # merge grid graph data (ports at nodes) with line graph data (routing and bundling info)
+    if router == "opt":
+        # the heuristic routing uses the grid graph (ie., with port nodes), but the optimal routing does not
+        # this is fine for the bundle step, which also uses the line graph (i.e., without port nodes)
+        # but for drawing we need the port nodes, so a postprocessing step is required that inserts them.
         # we have
         # G = multigraph with center and physical nodes/edges
         # L = a multigraph with (layer, support) edges and center nodes
-        for layer in range(num_weights):
-            for i, esp in enumerate(element_set_partition):
-                elements, sets = esp
-                root_pos = instance["glyph_positions"][layer][
-                    instance["elements_inv"][elements[0]]
-                ]
-                for j, el in enumerate(elements):
-                    if j == 0:
-                        continue
-                    j_pos = instance["glyph_positions"][layer][
-                        instance["elements_inv"][el]
-                    ]
-                    P = nx.subgraph_view(
-                        L,
-                        filter_edge=lambda u, v, k: k == (layer, EdgeType.SUPPORT)
-                        and i in L.edges[u, v, k]["partitions"],
-                    )
-                    path_j = path_to_edges(
-                        nx.shortest_path(P, root_pos, j_pos)
-                    )  # P should actually just be a path already but we do this to order edges
-
-                    edge_pairs_path_j = list(pairwise(path_j))
-                    for l, edge_pair in enumerate(edge_pairs_path_j):
-                        e1, e2 = edge_pair
-                        u, v = e1
-                        v, x = e2
-
-                        port_u, port_vu = get_ports(G, u, v)
-                        port_vx, port_x = get_ports(G, v, x)
-
-                        if l == 0:
-                            # add edge from center to first port
-                            G.add_edge(
-                                u,
-                                port_u,
-                                (layer, EdgeType.SUPPORT),
-                                edge=EdgeType.SUPPORT,
-                                sets=set(
-                                    L.edges[u, v, (layer, EdgeType.SUPPORT)]["sets"]
-                                ),
-                            )
-                        if l == len(edge_pairs_path_j) - 1:
-                            # add edge from last port to center
-                            G.add_edge(
-                                port_x,
-                                x,
-                                (layer, EdgeType.SUPPORT),
-                                edge=EdgeType.SUPPORT,
-                                sets=set(
-                                    L.edges[v, x, (layer, EdgeType.SUPPORT)]["sets"]
-                                ),
-                            )
-
-                        # TODO remove MST heurisitic in drawing code
-
-                        oeb_order_u_v = {
-                            (port_u, port_vu): L.edges[u, v, (layer, EdgeType.SUPPORT)][
-                                "oeb_order"
-                            ][(u, v)],
-                            (port_vu, port_u): L.edges[u, v, (layer, EdgeType.SUPPORT)][
-                                "oeb_order"
-                            ][(v, u)],
-                        }
-                        G.add_edge(
-                            port_u,
-                            port_vu,
-                            (layer, EdgeType.SUPPORT),
-                            **{
-                                **L.edges[u, v, (layer, EdgeType.SUPPORT)],
-                                "oeb_order": oeb_order_u_v,
-                            },
-                        )
-
-                        oeb_order_v_x = {
-                            (port_vx, port_x): L.edges[v, x, (layer, EdgeType.SUPPORT)][
-                                "oeb_order"
-                            ][(v, x)],
-                            (port_x, port_vx): L.edges[v, x, (layer, EdgeType.SUPPORT)][
-                                "oeb_order"
-                            ][(x, v)],
-                        }
-                        G.add_edge(
-                            port_vx,
-                            port_x,
-                            (layer, EdgeType.SUPPORT),
-                            **{
-                                **L.edges[v, x, (layer, EdgeType.SUPPORT)],
-                                "oeb_order": oeb_order_v_x,
-                            },
-                        )
-
-                        G.add_edge(
-                            port_vu,
-                            port_vx,
-                            (layer, EdgeType.SUPPORT),
-                            edge=EdgeType.SUPPORT,
-                            sets=set(
-                                L.edges[v, x, (layer, EdgeType.SUPPORT)]["sets"]
-                            ).intersection(
-                                set(L.edges[u, v, (layer, EdgeType.SUPPORT)]["sets"])
-                            ),
-                        )
+        G = convert_line_graph_to_grid_graph(instance,L,G, element_set_partition)
         L = G
 
     with timing("serialize graph"):
         # avoid referencing issues
         L_ = copy.deepcopy(L)
-
+        L_.remove_edges_from([(u,v,k) for u,v,k in L_.edges(keys=True) if not (isinstance(k,tuple) and k[1] == EdgeType.SUPPORT)])
         for u, v, d in L_.edges(data=True):
             # convert stuff that json doesn't like
             # sets
             if "sets" in d:
                 d["sets"] = list(d["sets"])
+            if "partitions" in d:
+                d["partitions"] = list(d["partitions"])
             # tuple keys
             if "oeb_order" in d:
                 keys = list(d["oeb_order"])
@@ -458,16 +352,16 @@ def render(
             os.path.join(config_vars["general.writedir"].get(), "serialized.json"), "w"
         ) as f:
             json.dump(nx.node_link_data(L_), f)
-
+    R = copy.deepcopy(L)
     with timing("draw+write svg"):
+        L.add_edges_from(
+            [
+                (u, v, k, d)
+                for u, v, k, d in G.edges(keys=True, data=True)
+                if k == EdgeType.PHYSICAL
+            ]
+        )
         for layer in range(num_weights):
-            L.add_edges_from(
-                [
-                    (u, v, k, d)
-                    for u, v, k, d in G.edges(keys=True, data=True)
-                    if k == EdgeType.PHYSICAL
-                ]
-            )
             geometries = geometrize(instance, L, element_set_partition, layer=layer)
             img = draw_svg(
                 geometries,
@@ -484,6 +378,8 @@ def render(
             ) as f:
                 f.write(img)
                 f.flush()
+    R.remove_edges_from([(u,v,k) for u,v,k in R.edges(keys=True) if not (isinstance(k,tuple) and k[1] == EdgeType.SUPPORT)])
+    return R
 
 
 @click.command()
@@ -509,6 +405,21 @@ def render(
     type=click.Choice(["set", "intersection-group"], case_sensitive=False),
     help="the partition type",
 )
+@click.option(
+    '--overlap-remover',
+    type=click.Choice(["dgrid", "hagrid"], case_sensitive=False),
+    help="the overlap removal algorithm",
+)
+@click.option(
+    '--layouter',
+    type=click.Choice(['auto', "mds", "qsap"], case_sensitive=False),
+    help="the layout algorithm",
+)
+@click.option(
+    '--router',
+    type=click.Choice(['auto', "opt", "heuristic"], case_sensitive=False),
+    help="optimal or heuristic routing",
+)
 def vis(
     read_dir,
     write_dir,
@@ -519,11 +430,14 @@ def vis(
     grid_height,
     support_type,
     support_partition,
+    overlap_remover,
+    layouter,
+    router
 ):
     if support_partition is not None:
-        config_vars["route.subsupporttype"].set(support_partition)
+        config_vars["route.subsupportgrouping"].set(support_partition)
     if support_type is not None:
-        config_vars["route.subsupportgrouping"].set(support_type)
+        config_vars["route.subsupporttype"].set(support_type)
     if strategy is not None:
         config_vars["general.strategy"].set(strategy)
     if grid_width is not None:
@@ -536,6 +450,12 @@ def vis(
         config_vars["general.writedir"].set(write_dir)
     if num_weights is not None:
         config_vars["general.numlayers"].set(num_weights)
+    if overlap_remover is not None:
+        config_vars['layout.overlapremover'].set(overlap_remover)
+    if layouter is not None:
+        config_vars['layout.layouter'].set(layouter)
+    if router is not None:
+        config_vars['route.router'].set(router)
 
     os.makedirs(config_vars["general.writedir"].get(), exist_ok=True)
 
@@ -546,7 +466,7 @@ def vis(
             dataset,
         )
         ctx = contextvars.copy_context()
-        ctx.run(fun)
+        G = ctx.run(fun)
         end = time.time()
 
         duration = end - start
@@ -558,6 +478,7 @@ def vis(
                 {
                     "success": True,
                     "duration_ms": duration * 1000,
+                    "metrics": compute_metrics(G),
                     "ctx": {key: value.get() for key, value in config_vars.items()},
                 },
                 f,
