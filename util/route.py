@@ -23,7 +23,7 @@ from util.graph import (
 )
 from util.collections import set_contains
 from util.config import config_vars
-
+from util.mip import write_status
 
 def get_bend(e1, e2):
     u, v = e1
@@ -536,6 +536,8 @@ def route_multilayer_ilp(instance, G, element_set_partition):
     model.Params.LazyConstraints = 1
     model.optimize(callback)
 
+    write_status('route', model)
+
     MM = nx.MultiGraph(incoming_graph_data=G)
 
     for k in range(num_layers):
@@ -791,6 +793,8 @@ def route_multilayer_ilp_gg(
     model.setObjective(obj, sense=GRB.MINIMIZE)
     model.Params.LazyConstraints = 1
     model.optimize(callback)
+
+    write_status('route', model)
 
     MM = nx.MultiGraph(incoming_graph_data=G)
 

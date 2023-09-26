@@ -2,6 +2,7 @@ import math
 from collections import Counter, defaultdict
 from itertools import pairwise, product
 
+import os
 import gurobipy as gp
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,6 +16,7 @@ from scipy.spatial import procrustes
 from util.draw import draw_embedding
 from util.DGrid import DGrid
 from util.config import config_vars
+from util.mip import write_status
 
 
 def get_bounds(P):
@@ -153,6 +155,8 @@ def solve_qsap_linearized(a, A, b, B):
     model.update()
     model.optimize()
 
+    write_status('layout', model)
+
     result = []
     for i in rla:
         for j in rlb:
@@ -190,60 +194,6 @@ def layout_qsap(elements, D, m=10, n=10):
     # col_ind has the indices in grid to match elements
     # pos = [grid[res.col_ind[i]] for i, el in enumerate(elements)]
     return pos
-
-
-def solve_hagrid_optimal_comb(max_domain, pos):
-    model = gp.Model("hagrid_comb")
-
-    el_count = len(pos)
-
-    # indices of elements
-    rle = list(range(el_count))
-    # indices of positions
-    rlp = list(range(max_domain))
-    # discretized positions
-    # avoid having 0 factors somewhere, so shift by +1
-    domain = range(1, max_domain + 1)
-
-    # discretized position
-    p = model.addVars(
-        product(rle, rlp),
-        vtype=GRB.BINARY,
-        name="p",
-    )
-
-    #  diff p - x
-    diff = model.addVars(rle, vtype=GRB.CONTINUOUS, lb=-10 * max_domain, name="diff")
-    abs_diff = model.addVars(rle, vtype=GRB.CONTINUOUS, lb=0, name="diff_abs")
-
-    for i, x in enumerate(pos):
-        model.addConstr(
-            diff[i] == 1 + x - gp.quicksum(p[i, j] * domain[j] for j in rlp)
-        )
-        model.addConstr(abs_diff[i] == gp.abs_(diff[i]))
-
-    # use each position at most once
-    model.addConstrs((gp.quicksum(p[i, j] for i in rle)) <= 1 for j in rlp)
-    # assign all elements
-    model.addConstrs((gp.quicksum(p[i, j] for j in rlp)) == 1 for i in rle)
-
-    model.setObjective(gp.quicksum(abs_diff), sense=GRB.MINIMIZE)
-
-    model.update()
-    model.write("hagrid_comb.lp")
-    model.optimize()
-
-    # for i in range(el_count):
-    #    for j in range(max_domain):
-    #        if model.getVarByName(f"p[{i},{j}]").X > 0:
-    #            print(
-    #                pos[i],
-    #                "->",
-    #                domain[j] - 1,
-    #                "(",
-    #                model.getVarByName(f"diff[{i}]").X,
-    #                ")",
-    #            )
 
 
 def solve_hagrid_optimal(max_domain, pos):
@@ -318,6 +268,8 @@ def solve_hagrid_optimal(max_domain, pos):
     model.update()
     model.write("hagrid.lp")
     model.optimize(callback)
+
+    write_status("overlapremoval", model)
 
     # for i in rle:
     #    print(
