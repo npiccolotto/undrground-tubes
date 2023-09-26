@@ -23,7 +23,8 @@ from util.graph import (
 )
 from util.collections import set_contains
 from util.config import config_vars
-from util.mip import write_status
+from util.mip import write_status, write_fake_status
+
 
 def get_bend(e1, e2):
     u, v = e1
@@ -296,6 +297,8 @@ def route_multilayer_heuristic(
                 continue
             G_.add_edge(u, v, (layer, k), **L.edges[u, v, k])
 
+    write_fake_status("route")
+
     return G_
 
 
@@ -536,7 +539,7 @@ def route_multilayer_ilp(instance, G, element_set_partition):
     model.Params.LazyConstraints = 1
     model.optimize(callback)
 
-    write_status('route', model)
+    write_status("route", model)
 
     MM = nx.MultiGraph(incoming_graph_data=G)
 
@@ -794,7 +797,7 @@ def route_multilayer_ilp_gg(
     model.Params.LazyConstraints = 1
     model.optimize(callback)
 
-    write_status('route', model)
+    write_status("route", model)
 
     MM = nx.MultiGraph(incoming_graph_data=G)
 

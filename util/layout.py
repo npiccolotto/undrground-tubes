@@ -16,7 +16,7 @@ from scipy.spatial import procrustes
 from util.draw import draw_embedding
 from util.DGrid import DGrid
 from util.config import config_vars
-from util.mip import write_status
+from util.mip import write_status, write_fake_status
 
 
 def get_bounds(P):
@@ -155,7 +155,7 @@ def solve_qsap_linearized(a, A, b, B):
     model.update()
     model.optimize()
 
-    write_status('layout', model)
+    write_status("layout", model)
 
     result = []
     for i in rla:
@@ -321,6 +321,7 @@ def naive_matching(L1, L2):
 
 
 def layout_mds(D, m=10, n=10):
+    write_fake_status("layout")
     return MDS(
         n_components=2,
         metric=True,
@@ -389,6 +390,7 @@ def remove_overlaps(layout, m=10, n=10):
         case "hagrid":
             return gridify_square(layout, int(power2_exp)).astype(int)
         case "dgrid":
+            write_fake_status("overlapremoval")
             return (
                 DGrid(glyph_width=1, glyph_height=1, delta=1)
                 .fit_transform(layout)

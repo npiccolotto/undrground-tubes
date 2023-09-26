@@ -20,9 +20,17 @@ def get_mip_status(model):
     }
 
 
-def write_status(name, model):
+def write_json(name, data):
     with open(
         os.path.join(config_vars["general.writedir"].get(), f"ilp_status_{name}.json"),
         "w",
     ) as f:
-        json.dump(get_mip_status(model), f)
+        json.dump(data, f)
+
+
+def write_status(name, model):
+    write_json(name, get_mip_status(model))
+
+
+def write_fake_status(name):
+    write_json(name, {"mip": False})
