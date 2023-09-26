@@ -15,10 +15,10 @@ jobname=EnsembleSets
 # set soft memory (not used)
 #sm=7.8G
 
-mem=16G
+mem=32G
 
 # set hard limit run time (seconds)
 #hlr=144000
 hlr=86400
 
-qsub -N $jobname -l bc3 -l mem_free=$mem -l h_vmem=$mem -l h_rt=$hlr -e $base/logs/ -o $base/logs/ -r y run.sh $base/test
+qsub -N $jobname -l bc4 -l mem_free=$mem -l h_vmem=$mem -l h_rt=$hlr -e $base/logs/ -o $base/logs/ -r y run.sh $base/test
