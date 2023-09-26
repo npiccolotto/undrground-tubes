@@ -1,6 +1,7 @@
 import json
 import time
 import os
+import math
 import traceback
 import copy
 import click
@@ -327,13 +328,19 @@ def render(
         # we have
         # G = multigraph with center and physical nodes/edges
         # L = a multigraph with (layer, support) edges and center nodes
-        G = convert_line_graph_to_grid_graph(instance,L,G, element_set_partition)
+        G = convert_line_graph_to_grid_graph(instance, L, G, element_set_partition)
         L = G
 
     with timing("serialize graph"):
         # avoid referencing issues
         L_ = copy.deepcopy(L)
-        L_.remove_edges_from([(u,v,k) for u,v,k in L_.edges(keys=True) if not (isinstance(k,tuple) and k[1] == EdgeType.SUPPORT)])
+        L_.remove_edges_from(
+            [
+                (u, v, k)
+                for u, v, k in L_.edges(keys=True)
+                if not (isinstance(k, tuple) and k[1] == EdgeType.SUPPORT)
+            ]
+        )
         for u, v, d in L_.edges(data=True):
             # convert stuff that json doesn't like
             # sets
@@ -378,8 +385,20 @@ def render(
             ) as f:
                 f.write(img)
                 f.flush()
-    R.remove_edges_from([(u,v,k) for u,v,k in R.edges(keys=True) if not (isinstance(k,tuple) and k[1] == EdgeType.SUPPORT)])
+    R.remove_edges_from(
+        [
+            (u, v, k)
+            for u, v, k in R.edges(keys=True)
+            if not (isinstance(k, tuple) and k[1] == EdgeType.SUPPORT)
+        ]
+    )
     return R
+
+
+def autogridsize(nrow, margin=2):
+    exp = math.ceil(math.log2(nrow)) + margin
+    side = math.floor(math.sqrt(2**exp))
+    return side, side
 
 
 @click.command()
@@ -406,18 +425,18 @@ def render(
     help="the partition type",
 )
 @click.option(
-    '--overlap-remover',
+    "--overlap-remover",
     type=click.Choice(["dgrid", "hagrid"], case_sensitive=False),
     help="the overlap removal algorithm",
 )
 @click.option(
-    '--layouter',
-    type=click.Choice(['auto', "mds", "qsap"], case_sensitive=False),
+    "--layouter",
+    type=click.Choice(["auto", "mds", "qsap"], case_sensitive=False),
     help="the layout algorithm",
 )
 @click.option(
-    '--router',
-    type=click.Choice(['auto', "opt", "heuristic"], case_sensitive=False),
+    "--router",
+    type=click.Choice(["auto", "opt", "heuristic"], case_sensitive=False),
     help="optimal or heuristic routing",
 )
 def vis(
@@ -432,7 +451,7 @@ def vis(
     support_partition,
     overlap_remover,
     layouter,
-    router
+    router,
 ):
     if support_partition is not None:
         config_vars["route.subsupportgrouping"].set(support_partition)
@@ -440,10 +459,6 @@ def vis(
         config_vars["route.subsupporttype"].set(support_type)
     if strategy is not None:
         config_vars["general.strategy"].set(strategy)
-    if grid_width is not None:
-        config_vars["general.gridwidth"].set(grid_width)
-    if grid_height is not None:
-        config_vars["general.gridheight"].set(grid_height)
     if read_dir is not None:
         config_vars["general.readdir"].set(read_dir)
     if write_dir is not None:
@@ -451,11 +466,27 @@ def vis(
     if num_weights is not None:
         config_vars["general.numlayers"].set(num_weights)
     if overlap_remover is not None:
-        config_vars['layout.overlapremover'].set(overlap_remover)
+        config_vars["layout.overlapremover"].set(overlap_remover)
     if layouter is not None:
-        config_vars['layout.layouter'].set(layouter)
+        config_vars["layout.layouter"].set(layouter)
     if router is not None:
-        config_vars['route.router'].set(router)
+        config_vars["route.router"].set(router)
+    if grid_width is not None:
+        config_vars["general.gridwidth"].set(grid_width)
+    if grid_height is not None:
+        config_vars["general.gridheight"].set(grid_height)
+
+    grid_width = config_vars["general.gridwidth"].get()
+    grid_height = config_vars["general.gridheight"].get()
+    print(f"Grid size is {grid_width} x {grid_height}")
+
+    if grid_width == 0 or grid_height == 0:
+        inst = read_instance(config_vars["general.readdir"].get(), dataset)
+        nrow = len(inst["elements"])
+        grid_width, grid_height = autogridsize(nrow)
+        config_vars["general.gridwidth"].set(grid_width)
+        config_vars["general.gridheight"].set(grid_height)
+        print(f"Automatically changed grid size to {grid_width} x {grid_height}")
 
     os.makedirs(config_vars["general.writedir"].get(), exist_ok=True)
 
