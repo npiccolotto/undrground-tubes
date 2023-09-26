@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source /home1/npiccolotto/.bashrc
+
 base='/home1/npiccolotto/ensemble-sets/code'
 # adapt for local use
 #base='/Users/npiccolotto/Projects/cvast/bssvis/ensemble-set-rendering'
