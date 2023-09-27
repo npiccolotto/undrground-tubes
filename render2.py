@@ -395,9 +395,9 @@ def render(
     return R
 
 
-def autogridsize(nrow, margin=2):
-    exp = math.ceil(math.log2(nrow)) + margin
-    side = math.floor(math.sqrt(2**exp))
+def autogridsize(nrow, margin=1):
+    exp = math.ceil(math.log2(math.sqrt(nrow))) + margin
+    side = 2**exp
     return side, side
 
 
