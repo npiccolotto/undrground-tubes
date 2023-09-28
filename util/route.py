@@ -70,6 +70,8 @@ def route_single_layer_heuristic(instance, G, element_set_partition, layer=0):
         ]
     )
 
+
+
     # TODO so the thing is this
     # when we change intersection groups to actually contain all intersection groups
     # the current routing method doesn't work - too many lines
@@ -193,6 +195,7 @@ def route_single_layer_heuristic(instance, G, element_set_partition, layer=0):
                         with updated_port_node_edge_weights_incident_at(
                             G_, deg2_nodes, math.inf
                         ):
+                            #print([d for u,v,d in G_.edges(data=True) if d['edge'] != EdgeType.PHYSICAL ])
                             set_support = approximate_tsp_tour(G_, nodes_in_components)
                             set_support_edges = path_to_edges(set_support)
             else:
@@ -211,6 +214,7 @@ def route_single_layer_heuristic(instance, G, element_set_partition, layer=0):
                     )
                     set_support_edges = set_support.edges()
 
+        #print('in support edges?', ((0, 5) ,(2, 6)) in set_support_edges)
         # add those edges to support
         for u, v in set_support_edges:
             if not G.has_edge(u, v, EdgeType.SUPPORT):

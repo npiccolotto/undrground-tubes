@@ -418,8 +418,6 @@ def geometrize(instance, L, element_set_partition, layer=0):
                     _, v = orient_edge_node_inside(outward_edge_at_port[a], a)
                     _, x = orient_edge_node_inside(outward_edge_at_port[b], b)
 
-                    print(M.nodes[b], M.nodes[x])
-
                     apos, vpos = M.edges[(a, v)]["edge_pos"][set_id][(a, v)]
                     bpos, xpos = M.edges[(b, x)]["edge_pos"][set_id][(b, x)]
 

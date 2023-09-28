@@ -1,11 +1,13 @@
 import numpy as np
 import networkx as nx
 import math
+import random
 import networkx.algorithms.approximation.traveling_salesman as tsp
 import networkx.algorithms.approximation.steinertree as steinertree
 from contextlib import ContextDecorator
 from copy import deepcopy
 from itertools import product, pairwise, combinations
+from functools import partial
 
 from util.geometry import dist_euclidean
 from util.perf import timing
@@ -271,11 +273,12 @@ def approximate_steiner_tree(G, S, C=None):
 
 def update_edge_weights(G, edges, weight):
     for u, v in edges:
-        G.edges[u, v]["weight"] = (
-            weight[(u, v)]
-            if isinstance(weight, dict)
-            else (weight(G, u, v) if callable(weight) else weight)
-        )
+        if (u, v) in G.edges:
+            G.edges[u, v]["weight"] = (
+                weight[(u, v)]
+                if isinstance(weight, dict)
+                else (weight(G, u, v) if callable(weight) else weight)
+            )
 
 
 class updated_edge_weights(ContextDecorator):
@@ -397,94 +400,113 @@ def calc_distance_matrix(graph, pathmatrix, weight="weight"):
     }
 
 
+def remove_segment_in_circle(circle, s, e):
+    pos1 = circle.index(s) + 1
+    pos2 = circle[pos1:].index(e) + pos1
+    return circle[pos2:] + circle[1:pos1]
+
+
+def group_aware_greedy_tsp(G, weight="weight", groups=None, source=None):
+    """Follows implementation according to [1]. Returns a tour in G.
+
+    Properties (desired):
+    - Uses an edge in G at most once -> prevents side-steps in a path that don't look like paths in the drawing.
+    - Connects at least one element in each group
+    - Connects each element at most once
+
+    [1] https://networkx.org/documentation/stable/_modules/networkx/algorithms/approximation/traveling_salesman.html#greedy_tsp
+    """
+    if groups is None:
+        groups = list(map(lambda n: set([n]), G.nodes()))
+
+    if len(groups) == 2:
+        sp = get_shortest_path_between_sets(G, groups[0], groups[1])
+        return sp
+
+    if source is None:
+        # pick any but deterministically
+        source = list(groups[0])[0]
+
+    G_ = G.copy()
+
+    nodeset = set.union(*groups)
+    node_conflicts = dict()
+    for n in nodeset:
+        for g in groups:
+            if n in g:
+                gs = set(g)
+                gs.remove(n)
+                node_conflicts[n] = gs
+                continue
+
+    nodeset.remove(source)
+    cycle = [source]
+    cycle_dists = []
+    next_node = source
+    paths = []
+
+
+    while nodeset:
+        nodelist = [n for n in nodeset if n not in node_conflicts[cycle[-1]]]
+        if not nodelist:
+            # there are no non-conflicting nodes we could connect to
+            # assume that we're done? because it means the only other nodes
+            # left are from the same group, which by assumption is connected already
+            break
+        shortest_paths = [
+            nx.shortest_path(G_, cycle[-1], n, weight=weight) for n in nodelist
+        ]
+        dists = [
+            calculate_path_length(G_, path_to_edges(sp), weight=weight)
+            for sp in shortest_paths
+        ]
+        argmin = np.argmin(dists)
+        min_idx = argmin[0] if isinstance(argmin, list) else argmin
+        next_node = nodelist[min_idx]
+        cycle_dists.append((cycle[-1], next_node, dists[min_idx]))
+        cycle.append(next_node)
+        paths.extend(shortest_paths[min_idx][:-1])
+        nodeset.remove(next_node)
+
+        # update G
+        # block used edges, must not be used again
+        update_edge_weights(G_, path_to_edges(shortest_paths[min_idx]), math.inf)
+        # block also the crossing twins?
+
+    sp = nx.shortest_path(G_, cycle[-1], cycle[0], weight=weight)
+    dist = calculate_path_length(G_, path_to_edges(sp), weight=weight)
+    cycle_dists.append((cycle[-1], cycle[0], dist))
+    cycle.append(cycle[0])
+    paths.extend(sp)
+
+    # remove biggest step in cycle
+    dists = list(map(lambda x: x[2], cycle_dists))
+    longest_step = np.argmax(dists)
+    a, b, _ = cycle_dists[longest_step]
+    paths = remove_segment_in_circle(paths, a, b)
+
+    assert all(
+        [(u, v) in G_.edges for u, v in path_to_edges(paths)]
+    ), "at least one edge not in graph"
+    assert all(
+        [
+            (G_.nodes[u]["node"], G_.nodes[v]["node"])
+            != (NodeType.CENTER, NodeType.CENTER)
+            for u, v in path_to_edges(paths)
+        ],
+    ), "at least one edge connects two centers"
+    assert G_.nodes[paths[0]]["node"] == NodeType.CENTER, "first node not a center"
+    assert G_.nodes[paths[-1]]["node"] == NodeType.CENTER, "last node not a center"
+
+    return paths
+
+
 def approximate_tsp_tour(G, S):
     """Returns an approximation of the shortest tour in G visiting all nodes S exactly once while using each edge at most once.
     Which is almost but not really a TSP tour (e.g., G is not completely connected), but let's continue calling it that.
     """
-
-    if len(S) < 3:
-        sp = get_shortest_path_between_sets(G, S[0], S[1])
-        return sp
-
-    R = nx.Graph()  # result graph
-    R.add_edges_from(
-        [(u, v) for u, v in G.edges() if G.edges[u, v]["weight"] == math.inf]
-    )
-
-    segments = set()
-    G_ = deepcopy(G)
-
-    while not set_contains(set(list(R.nodes())), set.union(*S)) or not nx.is_connected(
-        R
-    ):
-        # make shortest path graph
-        SP = nx.Graph()
-        # for c in S:
-        #    SP.add_nodes_from(frozenset(c))
-
-        # TODO this takes some time :/ (800ms with imdb10 on 10x10)
-        pathmatrix_G = calc_path_matrix(G_, S=S, heuristic=None)
-
-        for c1, c2 in combinations(S, 2):
-            all_paths = [pathmatrix_G[frozenset((u, v))] for u in c1 for v in c2]
-            all_dists = list(
-                map(
-                    lambda path: calculate_path_length(
-                        G_, path_to_edges(path), weight="weight"
-                    ),
-                    all_paths,
-                )
-            )
-            argmin = np.argmin(all_dists)
-            min_idx = argmin[0] if isinstance(argmin, list) else argmin
-            SP.add_edge(
-                frozenset(c1),
-                frozenset(c2),
-                weight=all_dists[min_idx],
-                path=all_paths[min_idx],
-            )
-
-        # for pair, path in pathmatrix_G.items():
-        #    u, v = pair
-        #    dist = calculate_path_length(G_, path_to_edges(path), weight="weight")
-        #    SP.add_edge(u, v, weight=dist)
-
-        # tour through that graph
-        pathmatrix_SP = calc_path_matrix(SP, heuristic=None)
-        distmatrix_SP = calc_distance_matrix(SP, pathmatrix_SP)
-        tour = tsp.traveling_salesman_problem(
-            SP, cycle=False, weight="weight", method=tsp.greedy_tsp
-        )
-        min_segment = (math.inf, None)
-        for c1, c2 in pairwise(tour):
-            if (c1, c2) in segments:  # or (v, u) in segments:
-                continue
-            min, _ = min_segment
-            if distmatrix_SP[frozenset((c1, c2))] < min:
-                min_segment = (distmatrix_SP[frozenset((c1, c2))], (c1, c2))
-
-        if min_segment[1] is None:
-            # no more segments could be added to tour
-            break
-
-        c1, c2 = min_segment[1]
-        segments.add((c1, c2))
-        segments.add((c2, c1))
-        # sp = path_to_edges(pathmatrix_G[frozenset((c1, c2))])
-        sp = path_to_edges(SP.edges[c1, c2]["path"])
-
-        for u, v in sp:
-            R.add_edge(u, v, **G_.edges[u, v])
-
-        # block off used edges
-        update_edge_weights(G_, sp, math.inf)
-        # TODO also block off crossing twins?
-        # but i think a tour can't have crossings
-        # problem is that the `crossing` attribute is only on center edges, which we don't have here
-
-    return tsp.traveling_salesman_problem(
-        R, nodes=flatten(S), cycle=False, weight="weight", method=tsp.greedy_tsp
-    )
+    tour = group_aware_greedy_tsp(G, weight="weight", groups=S)
+    return tour
 
 
 def get_node_with_degree(G, deg):
