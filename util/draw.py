@@ -9,6 +9,7 @@ from util.graph import (
     get_crossing_port_edges,
     get_port_edges,
     edge_filter_ports,
+    orient_edge_node_inside,
 )
 from util.geometry import (
     get_angle,
@@ -299,7 +300,7 @@ def geometrize(instance, L, element_set_partition, layer=0):
             geometries.append(line)
 
         # so this then draws connections within occupied nodes
-        if determine_router() != 'opt':
+        if determine_router() != "opt":
             for node in [
                 n
                 for n, d in M.nodes(data=True)
@@ -321,7 +322,9 @@ def geometrize(instance, L, element_set_partition, layer=0):
                     and M.nodes[p]["belongs_to"] == node
                 ]:
                     edges = [
-                        (a, b) for a, b, d in M.edges(nbunch=p, data=True) if "sets" in d
+                        (a, b)
+                        for a, b, d in M.edges(nbunch=p, data=True)
+                        if "sets" in d
                     ]
                     if len(edges) > 0:
                         all_used_ports.append(p)
@@ -334,6 +337,7 @@ def geometrize(instance, L, element_set_partition, layer=0):
                             x
                             for w, x in M.edges(nbunch=[port])
                             if M.nodes[x]["node"] == NodeType.PORT
+                            and M.nodes[x]["belongs_to"] != node
                         ]
                     )
                     for x in p_adjacent:
@@ -350,11 +354,14 @@ def geometrize(instance, L, element_set_partition, layer=0):
                     # idk, could connect to center
                     # or maybe draw a small mark?
                     a = used_ports.pop()
-                    _, b = outward_edge_at_port[a]
+                    _, b = orient_edge_node_inside(outward_edge_at_port[a], a)
                     apos, bpos = M.edges[(a, b)]["edge_pos"][set_id][(a, b)]
                     cx, cy = get_segment_circle_intersection(
                         (apos, bpos),
-                        (M.nodes[node]["pos"], config_vars["draw.nodecircleradius"].get()),
+                        (
+                            M.nodes[node]["pos"],
+                            config_vars["draw.nodecircleradius"].get(),
+                        ),
                     )
                     circle = svg.Circle(
                         cx=cx,
@@ -393,7 +400,9 @@ def geometrize(instance, L, element_set_partition, layer=0):
                     a, b = edge_to_penalize
                     G_node.edges[a, b]["weight"] = float("inf")
 
-                within_node_connections = nx.minimum_spanning_tree(G_node, weight="weight")
+                within_node_connections = nx.minimum_spanning_tree(
+                    G_node, weight="weight"
+                )
                 for a, b in within_node_connections.edges():
                     line = svg.Path(
                         **{
@@ -406,19 +415,27 @@ def geometrize(instance, L, element_set_partition, layer=0):
                             ],
                         }
                     )
-                    _, v = outward_edge_at_port[a]
-                    _, x = outward_edge_at_port[b]
+                    _, v = orient_edge_node_inside(outward_edge_at_port[a], a)
+                    _, x = orient_edge_node_inside(outward_edge_at_port[b], b)
+
+                    print(M.nodes[b], M.nodes[x])
 
                     apos, vpos = M.edges[(a, v)]["edge_pos"][set_id][(a, v)]
                     bpos, xpos = M.edges[(b, x)]["edge_pos"][set_id][(b, x)]
 
                     a_intersect = get_segment_circle_intersection(
                         (vpos, apos),
-                        (M.nodes[node]["pos"], config_vars["draw.nodecircleradius"].get()),
+                        (
+                            M.nodes[node]["pos"],
+                            config_vars["draw.nodecircleradius"].get(),
+                        ),
                     )
                     b_intersect = get_segment_circle_intersection(
                         (bpos, xpos),
-                        (M.nodes[node]["pos"], config_vars["draw.nodecircleradius"].get()),
+                        (
+                            M.nodes[node]["pos"],
+                            config_vars["draw.nodecircleradius"].get(),
+                        ),
                     )
 
                     av_center = centroid([apos, vpos])

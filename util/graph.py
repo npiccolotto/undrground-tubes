@@ -810,6 +810,11 @@ def get_ports(G, u, v):
     return (get_port(G, u, v_relative_to_u), get_port(G, v, u_relative_to_v))
 
 
+def orient_edge_node_inside(edge, node):
+    u, v = edge
+    return (u, v) if u == node else (v, u)
+
+
 def edge_filter_ports(G, u, v, same_centers=False, possibly_with_center=False):
     uparent = (
         None if G.nodes[u]["node"] == NodeType.CENTER else G.nodes[u]["belongs_to"]
