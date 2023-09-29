@@ -230,6 +230,7 @@ def geometrize(instance, L, element_set_partition, layer=0):
             line = svg.Path(
                 **{
                     "close": False,
+                    'data-weight': L.edges[u,v,EdgeType.PHYSICAL]['weight'],
                     "stroke_width": config_vars["draw.strokewidth"].get(),
                     "fill": "none",
                     "stroke": config_vars["draw.setcolors"].get()[
@@ -289,6 +290,7 @@ def geometrize(instance, L, element_set_partition, layer=0):
             line = svg.Path(
                 **{
                     "close": False,
+                    'data-weight': L.edges[u,v,EdgeType.PHYSICAL]['weight'],
                     "stroke_width": config_vars["draw.strokewidth"].get(),
                     "fill": "none",
                     "stroke": config_vars["draw.setcolors"].get()[
@@ -408,9 +410,9 @@ def geometrize(instance, L, element_set_partition, layer=0):
                     line = svg.Path(
                         **{
                             "close": False,
+                            'data-weight': L.edges[a,b,EdgeType.PHYSICAL]['weight'],
                             "stroke_width": config_vars["draw.strokewidth"].get(),
                             "fill": "none",
-                            "data_weight": G_node.edges[a, b]["weight"],
                             "stroke": config_vars["draw.setcolors"].get()[
                                 instance["set_ftb_order"].index(set_id)
                             ],

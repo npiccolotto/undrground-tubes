@@ -463,7 +463,7 @@ def group_aware_greedy_tsp(
         for n in nodelist:
             lava = [m for m in list(set.union(*groups)) if m != n and m != cycle[-1]]
             with updated_port_node_edge_weights_incident_at(G_, lava, math.inf):
-                sp=nx.shortest_path(G_, cycle[-1], n, weight=weight)
+                sp = nx.shortest_path(G_, cycle[-1], n, weight=weight)
                 shortest_paths.append(sp)
 
         dists = [
@@ -472,6 +472,14 @@ def group_aware_greedy_tsp(
         ]
         argmin = np.argmin(dists)
         min_idx = argmin[0] if isinstance(argmin, list) else argmin
+        print(
+            list(
+                map(
+                    lambda e: G_.edges[e]["weight"],
+                    path_to_edges(shortest_paths[min_idx]),
+                )
+            )
+        )
         next_node = nodelist[min_idx]
         cycle_dists.append((cycle[-1], next_node, dists[min_idx]))
 

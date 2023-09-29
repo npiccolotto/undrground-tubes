@@ -46,7 +46,6 @@ class EdgePenalty(float, Enum):
 
 
 class EdgeType(IntEnum):
-    DRAW = -3
     SUPPORT = -2  # edge in hypergraph support
     PHYSICAL = -1  # physical edge that is actually drawn
     CENTER = 0  # center to center edge
