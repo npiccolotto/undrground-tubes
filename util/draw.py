@@ -19,7 +19,7 @@ from util.geometry import (
     biarc,
 )
 from util.route import determine_router
-from util.config import config_vars
+from util.config import config_vars, get_grid
 
 
 def draw_biarc(line, barc):
@@ -123,8 +123,9 @@ def draw_support(instance, M, layer=0):
             )
         )
 
-    w = config_vars["general.gridwidth"].get() * config_vars["draw.cellsizepx"].get()
-    h = config_vars["general.gridheight"].get() * config_vars["draw.cellsizepx"].get()
+    w, h = get_grid()
+    w = w * config_vars["draw.cellsizepx"].get()
+    h = h * config_vars["draw.cellsizepx"].get()
     with open(path, "w") as f:
         f.write(draw_svg(geometries, w, h))
 

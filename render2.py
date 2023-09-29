@@ -16,9 +16,7 @@ import networkx as nx
 import numpy as np
 
 from util.metrics import compute_metrics
-from util.config import (
-    config_vars,
-)
+from util.config import config_vars, get_grid
 from util.bundle import bundle_lines_gg, bundle_lines_lg
 from util.collections import (
     group_by_intersection_group,
@@ -285,16 +283,14 @@ def render(
             instance["D_SR"],
             m=config_vars["general.gridwidth"].get(),
             n=config_vars["general.gridheight"].get(),
+            pad=config_vars["general.gridpad"].get(),
             num_weights=num_weights,
         )
 
     with timing("routing"):
         G = get_routing_graph(
             lattice_type,
-            (
-                config_vars["general.gridwidth"].get(),
-                config_vars["general.gridheight"].get(),
-            ),
+            get_grid(),
         )
         G = add_glyphs_to_nodes(instance, G)
 
@@ -370,12 +366,11 @@ def render(
         )
         for layer in range(num_weights):
             geometries = geometrize(instance, L, element_set_partition, layer=layer)
+            w, h = get_grid()
             img = draw_svg(
                 geometries,
-                config_vars["general.gridwidth"].get()
-                * config_vars["draw.cellsizepx"].get(),
-                config_vars["general.gridheight"].get()
-                * config_vars["draw.cellsizepx"].get(),
+                w * config_vars["draw.cellsizepx"].get(),
+                h * config_vars["draw.cellsizepx"].get(),
             )
             with open(
                 os.path.join(
@@ -476,8 +471,7 @@ def vis(
     if grid_height is not None:
         config_vars["general.gridheight"].set(grid_height)
 
-    grid_width = config_vars["general.gridwidth"].get()
-    grid_height = config_vars["general.gridheight"].get()
+    grid_width, grid_height = get_grid(include_pad=False)
     print(f"Grid size is {grid_width} x {grid_height}")
 
     if grid_width == 0 or grid_height == 0:

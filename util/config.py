@@ -26,3 +26,11 @@ for sec in config.sections():
             val = int(val)
 
         config_vars[f"{sec}.{k}"] = ContextVar(k, default=val)
+
+
+def get_grid(include_pad=True):
+    padding = config_vars.get("general.gridpad").get() * 2 if include_pad else 0
+    return (
+        config_vars.get("general.gridwidth").get() + padding,
+        config_vars.get("general.gridheight").get() + padding,
+    )

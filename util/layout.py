@@ -398,7 +398,11 @@ def remove_overlaps(layout, m=10, n=10):
             )
 
 
-def layout(elements, D_EA, D_SR, m=10, n=10, num_weights=3):
+def pad_layout(layout, pad):
+    return pad + layout
+
+
+def layout(elements, D_EA, D_SR, m=10, n=10, pad=1, num_weights=3):
     layouts = [
         layout_single(elements, D_EA, D_SR, m=m, n=n, weight=w)
         for w in np.linspace(0, 1, num_weights)
@@ -406,6 +410,8 @@ def layout(elements, D_EA, D_SR, m=10, n=10, num_weights=3):
 
     layouts = align_layouts(layouts)
     layouts = [remove_overlaps(layout, m=m, n=n) for layout in layouts]
+
+    layouts = [pad_layout(layout, pad) for layout in layouts]
 
     layouts = list(map(lambda layout: list(map(tuple, layout)), layouts))
     return layouts
