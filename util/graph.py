@@ -406,7 +406,7 @@ def remove_segment_in_circle(circle, s, e):
     return circle[pos2:] + circle[1:pos1]
 
 
-def group_aware_greedy_tsp(G, weight="weight", groups=None, source=None):
+def group_aware_greedy_tsp(G, current_support,weight="weight", groups=None, source=None):
     """Follows implementation according to [1]. Returns a tour in G.
 
     Properties (desired):
@@ -421,7 +421,7 @@ def group_aware_greedy_tsp(G, weight="weight", groups=None, source=None):
 
     if len(groups) == 2:
         sp = get_shortest_path_between_sets(G, groups[0], groups[1])
-        return sp
+        return sp, calculate_path_length(G, path_to_edges(sp),weight=weight)
 
     if source is None:
         # pick any but deterministically
@@ -434,9 +434,7 @@ def group_aware_greedy_tsp(G, weight="weight", groups=None, source=None):
     for n in nodeset:
         for g in groups:
             if n in g:
-                gs = set(g)
-                gs.remove(n)
-                node_conflicts[n] = gs
+                node_conflicts[n] =set(g)
                 continue
 
     nodeset.remove(source)
@@ -444,7 +442,6 @@ def group_aware_greedy_tsp(G, weight="weight", groups=None, source=None):
     cycle_dists = []
     next_node = source
     paths = []
-
 
     while nodeset:
         nodelist = [n for n in nodeset if n not in node_conflicts[cycle[-1]]]
@@ -464,13 +461,42 @@ def group_aware_greedy_tsp(G, weight="weight", groups=None, source=None):
         min_idx = argmin[0] if isinstance(argmin, list) else argmin
         next_node = nodelist[min_idx]
         cycle_dists.append((cycle[-1], next_node, dists[min_idx]))
-        cycle.append(next_node)
-        paths.extend(shortest_paths[min_idx][:-1])
-        nodeset.remove(next_node)
+
+        # now we need to handle what happens if next_node is part of a group
+        # because (assumption: connected groups) we have to find within the group
+        # the next deg1 node that's not next_node, as we have to exit the group there
+        if len(node_conflicts[next_node])>1:
+            # it's a group
+            # remove remaining group members from nodeset
+            deg1s = [n for n in node_conflicts[next_node] if next_node != n and current_support.degree[n] == 1 and n in nodeset]
+            if len(deg1s) >0:
+                exit_node = deg1s[0]
+                subpath = shortest_paths[min_idx][:-1]+nx.shortest_path(current_support,next_node,exit_node,weight=weight)
+                print(next_node,exit_node,subpath)
+                # add path to enter and exit node
+                paths.extend(subpath[:-1])
+                update_edge_weights(G_, path_to_edges(subpath), math.inf)
+                for n in subpath:
+                    if n not in cycle and n in node_conflicts[next_node]:
+                        cycle.append(n)
+                        nodeset.remove(n)
+                print(cycle)
+            else:
+                cycle.append(next_node)
+                paths.extend(shortest_paths[min_idx][:-1])
+                nodeset.remove(next_node)
+                update_edge_weights(G_, path_to_edges(shortest_paths[min_idx]), math.inf)
+
+        else:
+            cycle.append(next_node)
+            paths.extend(shortest_paths[min_idx][:-1])
+            nodeset.remove(next_node)
+            update_edge_weights(G_, path_to_edges(shortest_paths[min_idx]), math.inf)
+
+
 
         # update G
         # block used edges, must not be used again
-        update_edge_weights(G_, path_to_edges(shortest_paths[min_idx]), math.inf)
         # block also the crossing twins?
 
     sp = nx.shortest_path(G_, cycle[-1], cycle[0], weight=weight)
@@ -484,7 +510,7 @@ def group_aware_greedy_tsp(G, weight="weight", groups=None, source=None):
     longest_step = np.argmax(dists)
     a, b, _ = cycle_dists[longest_step]
     paths = remove_segment_in_circle(paths, a, b)
-
+    #print([(u, v) for u, v in path_to_edges(paths) if (u,v) not in G_.edges],paths)
     assert all(
         [(u, v) in G_.edges for u, v in path_to_edges(paths)]
     ), "at least one edge not in graph"
@@ -498,14 +524,20 @@ def group_aware_greedy_tsp(G, weight="weight", groups=None, source=None):
     assert G_.nodes[paths[0]]["node"] == NodeType.CENTER, "first node not a center"
     assert G_.nodes[paths[-1]]["node"] == NodeType.CENTER, "last node not a center"
 
-    return paths
+    return (paths, calculate_path_length(G, path_to_edges(paths), weight=weight))
 
 
-def approximate_tsp_tour(G, S):
+def approximate_tsp_tour(G, S, current_support):
     """Returns an approximation of the shortest tour in G visiting all nodes S exactly once while using each edge at most once.
     Which is almost but not really a TSP tour (e.g., G is not completely connected), but let's continue calling it that.
     """
-    tour = group_aware_greedy_tsp(G, weight="weight", groups=S)
+    tours = [
+        group_aware_greedy_tsp(G, current_support,weight="weight", groups=S, source=n)
+        for n in list(set.union(*S))
+    ]
+    shortest_tour = np.argmin(map(lambda t: t[1], tours))
+    tour, cost = tours[shortest_tour]
+    print(tour, cost)
     return tour
 
 

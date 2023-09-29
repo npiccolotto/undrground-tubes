@@ -196,7 +196,7 @@ def route_single_layer_heuristic(instance, G, element_set_partition, layer=0):
                             G_, deg2_nodes, math.inf
                         ):
                             #print([d for u,v,d in G_.edges(data=True) if d['edge'] != EdgeType.PHYSICAL ])
-                            set_support = approximate_tsp_tour(G_, nodes_in_components)
+                            set_support = approximate_tsp_tour(G_, nodes_in_components, current_support_for_sets)
                             set_support_edges = path_to_edges(set_support)
             else:
                 # steiner treee
