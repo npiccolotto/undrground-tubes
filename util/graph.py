@@ -406,7 +406,9 @@ def remove_segment_in_circle(circle, s, e):
     return circle[pos2:] + circle[1:pos1]
 
 
-def group_aware_greedy_tsp(G, current_support,weight="weight", groups=None, source=None):
+def group_aware_greedy_tsp(
+    G, current_support, weight="weight", groups=None, source=None
+):
     """Follows implementation according to [1]. Returns a tour in G.
 
     Properties (desired):
@@ -421,7 +423,7 @@ def group_aware_greedy_tsp(G, current_support,weight="weight", groups=None, sour
 
     if len(groups) == 2:
         sp = get_shortest_path_between_sets(G, groups[0], groups[1])
-        return sp, calculate_path_length(G, path_to_edges(sp),weight=weight)
+        return sp, calculate_path_length(G, path_to_edges(sp), weight=weight)
 
     if source is None:
         # pick any but deterministically
@@ -434,7 +436,7 @@ def group_aware_greedy_tsp(G, current_support,weight="weight", groups=None, sour
     for n in nodeset:
         for g in groups:
             if n in g:
-                node_conflicts[n] =set(g)
+                node_conflicts[n] = set(g)
                 continue
 
     nodeset.remove(source)
@@ -443,6 +445,13 @@ def group_aware_greedy_tsp(G, current_support,weight="weight", groups=None, sour
     next_node = source
     paths = []
 
+    if len(node_conflicts[source])>1:
+        # we start in a group
+        # remove the other group members
+        for n in node_conflicts[source]:
+            if n in nodeset:
+                nodeset.remove(n)
+
     while nodeset:
         nodelist = [n for n in nodeset if n not in node_conflicts[cycle[-1]]]
         if not nodelist:
@@ -450,9 +459,14 @@ def group_aware_greedy_tsp(G, current_support,weight="weight", groups=None, sour
             # assume that we're done? because it means the only other nodes
             # left are from the same group, which by assumption is connected already
             break
-        shortest_paths = [
-            nx.shortest_path(G_, cycle[-1], n, weight=weight) for n in nodelist
-        ]
+        shortest_paths = []
+        for n in nodelist:
+            lava = [m for m in list(set.union(*groups)) if m != n and m != cycle[:-1]]
+            with updated_port_node_edge_weights_incident_at(G_, lava, math.inf):
+                shortest_paths.append(
+                    nx.shortest_path(G_, cycle[-1], n, weight=weight)
+                )
+
         dists = [
             calculate_path_length(G_, path_to_edges(sp), weight=weight)
             for sp in shortest_paths
@@ -465,14 +479,20 @@ def group_aware_greedy_tsp(G, current_support,weight="weight", groups=None, sour
         # now we need to handle what happens if next_node is part of a group
         # because (assumption: connected groups) we have to find within the group
         # the next deg1 node that's not next_node, as we have to exit the group there
-        if len(node_conflicts[next_node])>1:
+        if len(node_conflicts[next_node]) > 1:
             # it's a group
             # remove remaining group members from nodeset
-            deg1s = [n for n in node_conflicts[next_node] if next_node != n and current_support.degree[n] == 1 and n in nodeset]
-            if len(deg1s) >0:
+            deg1s = [
+                n
+                for n in node_conflicts[next_node]
+                if next_node != n and current_support.degree[n] == 1 and n in nodeset
+            ]
+            if len(deg1s) > 0:
                 exit_node = deg1s[0]
-                subpath = shortest_paths[min_idx][:-1]+nx.shortest_path(current_support,next_node,exit_node,weight=weight)
-                print(next_node,exit_node,subpath)
+                subpath = shortest_paths[min_idx][:-1] + nx.shortest_path(
+                    current_support, next_node, exit_node, weight=weight
+                )
+                #print(next_node, exit_node, subpath)
                 # add path to enter and exit node
                 paths.extend(subpath[:-1])
                 update_edge_weights(G_, path_to_edges(subpath), math.inf)
@@ -480,20 +500,20 @@ def group_aware_greedy_tsp(G, current_support,weight="weight", groups=None, sour
                     if n not in cycle and n in node_conflicts[next_node]:
                         cycle.append(n)
                         nodeset.remove(n)
-                print(cycle)
+                #print(cycle)
             else:
                 cycle.append(next_node)
                 paths.extend(shortest_paths[min_idx][:-1])
                 nodeset.remove(next_node)
-                update_edge_weights(G_, path_to_edges(shortest_paths[min_idx]), math.inf)
+                update_edge_weights(
+                    G_, path_to_edges(shortest_paths[min_idx]), math.inf
+                )
 
         else:
             cycle.append(next_node)
             paths.extend(shortest_paths[min_idx][:-1])
             nodeset.remove(next_node)
             update_edge_weights(G_, path_to_edges(shortest_paths[min_idx]), math.inf)
-
-
 
         # update G
         # block used edges, must not be used again
@@ -510,7 +530,7 @@ def group_aware_greedy_tsp(G, current_support,weight="weight", groups=None, sour
     longest_step = np.argmax(dists)
     a, b, _ = cycle_dists[longest_step]
     paths = remove_segment_in_circle(paths, a, b)
-    #print([(u, v) for u, v in path_to_edges(paths) if (u,v) not in G_.edges],paths)
+    # print([(u, v) for u, v in path_to_edges(paths) if (u,v) not in G_.edges],paths)
     assert all(
         [(u, v) in G_.edges for u, v in path_to_edges(paths)]
     ), "at least one edge not in graph"
@@ -531,13 +551,14 @@ def approximate_tsp_tour(G, S, current_support):
     """Returns an approximation of the shortest tour in G visiting all nodes S exactly once while using each edge at most once.
     Which is almost but not really a TSP tour (e.g., G is not completely connected), but let's continue calling it that.
     """
+
+    return group_aware_greedy_tsp(G, current_support, weight="weight", groups=S)[0]
     tours = [
-        group_aware_greedy_tsp(G, current_support,weight="weight", groups=S, source=n)
+        group_aware_greedy_tsp(G, current_support, weight="weight", groups=S, source=n)
         for n in list(set.union(*S))
     ]
     shortest_tour = np.argmin(map(lambda t: t[1], tours))
     tour, cost = tours[shortest_tour]
-    print(tour, cost)
     return tour
 
 
