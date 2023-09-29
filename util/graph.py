@@ -308,8 +308,8 @@ class updated_port_node_edge_weights_incident_at(ContextDecorator):
             for p in G.neighbors(node)
             for u, v in G.edges(p)
             if (
-                G.nodes[u]["node"] == NodeType.PORT
-                and G.nodes[v]["node"] == NodeType.PORT
+                G.nodes[node]["node"] == NodeType.CENTER
+                and G.nodes[p]["node"] == NodeType.PORT
             )
         ]
         self.initial_edge_weights = {}
@@ -445,7 +445,7 @@ def group_aware_greedy_tsp(
     next_node = source
     paths = []
 
-    if len(node_conflicts[source])>1:
+    if len(node_conflicts[source]) > 1:
         # we start in a group
         # remove the other group members
         for n in node_conflicts[source]:
@@ -461,11 +461,10 @@ def group_aware_greedy_tsp(
             break
         shortest_paths = []
         for n in nodelist:
-            lava = [m for m in list(set.union(*groups)) if m != n and m != cycle[:-1]]
+            lava = [m for m in list(set.union(*groups)) if m != n and m != cycle[-1]]
             with updated_port_node_edge_weights_incident_at(G_, lava, math.inf):
-                shortest_paths.append(
-                    nx.shortest_path(G_, cycle[-1], n, weight=weight)
-                )
+                sp=nx.shortest_path(G_, cycle[-1], n, weight=weight)
+                shortest_paths.append(sp)
 
         dists = [
             calculate_path_length(G_, path_to_edges(sp), weight=weight)
@@ -492,7 +491,7 @@ def group_aware_greedy_tsp(
                 subpath = shortest_paths[min_idx][:-1] + nx.shortest_path(
                     current_support, next_node, exit_node, weight=weight
                 )
-                #print(next_node, exit_node, subpath)
+                # print(next_node, exit_node, subpath)
                 # add path to enter and exit node
                 paths.extend(subpath[:-1])
                 update_edge_weights(G_, path_to_edges(subpath), math.inf)
@@ -500,7 +499,7 @@ def group_aware_greedy_tsp(
                     if n not in cycle and n in node_conflicts[next_node]:
                         cycle.append(n)
                         nodeset.remove(n)
-                #print(cycle)
+                # print(cycle)
             else:
                 cycle.append(next_node)
                 paths.extend(shortest_paths[min_idx][:-1])
