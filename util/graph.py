@@ -472,14 +472,6 @@ def group_aware_greedy_tsp(
         ]
         argmin = np.argmin(dists)
         min_idx = argmin[0] if isinstance(argmin, list) else argmin
-        print(
-            list(
-                map(
-                    lambda e: G_.edges[e]["weight"],
-                    path_to_edges(shortest_paths[min_idx]),
-                )
-            )
-        )
         next_node = nodelist[min_idx]
         cycle_dists.append((cycle[-1], next_node, dists[min_idx]))
 
