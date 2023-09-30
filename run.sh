@@ -21,12 +21,12 @@ fi
 # set python version
 pyenv local 3.10
 
-support_type=$2
-support_partition=$3
-layouter=$4
-overlapper=$5
-router=$6
-dataset=$7
+support_type="$2"
+support_partition="$3"
+layouter="$4"
+overlapper="$5"
+router="$6"
+dataset="$7"
 
 jobname="esvis-$dataset-$support_type-$support_partition-$layouter-$overlapper-$router"
 
