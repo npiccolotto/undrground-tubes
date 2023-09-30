@@ -27,7 +27,7 @@ for support_type in "steiner-tree" "path"; do
           for i in $(seq 1 10); do
             j=$((i-1));
             s=$((i*20));
-            dataset="dataset${j}_${s}";
+            dataset="ds_dataset${j}_${s}";
             jobname="esvis-$dataset-$support_type-$support_partition-$layouter-$overlapper-$router";
             echo "submitting $jobname";
             qsub -N $jobname -l bc3 -l mem_free=$mem -l h_vmem=$mem -l h_rt=$hlr -e $base/logs/ -o $base/logs/ -r y run.sh $base/$jobname $support_type $support_partition $layouter $overlapper $router $dataset
