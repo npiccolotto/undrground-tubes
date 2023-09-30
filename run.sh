@@ -21,6 +21,10 @@ fi
 # set python version
 pyenv local 3.10
 
+# set gurobi stuff
+export GRB_LICENSE_FILE="/home1/share/gurobi/gurobi.lic"
+export GUROBI_HOME="/home1/share/gurobi/gurobi/linux64"
+
 support_type="$2"
 support_partition="$3"
 layouter="$4"
