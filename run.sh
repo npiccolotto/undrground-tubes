@@ -30,5 +30,6 @@ dataset=$7
 
 jobname="esvis-$dataset-$support_type-$support_partition-$layouter-$overlapper-$router"
 
-python $base/render2.py --read-dir $base/data --write-dir $TMPDIR --support-type $support_type --support-partition $support_partition --layouter $layouter --overlap-remover $overlapper --router $router --read-dir $base/designspace-test --dataset $dataset
+cd $base
+python render2.py --read-dir data --write-dir $TMPDIR --support-type $support_type --support-partition $support_partition --layouter $layouter --overlap-remover $overlapper --router $router --read-dir $base/designspace-test --dataset $dataset
 cp -r $TMPDIR $1
