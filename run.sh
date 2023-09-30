@@ -21,6 +21,14 @@ fi
 # set python version
 pyenv local 3.10
 
-python $base/render2.py --read-dir $base/data --write-dir $TMPDIR
+support_type=$2
+support_partition=$3
+layouter=$4
+overlapper=$5
+router=$6
+dataset=$7
 
+jobname="esvis-$dataset-$support_type-$support_partition-$layouter-$overlapper-$router"
+
+python $base/render2.py --read-dir $base/data --write-dir $TMPDIR --support-type $support_type --support-patition $support_partition --layouter $layouter --overlap-remover $overlapper --router $router --read-dir $base/designspace-test --dataset $dataset
 cp -r $TMPDIR $base/$1
