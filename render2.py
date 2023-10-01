@@ -306,6 +306,7 @@ def render(
 
         L = route(instance, G, element_set_partition)
 
+
     for layer in range(num_weights):
         M = extract_support_layer(L, layer)
         draw_support(instance, M, layer)

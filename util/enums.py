@@ -10,16 +10,16 @@ from enum import IntEnum, Enum
 
 class EdgePenalty(float, Enum):
     IN_SUPPORT = -1
-    COMMON_MULTILAYER = 0
+    COMMON_MULTILAYER = -0.5
 
     # Bends
     ONE_EIGHTY = 0
     ONE_THIRTY_FIVE = 1
-    NINETY = 1.5
-    FORTY_FIVE = 4
+    NINETY = 2
+    FORTY_FIVE = 3
 
     # To center
-    TO_CENTER = 2
+    TO_CENTER = 3
 
     # Using any edge between ports
     # TODO with zero cost there's no need to make paths short

@@ -232,6 +232,8 @@ def convert_to_line_graph(G):
                     G_.add_node(vparent, **G.nodes[vparent])
                 else:
                     G_.add_edge(uparent, vparent, sets=sets, port1=u, port2=v)
+                    G_.add_node(uparent, **G.nodes[uparent])
+                    G_.add_node(vparent, **G.nodes[vparent])
             else:
                 # just one is a port, which must belong to the other node (the center)
                 centernode = u if uparent is None else v

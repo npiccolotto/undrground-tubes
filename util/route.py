@@ -21,7 +21,7 @@ from util.graph import (
     approximate_tsp_tour,
     path_to_edges,
 )
-from util.collections import set_contains
+from util.collections import set_contains,flatten
 from util.config import config_vars
 from util.mip import write_status, write_fake_status
 
@@ -69,24 +69,6 @@ def route_single_layer_heuristic(instance, G, element_set_partition, layer=0):
             if k == EdgeType.PHYSICAL
         ]
     )
-
-
-
-    # TODO so the thing is this
-    # when we change intersection groups to actually contain all intersection groups
-    # the current routing method doesn't work - too many lines
-    # so the proposal is to write this once more anew from the ground up
-    # something like this
-    # for an IG, we get the current support for sets in the IG
-    # we check 1) if the current support is connected and 2) if it contains all elements for the current IG
-    # if so, we're done, nothing to do
-    # if not, we find connected components of the current IG in the current support
-    # then we connect those in a tree or line
-    # that should be it
-    # however, not immediately clear how to connect CCs s.t. the resulting support is a path/tree
-    # i guess you can assume that each CC is itself a path/tree
-    # so if we look for a path, we have to consider only the deg-1 nodes in a CC
-    # for a tree i think it doesn't even matter, we can pick any node
 
     # 2. then process from biggest to smallest group. for each:
     for elements, sets in element_set_partition:
@@ -169,13 +151,6 @@ def route_single_layer_heuristic(instance, G, element_set_partition, layer=0):
         )
         nodes_in_components.extend(list(map(lambda x: set([x]), unconnected_nodes)))
 
-        # TODO
-        # this works nice for paths but not for trees
-        # reason probs being that we block off the current support but ask for additional support edges
-        # when we do it by intersection group
-        # so something has to change here
-        # idea: identify free-roaming nodes, do a regular steiner tree on them
-        # then connect all components with a MST
         set_support_edges = []
         if len(S) > 1:
             if support_type == "path":
@@ -200,18 +175,17 @@ def route_single_layer_heuristic(instance, G, element_set_partition, layer=0):
             else:
                 # steiner treee
                 with updated_port_node_edge_weights_incident_at(G_, S_minus, math.inf):
-                    nodes_in_components = list(
-                        map(
-                            lambda g: [
-                                n for n in g if G_.nodes[n]["node"] == NodeType.CENTER
-                            ],
-                            nodes_in_components,
+                    with updated_edge_weights(G_, list(current_support_for_sets.edges()), 0):
+                        nodes_in_components = list(
+                            map(
+                                lambda g: [
+                                    n for n in g if G_.nodes[n]["node"] == NodeType.CENTER
+                                ],
+                                nodes_in_components,
+                            )
                         )
-                    )
-                    set_support = approximate_steiner_tree(
-                        G_, nodes_in_components, current_support_for_sets
-                    )
-                    set_support_edges = set_support.edges()
+                        set_support = approximate_steiner_tree_nx(G_, flatten(nodes_in_components))
+                        set_support_edges = set_support.edges()
 
         #print('in support edges?', ((0, 5) ,(2, 6)) in set_support_edges)
         # add those edges to support
