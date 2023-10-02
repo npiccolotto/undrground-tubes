@@ -3,12 +3,20 @@ import os
 import json
 from util.config import config_vars
 
+FAKE = {
+    "mip": False,
+    "has_mipgap": None,
+    "mipgap": None,
+    "runtime_ms": None,
+    "status": None,
+}
+
 
 def get_mip_status(model):
     is_mip = bool(model.IsMIP)
 
     if not is_mip:
-        return {"mip": False}
+        return FAKE
 
     has_mipgap = model.MIPGap != GRB.INFINITY
     return {
@@ -33,4 +41,4 @@ def write_status(name, model):
 
 
 def write_fake_status(name):
-    write_json(name, {"mip": False})
+    write_json(name, FAKE)

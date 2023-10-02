@@ -270,9 +270,8 @@ def read_instance(directory, name):
     return inst
 
 
-def render(
-    dataset,
-):
+def render():
+    dataset = config_vars["general.dataset"].get()
     instance = read_instance(config_vars["general.readdir"].get(), dataset)
     lattice_type = "sqr"
     num_weights = config_vars["general.numlayers"].get()
@@ -401,7 +400,7 @@ def autogridsize(nrow, margin=1):
 
 
 @click.command()
-@click.option("--dataset", default="imdb/imdb_10", help="dataset to load")
+@click.option("--dataset", help="dataset to load")
 @click.option("--read-dir", help="directory to read the datasets from")
 @click.option("--write-dir", help="directory to write the output to")
 @click.option(
@@ -452,6 +451,8 @@ def vis(
     layouter,
     router,
 ):
+    if dataset is not None:
+        config_vars["general.dataset"].set(dataset)
     if support_partition is not None:
         config_vars["route.subsupportgrouping"].set(support_partition)
     if support_type is not None:
@@ -479,7 +480,7 @@ def vis(
     print(f"Grid size is {grid_width} x {grid_height}")
 
     if grid_width == 0 or grid_height == 0:
-        inst = read_instance(config_vars["general.readdir"].get(), dataset)
+        inst = read_instance(config_vars["general.readdir"].get(), config_vars['general.dataset'].get())
         nrow = len(inst["elements"])
         grid_width, grid_height = autogridsize(nrow)
         config_vars["general.gridwidth"].set(grid_width)
@@ -490,12 +491,8 @@ def vis(
 
     start = time.time()
     try:
-        fun = partial(
-            render,
-            dataset,
-        )
         ctx = contextvars.copy_context()
-        G = ctx.run(fun)
+        G = ctx.run(render)
         end = time.time()
 
         duration = end - start
