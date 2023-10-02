@@ -29,6 +29,7 @@ from util.draw import (
     geometrize,
     draw_support,
     draw_embedding,
+    cosmetic_post_processing,
 )
 from util.enums import EdgePenalty, EdgeType, NodeType, PortDirs
 from util.geometry import (
@@ -184,14 +185,14 @@ def make_sqr_graph(m, n, with_ports=True):
                 port_nb = get_closest_point(G_.nodes[node]["pos"], ports_nb)
                 port_self = get_closest_point(G_.nodes[neighbor]["pos"], ports)
                 length_penalty = dist_euclidean(port_nb, port_self)
-                #print(length_penalty)
+                # print(length_penalty)
 
                 G_.add_edge(
                     port_self,
                     port_nb,
                     EdgeType.PHYSICAL,
                     edge=EdgeType.PHYSICAL,
-                    weight=EdgePenalty.HOP
+                    weight=EdgePenalty.HOP,
                 )
 
     return G_
@@ -306,7 +307,6 @@ def render(
 
         L = route(instance, G, element_set_partition)
 
-
     for layer in range(num_weights):
         M = extract_support_layer(L, layer)
         draw_support(instance, M, layer)
@@ -328,6 +328,8 @@ def render(
         # L = a multigraph with (layer, support) edges and center nodes
         G = convert_line_graph_to_grid_graph(instance, L, G, element_set_partition)
         L = G
+
+    L = cosmetic_post_processing(instance, L)
 
     with timing("serialize graph"):
         # avoid referencing issues

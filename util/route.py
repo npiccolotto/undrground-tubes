@@ -21,7 +21,7 @@ from util.graph import (
     approximate_tsp_tour,
     path_to_edges,
 )
-from util.collections import set_contains,flatten
+from util.collections import set_contains, flatten
 from util.config import config_vars
 from util.mip import write_status, write_fake_status
 
@@ -170,24 +170,34 @@ def route_single_layer_heuristic(instance, G, element_set_partition, layer=0):
                         with updated_port_node_edge_weights_incident_at(
                             G_, deg2_nodes, math.inf
                         ):
-                            set_support = approximate_tsp_tour(G_, nodes_in_components, current_support_for_sets)
+                            set_support = approximate_tsp_tour(
+                                G_, nodes_in_components, current_support_for_sets
+                            )
                             set_support_edges = path_to_edges(set_support)
             else:
                 # steiner treee
-                with updated_port_node_edge_weights_incident_at(G_, S_minus, math.inf):
-                    with updated_edge_weights(G_, list(current_support_for_sets.edges()), 0):
+                with updated_edge_weights(
+                    G_, list(current_support_for_sets.edges()), 0
+                ):
+                    with updated_port_node_edge_weights_incident_at(
+                        G_, S_minus, math.inf
+                    ):
                         nodes_in_components = list(
                             map(
                                 lambda g: [
-                                    n for n in g if G_.nodes[n]["node"] == NodeType.CENTER
+                                    n
+                                    for n in g
+                                    if G_.nodes[n]["node"] == NodeType.CENTER
                                 ],
                                 nodes_in_components,
                             )
                         )
-                        set_support = approximate_steiner_tree_nx(G_, flatten(nodes_in_components))
+                        set_support = approximate_steiner_tree(
+                            G_, flatten(nodes_in_components)
+                        )
                         set_support_edges = set_support.edges()
 
-        #print('in support edges?', ((0, 5) ,(2, 6)) in set_support_edges)
+        # print('in support edges?', ((0, 5) ,(2, 6)) in set_support_edges)
         # add those edges to support
         for u, v in set_support_edges:
             if not G.has_edge(u, v, EdgeType.SUPPORT):
@@ -259,7 +269,7 @@ def route_multilayer_heuristic(
 
             if should_downweight:
                 u, v = edge
-                w = L.edges[(u, v, EdgeType.PHYSICAL)]["weight"]
+                w = L2.edges[(u, v, EdgeType.PHYSICAL)]["weight"]
                 L2.edges[(u, v, EdgeType.PHYSICAL)]["weight"] = max(
                     0, w + EdgePenalty.COMMON_MULTILAYER
                 )

@@ -6,7 +6,7 @@ import networkx.algorithms.approximation.traveling_salesman as tsp
 import networkx.algorithms.approximation.steinertree as steinertree
 from contextlib import ContextDecorator
 from copy import deepcopy
-from itertools import product, pairwise, combinations
+from itertools import product, pairwise, combinations, chain
 from functools import partial
 
 from util.geometry import dist_euclidean
@@ -192,7 +192,36 @@ def approximate_steiner_tree_nx(G, S):
     return steinertree.steiner_tree(G, S, method="mehlhorn")
 
 
-def approximate_steiner_tree(G, S, C=None):
+def approximate_steiner_tree(G, S):
+    # the nx mehlhorn impl sometimes gives incorrect results (deg1 nodes that are steiner nodes)
+    # the nx kou impl is too fucking slow
+    # try our own mehlhorn impl?
+    M = nx.Graph()
+    for t1, t2 in combinations(S, 2):
+        sp = nx.shortest_path(G, t1, t2, weight="weight")
+        cost = calculate_path_length(G, path_to_edges(sp), weight="weight")
+        M.add_edge(t1, t2, path=sp, weight=cost)
+
+    mst_edges = nx.minimum_spanning_edges(M, weight="weight", data=True)
+    edges = chain.from_iterable(pairwise(d["path"]) for u, v, d in mst_edges)
+    T = G.edge_subgraph(edges)
+
+    assert nx.is_connected(T), "steiner tree approx not connected"
+    assert (
+        len(
+            [
+                n
+                for n in T.nodes()
+                if T.degree[n] == 1 and T.nodes[n]["node"] != NodeType.CENTER
+            ]
+        )
+        == 0
+    ), "steiner tree approx contains deg1 steiner nodes"
+
+    return T
+
+
+def approximate_steiner_tree_buggy(G, S, C=None):
     """Steiner tree but works with groups of nodes too"""
     # S is a group of nodes
     # C is the current support in G
@@ -552,13 +581,13 @@ def approximate_tsp_tour(G, S, current_support):
     """
 
     return group_aware_greedy_tsp(G, current_support, weight="weight", groups=S)[0]
-    tours = [
-        group_aware_greedy_tsp(G, current_support, weight="weight", groups=S, source=n)
-        for n in list(set.union(*S))
-    ]
-    shortest_tour = np.argmin(map(lambda t: t[1], tours))
-    tour, cost = tours[shortest_tour]
-    return tour
+    #tours = [
+    #    group_aware_greedy_tsp(G, current_support, weight="weight", groups=S, source=n)
+    #    for n in list(set.union(*S))
+    #]
+    #shortest_tour = np.argmin(map(lambda t: t[1], tours))
+    #tour, cost = tours[shortest_tour]
+    #return tour
 
 
 def get_node_with_degree(G, deg):

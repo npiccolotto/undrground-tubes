@@ -230,7 +230,7 @@ def geometrize(instance, L, element_set_partition, layer=0):
             line = svg.Path(
                 **{
                     "close": False,
-                    'data-weight': L.edges[u,v,EdgeType.PHYSICAL]['weight'],
+                    "data-weight": L.edges[u, v, EdgeType.PHYSICAL]["weight"],
                     "stroke_width": config_vars["draw.strokewidth"].get(),
                     "fill": "none",
                     "stroke": config_vars["draw.setcolors"].get()[
@@ -290,7 +290,7 @@ def geometrize(instance, L, element_set_partition, layer=0):
             line = svg.Path(
                 **{
                     "close": False,
-                    'data-weight': L.edges[u,v,EdgeType.PHYSICAL]['weight'],
+                    "data-weight": L.edges[u, v, EdgeType.PHYSICAL]["weight"],
                     "stroke_width": config_vars["draw.strokewidth"].get(),
                     "fill": "none",
                     "stroke": config_vars["draw.setcolors"].get()[
@@ -410,7 +410,7 @@ def geometrize(instance, L, element_set_partition, layer=0):
                     line = svg.Path(
                         **{
                             "close": False,
-                            'data-weight': L.edges[a,b,EdgeType.PHYSICAL]['weight'],
+                            "data-weight": L.edges[a, b, EdgeType.PHYSICAL]["weight"],
                             "stroke_width": config_vars["draw.strokewidth"].get(),
                             "fill": "none",
                             "stroke": config_vars["draw.setcolors"].get()[
@@ -460,3 +460,32 @@ def geometrize(instance, L, element_set_partition, layer=0):
         geometries = list(reversed(geometries))
 
     return geometries
+
+
+def cosmetic_post_processing(instance, G):
+    # there might be these triangular rings
+    # they might not be necessarily errors actually
+    # some can be explained by being two poorly placed forks
+    for set_id in instance["sets"]:
+        # find non-occupied centers
+        # take all internal port edges that carry the set
+        # check if that subgraph is connected
+        # if it is, do a MST
+        # remove the set from
+        pass
+
+    # sometimes there is a dead end line?
+    # like green with ds_dataset1
+    # first test if it's actually a dead end in the graph (shouldn't) or a render bug
+    for layer in range(config_vars["general.numlayers"].get()):
+        G_ = extract_support_layer(G, layer)
+        # by definition all deg1 nodes should be centers
+        print(layer,
+            [
+                n
+                for n, d in G_.nodes(data=True)
+                if G_.degree[n] == 1 and d["node"] != NodeType.CENTER
+            ]
+        )
+
+    return G
