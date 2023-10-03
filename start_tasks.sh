@@ -16,7 +16,7 @@ mem=32G
 
 # set hard limit run time (seconds)
 #hlr=144000
-hlr=14400
+hlr=21600
 
 
 for i in $(seq 1 10); do
