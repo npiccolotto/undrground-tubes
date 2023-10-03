@@ -1,6 +1,6 @@
 import math
 from collections import Counter, defaultdict
-from itertools import pairwise, product
+from itertools import pairwise, product, combinations
 
 import os
 import gurobipy as gp
@@ -116,6 +116,90 @@ def gridify_square(P, level="auto"):
     return result
 
 
+def solve_qsap(elements, D, m, n, norm=2, weight=0.5):
+    """compact formulation of QSAP compared to the linearized version.
+
+    it's still a QSAP though, so the only problems this solves is that
+    the model actually builds and a (bad) solution is quickly found.
+
+    takes a `norm` parameter wich tells whether to measure distances as
+    manhattan/block (1) or euclidean (2). both variants seem to converge
+    equally slowly."""
+
+    if norm not in [1, 2]:
+        raise BaseException(f"not an accepted norm: {norm}")
+
+    model = gp.Model("qsap")
+    model.params.timeLimit = config_vars["layout.ilptimeoutsecs"].get()
+    model.params.MIPGap = config_vars["layout.ilpmipgap"].get()
+    if norm == 2:
+        model.params.NonConvex = 2
+
+    combs = [(i, j) for i, j in combinations(range(len(elements)), 2)]
+
+    x = model.addVars(range(len(elements)), vtype=GRB.INTEGER, lb=0, ub=m - 1)
+    y = model.addVars(range(len(elements)), vtype=GRB.INTEGER, lb=0, ub=n - 1)
+
+    model.update()
+
+    xij_diff = model.addVars(
+        combs,
+        vtype=GRB.INTEGER,
+        lb=-m,
+    )
+    xij_diff_abs = model.addVars(combs, vtype=GRB.INTEGER, ub=m)
+    yij_diff = model.addVars(
+        combs,
+        vtype=GRB.INTEGER,
+        lb=-n,
+    )
+    yij_diff_abs = model.addVars(combs, vtype=GRB.INTEGER, ub=n)
+    if norm == 2:
+        dist_ij = model.addVars(combs, vtype=GRB.CONTINUOUS, lb=0)
+    discrepancy = model.addVars(combs, vtype=GRB.CONTINUOUS, lb=-m - n, ub=m + n)
+    discrepancy_abs = model.addVars(combs, vtype=GRB.CONTINUOUS, ub=m + n)
+
+    for i, j in combs:
+        model.addConstr(xij_diff[(i, j)] == x[i] - x[j])
+        model.addConstr(xij_diff_abs[(i, j)] == gp.abs_(xij_diff[(i, j)]))
+
+        model.addConstr(yij_diff[(i, j)] == y[i] - y[j])
+        model.addConstr(yij_diff_abs[(i, j)] == gp.abs_(yij_diff[(i, j)]))
+
+        # avoid overlaps
+        model.addConstr(xij_diff_abs[(i, j)] + yij_diff_abs[(i, j)] >= 1)
+
+        # discrepancy = difference between distance in D and in embedding
+        if norm == 2:
+            model.addGenConstrNorm(
+                dist_ij[(i, j)], [xij_diff[(i, j)], yij_diff[(i, j)]], norm
+            )
+            model.addConstr(
+                discrepancy[(i, j)]
+                == dist_ij[(i, j)] - (D[i, j] * math.sqrt((m + n) ** 2))
+            )
+        else:
+            model.addConstr(
+                discrepancy[(i, j)]
+                == xij_diff_abs[(i, j)] + yij_diff_abs[(i, j)] - (D[i, j] * (m + n))
+            )
+
+        model.addConstr(discrepancy_abs[(i, j)] == gp.abs_(discrepancy[(i, j)]))
+
+    model.update()
+
+    model.setObjective(
+        gp.quicksum(discrepancy_abs),
+        sense=GRB.MINIMIZE,
+    )
+
+    model.optimize()
+
+    write_status(f"layout{weight}", model)
+
+    return np.array([(x[i].X, y[i].X) for i in range(len(elements))])
+
+
 def solve_qsap_linearized(a, A, b, B):
     # linearize
     # problem: gets very large very quickly
@@ -165,12 +249,11 @@ def solve_qsap_linearized(a, A, b, B):
     return np.array(result)
 
 
-def layout_qsap(elements, D, m=10, n=10):
+def layout_qsap(elements, D, m=10, n=10, weight=0.5):
     """Quadratic assignment onto grid, for now assuming constant space between cells."""
 
+    return solve_qsap(elements, D, m, n, norm=2, weight=weight)
     # 2) make host distances H
-    grid = list(product(range(m), range(n)))
-    H = normalize(scidist.squareform(scidist.pdist(np.array(grid), "euclidean")))
 
     # add dummy elements - qap does a bijective mapping
     # num_cells = len(grid)
@@ -190,7 +273,10 @@ def layout_qsap(elements, D, m=10, n=10):
     # 3) put D and H into QAP
     # TODO always puts actual elements in circular shape in center of the grid
     # res = quadratic_assignment(D, H, method="faq")  # '2opt' is too slow
-    pos = solve_qsap_linearized(elements, D, grid, H)
+    # grid = list(product(range(m), range(n)))
+    # H = normalize(scidist.squareform(scidist.pdist(np.array(grid), "euclidean")))
+    # pos = solve_qsap_linearized(elements, D, grid, H)
+
     # col_ind has the indices in grid to match elements
     # pos = [grid[res.col_ind[i]] for i, el in enumerate(elements)]
     return pos
@@ -320,8 +406,8 @@ def naive_matching(L1, L2):
     return rot, scale
 
 
-def layout_mds(D, m=10, n=10):
-    write_fake_status("layout")
+def layout_mds(D, m=10, n=10, weight=0.5):
+    write_fake_status(f"layout{weight}")
     return MDS(
         n_components=2,
         metric=True,
@@ -344,9 +430,9 @@ def layout_single(elements, D_EA, D_SR, m=10, n=10, weight=0.5):
 
     match layouter:
         case "mds":
-            return layout_mds(D, m=m, n=n)
+            return layout_mds(D, m=m, n=n, weight=weight)
         case "qsap":
-            return layout_qsap(elements, D, m=m, n=n)
+            return layout_qsap(elements, D, m=m, n=n, weight=weight)
 
 
 def align_layouts(layouts):
