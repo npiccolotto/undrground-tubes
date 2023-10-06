@@ -185,13 +185,14 @@ def make_sqr_graph(m, n, with_ports=True):
                 port_nb = get_closest_point(G_.nodes[node]["pos"], ports_nb)
                 port_self = get_closest_point(G_.nodes[neighbor]["pos"], ports)
                 length_penalty = dist_euclidean(port_nb, port_self)
+                #print(length_penalty)
 
                 G_.add_edge(
                     port_self,
                     port_nb,
                     EdgeType.PHYSICAL,
                     edge=EdgeType.PHYSICAL,
-                    weight=EdgePenalty.HOP + length_penalty -1,
+                    weight=max(EdgePenalty.HOP,EdgePenalty.HOP + length_penalty -1)
                 )
 
     return G_
