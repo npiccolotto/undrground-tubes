@@ -490,6 +490,8 @@ def group_aware_greedy_tsp(
             break
         shortest_paths = []
         for n in nodelist:
+            # exclude nodes that are not n or the end of the cycle to avoid
+            # shortest paths over other nodes (if that can happen)
             lava = [m for m in list(set.union(*groups)) if m != n and m != cycle[-1]]
             with updated_port_node_edge_weights_incident_at(G_, lava, math.inf):
                 sp = nx.shortest_path(G_, cycle[-1], n, weight=weight)
