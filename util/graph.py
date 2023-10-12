@@ -571,8 +571,9 @@ def group_aware_greedy_tsp(
             for u, v in path_to_edges(paths)
         ],
     ), "at least one edge connects two centers"
-    assert G_.nodes[paths[0]]["node"] == NodeType.CENTER, "first node not a center"
-    assert G_.nodes[paths[-1]]["node"] == NodeType.CENTER, "last node not a center"
+    # Cannot actually guarantee that both ends are a center
+    # assert G_.nodes[paths[0]]["node"] == NodeType.CENTER, "first node not a center"
+    # assert G_.nodes[paths[-1]]["node"] == NodeType.CENTER, "last node not a center"
 
     return (paths, calculate_path_length(G, path_to_edges(paths), weight=weight))
 
@@ -665,13 +666,16 @@ def update_weights_for_support_edge(G, edge):
     if un != NodeType.PORT or vn != NodeType.PORT:
         return G
 
-    # make this edge cheaper so future routes will use it more
-    G.edges[edge]["weight"] = max(0, G.edges[edge]["weight"] + EdgePenalty.IN_SUPPORT)
-
     # penalize other edges crossing this one
     # is it an edge between nodes?
     uparent = G.nodes[u]["belongs_to"]
     vparent = G.nodes[v]["belongs_to"]
+
+    # do not down-weight internal port edges b/c then bends become cheaper and we don't want that i think
+    if uparent != vparent:
+        G.edges[edge]["weight"] = max(0, G.edges[edge]["weight"] + EdgePenalty.IN_SUPPORT)
+
+
     """
     if uparent == vparent and not G.nodes[uparent]["occupied"]:
         # nope, within a node

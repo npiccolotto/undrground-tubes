@@ -272,6 +272,8 @@ def geometrize(instance, L, element_set_partition, layer=0):
                 print("howw")
                 continue
 
+            if set_id not in M.edges[(uu, u)]['sets'] or set_id not in M.edges[(v,vv)]['sets']:
+                continue
             uupos, upos = M.edges[(uu, u)]["edge_pos"][set_id][(uu, u)]
             vpos, vvpos = M.edges[(v, vv)]["edge_pos"][set_id][(v, vv)]
 
