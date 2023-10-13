@@ -489,6 +489,7 @@ def group_aware_greedy_tsp(
             # left are from the same group, which by assumption is connected already
             break
         shortest_paths = []
+        phys_dists = []
         for n in nodelist:
             # exclude nodes that are not n or the end of the cycle to avoid
             # shortest paths over other nodes (if that can happen)
@@ -496,11 +497,9 @@ def group_aware_greedy_tsp(
             with updated_port_node_edge_weights_incident_at(G_, lava, math.inf):
                 sp = nx.shortest_path(G_, cycle[-1], n, weight=weight)
                 shortest_paths.append(sp)
+                phys_dists.append(dist_euclidean(cycle[-1],n))
 
-        dists = [
-            calculate_path_length(G_, path_to_edges(sp), weight=weight)
-            for sp in shortest_paths
-        ]
+        dists = phys_dists
         argmin = np.argmin(dists)
         min_idx = argmin[0] if isinstance(argmin, list) else argmin
         next_node = nodelist[min_idx]
@@ -600,6 +599,7 @@ def approximate_tsp_tour(G, S, current_support):
 
     path, _ = group_aware_greedy_tsp(G, current_support, weight="weight", groups=S)
 
+    return path
     # follow-up with 2-opt heuristic
     elements = [e for e in list(set.union(*S)) if e in path]
 
