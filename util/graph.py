@@ -560,6 +560,18 @@ def group_aware_greedy_tsp(
     longest_step = np.argmax(dists)
     a, b, _ = cycle_dists[longest_step]
     paths = remove_segment_in_circle(paths, a, b)
+
+    # so at this point we have a tour BUT it may not contain all elements
+    # this is due to partial supports. we might have connected one end of an existing line
+    # but the other end is not included here
+    # solution: add edges in existing support, find a tour there
+    CS = current_support.copy()
+    for u, v in path_to_edges(paths):
+        CS.add_edge(u, v, weight=G.edges[u, v]["weight"])
+    paths = tsp.traveling_salesman_problem(CS, cycle=False)
+
+    assert all([n in paths for n in set.union(*groups)]), "not all elements in path"
+
     # print([(u, v) for u, v in path_to_edges(paths) if (u,v) not in G_.edges],paths)
     assert all(
         [(u, v) in G_.edges for u, v in path_to_edges(paths)]
@@ -574,8 +586,11 @@ def group_aware_greedy_tsp(
     # Cannot actually guarantee that both ends are a center
     # assert G_.nodes[paths[0]]["node"] == NodeType.CENTER, "first node not a center"
     # assert G_.nodes[paths[-1]]["node"] == NodeType.CENTER, "last node not a center"
-
     return (paths, calculate_path_length(G, path_to_edges(paths), weight=weight))
+
+
+def get_total_weight(G, weight="weight"):
+    return sum(map(lambda e: G.edges[e][weight], G.edges()))
 
 
 def approximate_tsp_tour(G, S, current_support):
@@ -583,14 +598,118 @@ def approximate_tsp_tour(G, S, current_support):
     Which is almost but not really a TSP tour (e.g., G is not completely connected), but let's continue calling it that.
     """
 
-    return group_aware_greedy_tsp(G, current_support, weight="weight", groups=S)[0]
-    #tours = [
+    path, _ = group_aware_greedy_tsp(G, current_support, weight="weight", groups=S)
+
+    # follow-up with 2-opt heuristic
+    elements = [e for e in list(set.union(*S)) if e in path]
+
+    SP = nx.Graph()
+    element_and_idx = zip(elements, list(map(lambda e: path.index(e), elements)))
+    element_and_idx = sorted(element_and_idx, key=lambda ei: ei[1])
+
+    for ei1, ei2 in pairwise(element_and_idx):
+        el1, idx1 = ei1
+        el2, idx2 = ei2
+        sp = path[idx1 : (idx2 + 1)]
+        # print(el1,el2,sp)
+        sp_cost = calculate_path_length(G, path_to_edges(sp), weight="weight")
+        SP.add_edge(
+            el1,
+            el2,
+            path={(el1, el2): sp, (el2, el1): list(reversed(sp))},
+            weight=sp_cost,
+        )
+
+    cost = get_total_weight(SP)
+
+    edges_to_swap = [
+        (e1, e2)
+        for e1, e2 in combinations(SP.edges(), 2)
+        if len(set(e1).intersection(set(e2))) == 0
+        and min(SP.degree[e1[0]], SP.degree[e1[1]], SP.degree[e2[0]], SP.degree[e2[1]])
+        == 2
+    ]
+
+    while edges_to_swap:
+        edge1, edge2 = edges_to_swap.pop()
+        u, v = edge1
+        w, x = edge2
+
+        # u is the node of the edge that farther from the other edge
+        u, v = (
+            (u, v)
+            if min(nx.shortest_path_length(SP, u, w), nx.shortest_path_length(SP, u, x))
+            > min(nx.shortest_path_length(SP, v, w), nx.shortest_path_length(SP, v, x))
+            else (v, u)
+        )
+        # and x is the node farther from v
+        w, x = (
+            (w, x)
+            if nx.shortest_path_length(SP, w, v) < nx.shortest_path_length(SP, v, x)
+            else (x, w)
+        )
+
+        SP_ = SP.copy()
+        # do the swap
+        SP_.remove_edge(u, v)
+        SP_.remove_edge(w, x)
+        with updated_port_node_edge_weights_incident_at(
+            G, list(set(elements).difference(set([u, w])))
+        ):
+            sp_uw = nx.shortest_path(G, u, w, weight="weight")
+        with updated_port_node_edge_weights_incident_at(
+            G, list(set(elements).difference(set([v, x])))
+        ):
+            sp_vx = nx.shortest_path(G, v, x, weight="weight")
+        SP_.add_edge(
+            u,
+            w,
+            path={(u, w): sp_uw, (w, u): list(reversed(sp_uw))},
+            weight=calculate_path_length(G, path_to_edges(sp_uw), weight="weight"),
+        )
+        SP_.add_edge(
+            v,
+            x,
+            path={(v, x): sp_vx, (x, v): list(reversed(sp_vx))},
+            weight=calculate_path_length(G, path_to_edges(sp_vx), weight="weight"),
+        )
+
+        # print("loop", [n for n in SP_.nodes() if SP_.degree[n] == 1], u, v, w, x)
+
+        new_cost = get_total_weight(SP_)
+        if new_cost < cost:
+            SP = SP_
+            edges_to_swap = [
+                (e1, e2)
+                for e1, e2 in combinations(SP_.edges(), 2)
+                if len(set(e1).intersection(set(e2))) == 0
+                and min(
+                    SP_.degree[e1[0]],
+                    SP_.degree[e1[1]],
+                    SP_.degree[e2[0]],
+                    SP_.degree[e2[1]],
+                )
+                == 2
+            ]
+            cost = new_cost
+
+    assert (
+        len([n for n in SP.nodes() if SP.degree[n] == 1]) == 2
+    ), "too many deg1 nodes for a path"
+    tsp_path = tsp.traveling_salesman_problem(SP, nodes=elements, cycle=False)
+    path = []
+    for e1, e2 in pairwise(tsp_path):
+        path += SP.edges[e1, e2]["path"][(e1, e2)][:-1]
+    path += [e2]
+    return path
+
+    # tours = [
     #    group_aware_greedy_tsp(G, current_support, weight="weight", groups=S, source=n)
     #    for n in list(set.union(*S))
-    #]
-    #shortest_tour = np.argmin(map(lambda t: t[1], tours))
-    #tour, cost = tours[shortest_tour]
-    #return tour
+    # ]
+    # shortest_tour = np.argmin(map(lambda t: t[1], tours))
+    # tour, cost = tours[shortest_tour]
+    # return tour
 
 
 def get_node_with_degree(G, deg):
@@ -673,8 +792,9 @@ def update_weights_for_support_edge(G, edge):
 
     # do not down-weight internal port edges b/c then bends become cheaper and we don't want that i think
     if uparent != vparent:
-        G.edges[edge]["weight"] = max(0, G.edges[edge]["weight"] + EdgePenalty.IN_SUPPORT)
-
+        G.edges[edge]["weight"] = max(
+            0, G.edges[edge]["weight"] + EdgePenalty.IN_SUPPORT
+        )
 
     """
     if uparent == vparent and not G.nodes[uparent]["occupied"]:
