@@ -10,7 +10,7 @@ from enum import IntEnum, Enum
 
 class EdgePenalty(float, Enum):
     IN_SUPPORT = -1
-    COMMON_MULTILAYER = -0.5
+    COMMON_MULTILAYER = 0
 
     # Bends
     ONE_EIGHTY = 0

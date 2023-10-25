@@ -227,6 +227,9 @@ def route_multilayer_heuristic(
 
     edge_used_in_layers = defaultdict(list)
 
+    G_ = nx.MultiGraph()
+    G_.add_nodes_from(list(G.nodes(data=True)))
+
     for layer in range(num_layers):
         L = route_single_layer_heuristic(
             instance,
@@ -237,7 +240,11 @@ def route_multilayer_heuristic(
         for u, v, k in L.edges(keys=True):
             if k != EdgeType.SUPPORT:
                 continue
-            edge_used_in_layers[(u, v)].append(k)
+            G_.add_edge(u, v, (layer, k), **L.edges[u, v, k])
+
+    write_fake_status("route")
+
+    return G_
 
     # down-weight edges used in many layers
     # either if used in all of the previous k layers (at current layer)
