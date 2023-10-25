@@ -22,6 +22,10 @@ from util.route import determine_router
 from util.config import config_vars, get_grid
 
 
+def make_set_color_dict(sets, colors):
+    return dict(zip(sets, colors))
+
+
 def draw_biarc(line, barc):
     p0 = barc["p"][1]
     line.M(p0[0], p0[1])
@@ -136,7 +140,9 @@ def geometrize(instance, L, element_set_partition, layer=0):
         config_vars["draw.marginhorizontal"].get(),
         config_vars["draw.marginvertical"].get(),
     )
-
+    set_colors = make_set_color_dict(
+        instance["set_ftb_order"], config_vars["draw.setcolors"].get()
+    )
     M = extract_support_layer(L, layer)
 
     # project nodes
@@ -233,9 +239,7 @@ def geometrize(instance, L, element_set_partition, layer=0):
                     "data-weight": L.edges[u, v, EdgeType.PHYSICAL]["weight"],
                     "stroke_width": config_vars["draw.strokewidth"].get(),
                     "fill": "none",
-                    "stroke": config_vars["draw.setcolors"].get()[
-                        instance["set_ftb_order"].index(set_id)
-                    ],
+                    "stroke": set_colors[set_id],
                 }
             )
             line.M(*u_intersect)
@@ -272,7 +276,10 @@ def geometrize(instance, L, element_set_partition, layer=0):
                 print("howw")
                 continue
 
-            if set_id not in M.edges[(uu, u)]['sets'] or set_id not in M.edges[(v,vv)]['sets']:
+            if (
+                set_id not in M.edges[(uu, u)]["sets"]
+                or set_id not in M.edges[(v, vv)]["sets"]
+            ):
                 continue
             uupos, upos = M.edges[(uu, u)]["edge_pos"][set_id][(uu, u)]
             vpos, vvpos = M.edges[(v, vv)]["edge_pos"][set_id][(v, vv)]
@@ -295,9 +302,7 @@ def geometrize(instance, L, element_set_partition, layer=0):
                     "data-weight": L.edges[u, v, EdgeType.PHYSICAL]["weight"],
                     "stroke_width": config_vars["draw.strokewidth"].get(),
                     "fill": "none",
-                    "stroke": config_vars["draw.setcolors"].get()[
-                        instance["set_ftb_order"].index(set_id)
-                    ],
+                    "stroke": set_colors[set_id],
                 }
             )
             barc = biarc(uu_u_center, u_intersect, v_intersect, vv_v_center)
@@ -372,9 +377,7 @@ def geometrize(instance, L, element_set_partition, layer=0):
                         cx=cx,
                         cy=cy,
                         r=config_vars["draw.deg1marksize"].get(),
-                        fill=config_vars["draw.setcolors"].get()[
-                            instance["set_ftb_order"].index(set_id)
-                        ],
+                        fill=set_colors[set_id],
                     )
                     circle.append_title(set_id)
                     geometries.append(circle)
@@ -415,9 +418,7 @@ def geometrize(instance, L, element_set_partition, layer=0):
                             "data-weight": L.edges[a, b, EdgeType.PHYSICAL]["weight"],
                             "stroke_width": config_vars["draw.strokewidth"].get(),
                             "fill": "none",
-                            "stroke": config_vars["draw.setcolors"].get()[
-                                instance["set_ftb_order"].index(set_id)
-                            ],
+                            "stroke": set_colors[set_id],
                         }
                     )
                     _, v = orient_edge_node_inside(outward_edge_at_port[a], a)
