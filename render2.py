@@ -185,14 +185,14 @@ def make_sqr_graph(m, n, with_ports=True):
                 port_nb = get_closest_point(G_.nodes[node]["pos"], ports_nb)
                 port_self = get_closest_point(G_.nodes[neighbor]["pos"], ports)
                 length_penalty = dist_euclidean(port_nb, port_self)
-                #print(length_penalty)
+                # print(length_penalty)
 
                 G_.add_edge(
                     port_self,
                     port_nb,
                     EdgeType.PHYSICAL,
                     edge=EdgeType.PHYSICAL,
-                    weight=max(EdgePenalty.HOP,EdgePenalty.HOP + length_penalty -1)
+                    weight=max(EdgePenalty.HOP, EdgePenalty.HOP + length_penalty - 1),
                 )
 
     return G_
@@ -262,7 +262,10 @@ def read_instance(directory, name):
         "set_system": list_of_lists_to_set_system_dict(elements, data["SR"]),
         "D_EA": data["EA"],
         "D_SR": data["SA"],
-        "set_ftb_order": list(sorted(sets)),
+        "set_colors": dict(
+            zip(sets, data["SC"] if "SC" in data else config_vars["draw.setcolors"].get())
+        ),
+        "set_ftb_order": sets,
     }
     if "glyph_ids" in data:
         inst["glyph_ids"] = data["glyph_ids"]
@@ -480,7 +483,9 @@ def vis(
     print(f"Grid size is {grid_width} x {grid_height}")
 
     if grid_width == 0 or grid_height == 0:
-        inst = read_instance(config_vars["general.readdir"].get(), config_vars['general.dataset'].get())
+        inst = read_instance(
+            config_vars["general.readdir"].get(), config_vars["general.dataset"].get()
+        )
         nrow = len(inst["elements"])
         grid_width, grid_height = autogridsize(nrow)
         config_vars["general.gridwidth"].set(grid_width)

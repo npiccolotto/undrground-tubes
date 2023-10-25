@@ -22,10 +22,6 @@ from util.route import determine_router
 from util.config import config_vars, get_grid
 
 
-def make_set_color_dict(sets, colors):
-    return dict(zip(sets, colors))
-
-
 def draw_biarc(line, barc):
     p0 = barc["p"][1]
     line.M(p0[0], p0[1])
@@ -140,9 +136,7 @@ def geometrize(instance, L, element_set_partition, layer=0):
         config_vars["draw.marginhorizontal"].get(),
         config_vars["draw.marginvertical"].get(),
     )
-    set_colors = make_set_color_dict(
-        instance["set_ftb_order"], config_vars["draw.setcolors"].get()
-    )
+    set_colors = instance['set_colors']
     M = extract_support_layer(L, layer)
 
     # project nodes
