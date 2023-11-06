@@ -509,7 +509,7 @@ def vis(
                 {
                     "success": True,
                     "duration_ms": duration * 1000,
-                    "metrics": compute_metrics(G),
+                    "metrics": compute_metrics(G, inst),
                     "ctx": {key: value.get() for key, value in config_vars.items()},
                 },
                 f,
