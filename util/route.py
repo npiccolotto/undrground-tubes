@@ -214,7 +214,14 @@ def route_single_layer_heuristic(instance, G, element_set_partition, layer=0):
             u, v = e
             update_weights_for_support_edge(G_, e)
     # 5. stop when all elements have been processed
-    return G
+
+    support_graph = nx.subgraph_view(G, filter_edge=lambda u,v,k: k == EdgeType.SUPPORT)
+    SG = nx.MultiGraph()
+    SG.add_nodes_from(support_graph.nodes(data=True))
+    for u,v in support_graph.edges():
+        SG.add_edge(u,v,(layer, EdgeType.SUPPORT), **support_graph.edges[u,v,EdgeType.SUPPORT])
+
+    return SG
 
 
 def route_multilayer_heuristic(
@@ -296,6 +303,210 @@ def route_multilayer_heuristic(
     return G_
 
 
+def route_single_layer_ilp(instance, G, element_set_partition, layer):
+    support_type = config_vars["route.subsupporttype"].get()
+    num_layers = config_vars["general.numlayers"].get()
+    el_idx_lookup = instance["elements_inv"]
+
+    MAX_OUT_TERMINAL = 4
+    MAX_OUT_ROOT = 4
+    if support_type == "path":
+        MAX_OUT_TERMINAL = 1
+        MAX_OUT_ROOT = 2
+
+    # convert to arcs
+    M = nx.DiGraph(incoming_graph_data=G)
+
+    model = gp.Model("multilayer-route")
+    if config_vars["route.ilptimeoutsecs"].get() > 0:
+        model.params.timeLimit = config_vars["route.ilptimeoutsecs"].get()
+
+    model.params.MIPGap = config_vars["route.ilpmipgap"].get()
+
+    arcs = list(M.edges())
+    edges = list(G.edges())
+
+    x = model.addVars(
+        [(i, e) for i in range(len(element_set_partition)) for e in arcs],
+        vtype=GRB.BINARY,
+        name="x_uv_i",
+    )
+
+    model._x = x
+
+    # bend penalties
+    b = model.addVars(
+        [
+            (i, n, t)
+            for i in range(len(element_set_partition))
+            for n in G.nodes()
+            for t in range(4)
+        ],
+        vtype=GRB.BINARY,
+        name="bends",
+    )
+
+    for n in G.nodes():
+        out_arcs_at_n = M.edges(nbunch=n)
+        in_arcs_at_n = [(v, u) for u, v in out_arcs_at_n]
+        for i in range(len(element_set_partition)):
+            for e1, e2 in product(in_arcs_at_n, out_arcs_at_n):
+                both_on = model.addVar(vtype=GRB.BINARY)
+                model.addConstr(both_on == gp.and_(x[(i, e1)], x[(i, e2)]))
+                model.addConstr(both_on <= b[(i, n, get_bend(e1, e2))])
+
+    # connectivity
+    for i, esp in enumerate(element_set_partition):
+        for u, v in edges:
+            # connection flows only in one direction
+            model.addConstr(x[(i, (u, v))] + x[(i, (v, u))] <= 1)
+
+        terminals, _ = esp
+
+        # rest is steiner nodes
+
+        for n in G.nodes():
+            is_occupied = G.nodes[n]["layers"][layer]["occupied"]
+            is_terminal = (
+                is_occupied and G.nodes[n]["layers"][layer]["label"] in terminals
+            )
+            is_non_root_terminal = (
+                is_terminal and G.nodes[n]["layers"][layer]["label"] != terminals[0]
+            )
+            is_root_terminal = (
+                is_terminal and G.nodes[n]["layers"][layer]["label"] == terminals[0]
+            )
+            is_lava = (
+                is_occupied and G.nodes[n]["layers"][layer]["label"] not in terminals
+            )
+            is_steiner = not is_occupied
+
+            out_arcs_at_n = M.edges(nbunch=n)
+            in_arcs_at_n = [(v, u) for u, v in out_arcs_at_n]
+
+            sum_in = gp.quicksum([x[(i, (u, v))] for u, v in in_arcs_at_n])
+            sum_out = gp.quicksum([x[(i, (u, v))] for u, v in out_arcs_at_n])
+
+            model.addConstr(sum_in <= 1)
+
+            if is_terminal:
+                if is_non_root_terminal:
+                    model.addConstr(sum_in == 1)
+                    model.addConstr(sum_out <= MAX_OUT_TERMINAL)
+                if is_root_terminal:
+                    model.addConstr(sum_in == 0)
+                    model.addConstr(sum_out >= 1)
+                    model.addConstr(sum_out <= MAX_OUT_ROOT)
+
+            if is_lava:
+                model.addConstr(sum_in == 0)
+                model.addConstr(sum_out == 0)
+
+            if is_steiner:
+                model.addConstr(sum_in == sum_out)
+
+    obj = config_vars["route.bendlayerfactor"].get() * gp.quicksum(
+        [
+            b[(i, n, 1)] + b[(i, n, 2)] * 2 + b[(i, n, 3)] * 3
+            for i in range(len(element_set_partition))
+            for n in G.nodes()
+        ]
+    ) + config_vars["route.edgelayerlengthfactor"].get() * gp.quicksum(x)
+
+    def addDynamicConstraints(m, xVals):
+        # DCC: for each layer and partition: check if it's connected, else add constraint to connect them
+        for i, esp in enumerate(element_set_partition):
+            elements, sets = esp
+            root = instance["glyph_positions"][layer][el_idx_lookup[elements[0]]]
+
+            terminals = set(
+                [
+                    n
+                    for n in G.nodes()
+                    if G.nodes[n]["layers"][layer]["occupied"]
+                    and G.nodes[n]["layers"][layer]["label"] in elements
+                    and n != root
+                ]
+            )
+
+            # build intermediate graph
+            G_ki = nx.DiGraph()
+            for u, v in arcs:
+                if xVals[(i, (u, v))] > 0:
+                    G_ki.add_edge(u, v)
+            z = set(nx.depth_first_search.dfs_preorder_nodes(G_ki, root))
+            not_z = set([n for n in G.nodes()]).difference(z)
+            intersect = terminals.intersection(z)
+            if len(intersect) < len(terminals):
+                # there are unconnected terminals
+                # add a constraint that at least one arc must go from z to !z
+                m.cbLazy(
+                    gp.quicksum(
+                        [m._x[(i, (u, v))] for u, v in arcs if u in z and v in not_z]
+                    )
+                    >= 1
+                )
+
+    # Callback - add lazy constraints to eliminate sub-tours for integer and fractional solutions
+    def callback(model, where):
+        # check integer solutions for feasibility
+        if where == GRB.Callback.MIPSOL:
+            # get solution values for variables x
+            xValues = model.cbGetSolution(model._x)
+            addDynamicConstraints(model, xValues)
+        # check fractional solutions to find violated CECs/DCCs to strengthen the bound
+        elif (
+            where == GRB.Callback.MIPNODE
+            and model.cbGet(GRB.Callback.MIPNODE_STATUS) == GRB.OPTIMAL
+        ):
+            # get solution values for variables x
+            xValues = model.cbGetNodeRel(model._x)
+            addDynamicConstraints(model, xValues)
+
+    model.update()
+    model.setObjective(obj, sense=GRB.MINIMIZE)
+    model.Params.LazyConstraints = 1
+    model.optimize(callback)
+
+    write_status(f"route{layer}", model)
+
+    MM = nx.MultiGraph(incoming_graph_data=G)
+
+    for i, esp in enumerate(element_set_partition):
+        elements, sets = esp
+
+        for e in arcs:
+            u, v = e
+            if x[(i, e)].x > 0:
+                if (u, v, (layer, EdgeType.SUPPORT)) not in MM.edges:
+                    MM.add_edge(
+                        u,
+                        v,
+                        (layer, EdgeType.SUPPORT),
+                        layer=layer,
+                        sets=sets,
+                        partitions=[i],
+                    )
+                else:
+                    merged_sets = set(
+                        MM.edges[u, v, (layer, EdgeType.SUPPORT)]["sets"]
+                    ).union(set(sets))
+                    merged_partitions = set(
+                        MM.edges[u, v, (layer, EdgeType.SUPPORT)]["partitions"]
+                    ).union(set([i]))
+                    MM.add_edge(
+                        u,
+                        v,
+                        (layer, EdgeType.SUPPORT),
+                        layer=layer,
+                        edge=EdgeType.SUPPORT,
+                        sets=merged_sets,
+                        partitions=merged_partitions,
+                    )
+
+    return MM
+
+
 def route_multilayer_ilp(instance, G, element_set_partition):
     support_type = config_vars["route.subsupporttype"].get()
     num_layers = config_vars["general.numlayers"].get()
@@ -338,7 +549,6 @@ def route_multilayer_ilp(instance, G, element_set_partition):
             for i in range(len(element_set_partition)):
                 model.addConstr(x[(k, i, (u, v))] <= x_all[(u, v)])
                 model.addConstr(x[(k, i, (v, u))] <= x_all[(u, v)])
-
     model._xa = x_all
 
     # bend penalties
@@ -466,11 +676,11 @@ def route_multilayer_ilp(instance, G, element_set_partition):
 
     def addDynamicConstraints(m, xVals, xaVals):
         # CROSS: for each diagonal edge: check if both itself and its crossing twin are used, if so disallow it
-        for e1, e2 in crossings:
-            e1 = tuple(reversed(e1)) if e1 not in xaVals else e1
-            e2 = tuple(reversed(e2)) if e2 not in xaVals else e2
-            if xaVals[e1] > 0 and xaVals[e2] > 0:
-                m.cbLazy(m._xa[e1] + m._xa[e2] <= 1)
+        # for e1, e2 in crossings:
+        #    e1 = tuple(reversed(e1)) if e1 not in xaVals else e1
+        #    e2 = tuple(reversed(e2)) if e2 not in xaVals else e2
+        #    if xaVals[e1] > 0 and xaVals[e2] > 0:
+        #        m.cbLazy(m._xa[e1] + m._xa[e2] <= 1)
 
         # DCC: for each layer and partition: check if it's connected, else add constraint to connect them
         for k in range(num_layers):
@@ -843,21 +1053,35 @@ def determine_router():
 def route(instance, G, element_set_partition):
     router = determine_router()
 
-    if router == "opt":
-        L = route_multilayer_ilp(
-            instance,
-            nx.subgraph_view(
-                G,
-                filter_edge=lambda u, v, k: k == EdgeType.CENTER,
-                filter_node=lambda n: G.nodes[n]["node"] == NodeType.CENTER,
-            ),
-            element_set_partition,
-        )
-    else:
-        L = route_multilayer_heuristic(
-            instance,
-            G,
-            element_set_partition,
-        )
+    grid_graph = G
+    line_graph = nx.subgraph_view(
+        G,
+        filter_edge=lambda u, v, k: k == EdgeType.CENTER,
+        filter_node=lambda n: G.nodes[n]["node"] == NodeType.CENTER,
+    )
 
-    return L
+    num_layers = config_vars["general.numlayers"].get()
+
+    layer_solutions = []
+    for layer in range(num_layers):
+        L = (
+            route_single_layer_ilp(
+                instance, line_graph.copy(), element_set_partition, layer=layer
+            )
+            if router == "opt"
+            else route_single_layer_heuristic(
+                instance, grid_graph.copy(), element_set_partition, layer=layer
+            )
+        )
+        layer_solutions.append(L)
+
+    MG = nx.MultiGraph()
+    if router == 'opt':
+        MG.add_nodes_from(line_graph.nodes(data=True))
+    else:
+        MG.add_nodes_from(grid_graph.nodes(data=True))
+
+    for lsolution in layer_solutions:
+        MG.add_edges_from(lsolution.edges(data=True,keys=True))
+
+    return MG

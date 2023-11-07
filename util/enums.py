@@ -30,7 +30,7 @@ class EdgePenalty(float, Enum):
     # crossings relative to node
     # diagonal edges between different nodes
     # there aren't too many in the grid graph of those so the effect is meh
-    CROSSING_OUTSIDE = 1000
+    CROSSING_OUTSIDE = 0
 
     # at port edge of an occupied node
     # would not recommend to set that because we often can't work around them anyways
