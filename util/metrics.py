@@ -37,35 +37,34 @@ def figure_out_size(G):
 
     return (max_x, max_y)
 
+
 def rank(i, j):
     return 0
 
+
 def compute_trustworthyness_EA(instance, G, k=5):
-    
-    
     layer_pos = defaultdict(dict)
-    
+
     for n, data in G.nodes(data=True):
-        if 'layers' in data:
-            for i, layer in enumerate(data['layers']):
-                if layer['occupied']:
-                    layer_pos[layer['label']][i] = data['pos']
-    
-    
-    elements = instance['elements']
-    EA = instance['D_EA']
-       
+        if "layers" in data:
+            for i, layer in enumerate(data["layers"]):
+                if layer["occupied"]:
+                    layer_pos[layer["label"]][i] = data["pos"]
+
+    elements = instance["elements"]
+    EA = instance["D_EA"]
+
     n_layers = len(layer_pos[elements[0]])
     N = len(elements)
-    
+
     if k > N:
         k = N
-    
+
     A_of_k = 2 / (N * k * (2 * N - 3 * k - 1))
-    
+
     M_1_layer = []
     ranking_ea = defaultdict(dict)
-    
+
     for i, element in enumerate(elements):
         rank = []
         for j in range(N):
@@ -73,29 +72,28 @@ def compute_trustworthyness_EA(instance, G, k=5):
                 continue
             rank.append((elements[j], EA[i][j]))
 
-        rank = sorted(rank, key= lambda x: x[1])
-        
+        rank = sorted(rank, key=lambda x: x[1])
+
         for j, (e2, _) in enumerate(rank):
             ranking_ea[element][e2] = j + 1
-    
-    for i in range(n_layers):  
-    
+
+    for i in range(n_layers):
         M_1 = 0
         for e1 in elements:
             rank = []
             for e2 in elements:
                 if e1 == e2:
-                    continue  
-                
+                    continue
+
                 p1 = layer_pos[e1][i]
                 p2 = layer_pos[e2][i]
-                
-                dist = (p1[0] - p2[0])**2 + (p1[1] - p2[1])**2
-                
+
+                dist = (p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2
+
                 rank.append((e2, dist))
-            rank = sorted(rank, key= lambda x: x[1])
+            rank = sorted(rank, key=lambda x: x[1])
             rank = rank[:k]
-    
+
             for j, (e2, _) in enumerate(rank):
                 M_1 += ranking_ea[e1][e2] - k
 
@@ -103,6 +101,7 @@ def compute_trustworthyness_EA(instance, G, k=5):
         M_1_layer.append(M_1)
 
     return M_1_layer
+
 
 def get_node_positions(G, layer=0):
     result = []
@@ -349,7 +348,7 @@ def compute_metrics(G, instance):
                 + compute_crossings_outside(G_, what="lines", size=figure_out_size(G)),
                 "total_edge_crossings": compute_crossings_inside(G_, what="edges")
                 + compute_crossings_outside(G_, what="edges", size=figure_out_size(G)),
-                "M1": compute_trustworthyness_EA(instance, G)
+                "M1": compute_trustworthyness_EA(instance, G),
             }
         )
     return result

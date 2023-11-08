@@ -1217,3 +1217,4 @@ def convert_line_graph_to_grid_graph(instance, L, G, element_set_partition):
         [(u, v, k) for u, v, k in G.edges(keys=True) if k == EdgeType.CENTER]
     )
     return G
+

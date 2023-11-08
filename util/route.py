@@ -24,6 +24,8 @@ from util.graph import (
 from util.collections import set_contains, flatten
 from util.config import config_vars
 from util.mip import write_status, write_fake_status
+import scipy.spatial.distance as sp_dist
+import networkx.algorithms.approximation.traveling_salesman as tsp
 
 
 def get_bend(e1, e2):
@@ -444,6 +446,149 @@ def determine_router():
     return router
 
 
+def get_spanning_tree_approx(D, nodeset):
+    G = nx.Graph()
+    for i, j in combinations(nodeset, r=2):
+        G.add_edge(i, j, weight=D[i, j])
+    S = nx.minimum_spanning_tree(G)
+    return S.edges()
+
+
+def get_tour_approx(D, nodeset):
+    G = nx.Graph()
+    for i, j in combinations(nodeset, r=2):
+        G.add_edge(i, j, weight=D[i, j])
+    S = tsp.traveling_salesman_problem(G, cycle=False)
+    return path_to_edges(S)
+
+
+def route_brosi_ilp(instance, C, G, esp, layer):
+    G_ = nx.Graph()
+    G_.add_nodes_from(
+        [
+            (n, d | d["layers"][layer] if d["node"] == NodeType.CENTER else d)
+            for n, d in G.nodes(data=True)
+        ]
+    )
+
+    # TODO could do this on outside
+    G_.add_edges_from(
+        [
+            (u, v, d)
+            for u, v, k, d in G.edges(keys=True, data=True)
+            if k == EdgeType.PHYSICAL
+        ]
+    )
+
+    M = nx.DiGraph(incoming_graph_data=G_)
+    grid_arcs = list(M.edges())
+    grid_edges = list(G_.edges())
+    input_edges = list(C.edges())
+
+    model = gp.Model("route-brosi")
+    if config_vars["route.ilptimeoutsecs"].get() > 0:
+        model.params.timeLimit = config_vars["route.ilptimeoutsecs"].get()
+
+    model.params.MIPGap = config_vars["route.ilpmipgap"].get()
+
+    # decision variable x_ew: is grid arc w used for routing connectivity graph edge e?
+    x_ew = model.addVars(
+        [(e, w) for e in input_edges for w in grid_arcs], vtype=GRB.BINARY, name="x_ew"
+    )
+
+    # use only one arc per grid edge
+    for u, v in grid_edges:
+        for e in input_edges:
+            model.addConstr(x_ew[e, (u, v)] + x_ew[e, (v, u)] <= 1)
+
+    # here the idea is to avoid an input edge carrying the same sets re-using an arc
+    # while allowing it for input edges with differing sets
+    unprocessed_ie = input_edges.copy()
+    while len(unprocessed_ie):
+        edge = unprocessed_ie.pop(0)
+        edgelist = [edge]
+        for i, other in list(enumerate(unprocessed_ie)):
+            if C.edges[other]["sets"] == C.edges[edge]["sets"]:
+                edgelist.append(other)
+                unprocessed_ie.remove(other)
+        print(C.edges[edge]["sets"], edgelist)
+        for u, v in grid_edges:
+            model.addConstr(
+                gp.quicksum([x_ew[e, (u, v)] + x_ew[e, (v, u)] for e in edgelist]) <= 1
+            )
+
+    # s-t shortest path formulation
+    for e in input_edges:
+        s, t = e
+        pos_s = instance["glyph_positions"][layer][s]
+        pos_t = instance["glyph_positions"][layer][t]
+
+        for p in M.nodes():
+            out_arcs_at_p = M.edges(nbunch=p)
+            in_arcs_at_p = [(v, u) for u, v in out_arcs_at_p]
+            sum_out = gp.quicksum([x_ew[e, w] for w in out_arcs_at_p])
+            sum_in = gp.quicksum([x_ew[e, w] for w in in_arcs_at_p])
+
+            if M.nodes[p]["node"] == NodeType.PORT:
+                parent = M.nodes[p]["belongs_to"]
+                is_parent_occupied = M.nodes[parent]["occupied"]
+
+                model.addConstr(sum_out - sum_in == 0)
+
+                if is_parent_occupied and parent not in [pos_s, pos_t]:
+                    model.addConstr(sum_in == 0)
+                else:
+                    model.addConstr(sum_in <= 1)
+
+            else:
+                if p == pos_s:
+                    model.addConstr(sum_out == 1)
+                    model.addConstr(sum_in == 0)
+                elif p == pos_t:
+                    model.addConstr(sum_in == 1)
+                    model.addConstr(sum_out == 0)
+                else:
+                    model.addConstr(sum_out == 0)
+                    model.addConstr(sum_in == 0)
+
+    # TODO? used in paper as well:
+    # 10) prevent grid nodes be used for more than one edge
+    # 14) pick only one of the crossing twin edges
+    # 15-18) ensure edge order at input/grid nodes
+    # 19-21) make line bends nice at input nodes
+
+    obj = gp.quicksum(x_ew) * 100 + gp.quicksum(
+        [x_ew[(e, w)] * M.edges[w]["weight"] for e in input_edges for w in grid_arcs]
+    )
+    model.update()
+    model.setObjective(obj, sense=GRB.MINIMIZE)
+    model.optimize()
+
+    write_status(f"route_{layer}", model)
+
+    MM = nx.MultiGraph()
+    for w in grid_arcs:
+        u, v = w
+
+        for e in input_edges:
+            if x_ew[(e, w)].x > 0:
+                # print('layer', layer, 'at grid edge', w, 'sets', C.edges[e]["sets"])
+                existing_sets = (
+                    MM.edges[(u, v)]["sets"] if (u, v) in MM.edges else set()
+                )
+
+                MM.add_edge(
+                    u,
+                    v,
+                    (layer, EdgeType.SUPPORT),
+                    edge=EdgeType.SUPPORT,
+                    layer=layer,
+                    sets=existing_sets.union(set(C.edges[e]["sets"])),
+                )
+
+    return MM
+
+
 def route(instance, G, element_set_partition):
     router = determine_router()
 
@@ -455,12 +600,39 @@ def route(instance, G, element_set_partition):
     )
 
     num_layers = config_vars["general.numlayers"].get()
+    support_type = config_vars["route.subsupporttype"].get()
 
     layer_solutions = []
     for layer in range(num_layers):
+        pos = instance["glyph_positions"][layer]
+        D = sp_dist.squareform(sp_dist.pdist(pos, metric="euclidean"))
+
+        C = nx.Graph()  # connectivity graph
+        for elements, sets in element_set_partition:
+            nodeset = list(map(lambda e: instance["elements_inv"][e], elements))
+
+            # TODO exact TSP/MST
+            connectivity_edges = (
+                get_tour_approx(D, nodeset)
+                if support_type == "path"
+                else get_spanning_tree_approx(D, nodeset)
+            )
+
+            for u, v in connectivity_edges:
+                existing_sets_at_edge = (
+                    C.edges[(u, v)]["sets"] if (u, v) in C.edges else set()
+                )
+                existing_sets_at_edge = existing_sets_at_edge.union(set(sets))
+                C.add_edge(u, v, sets=existing_sets_at_edge)
+        print(list(C.edges(data=True)))
+
         L = (
-            route_single_layer_ilp(
-                instance, line_graph.copy(), element_set_partition, layer=layer
+            route_brosi_ilp(
+                instance,
+                C.copy(),
+                grid_graph.copy(),
+                element_set_partition,
+                layer=layer,
             )
             if router == "opt"
             else route_single_layer_heuristic(
@@ -471,7 +643,7 @@ def route(instance, G, element_set_partition):
 
     MG = nx.MultiGraph()
     if router == "opt":
-        MG.add_nodes_from(line_graph.nodes(data=True))
+        MG.add_nodes_from(grid_graph.nodes(data=True))
     else:
         MG.add_nodes_from(grid_graph.nodes(data=True))
 

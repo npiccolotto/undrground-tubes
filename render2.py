@@ -263,7 +263,10 @@ def read_instance(directory, name):
         "D_EA": data["EA"],
         "D_SR": data["SA"],
         "set_colors": dict(
-            zip(sets, data["SC"] if "SC" in data else config_vars["draw.setcolors"].get())
+            zip(
+                sets,
+                data["SC"] if "SC" in data else config_vars["draw.setcolors"].get(),
+            )
         ),
         "set_ftb_order": sets,
     }
@@ -315,21 +318,17 @@ def render():
 
     router = determine_router()
     with timing("bundle lines"):
-        L = (
-            bundle_lines_lg(instance, L)
-            if router == "opt"
-            else bundle_lines_gg(instance, L)
-        )
+        L = bundle_lines_gg(instance, L)
 
-    if router == "opt":
-        # the heuristic routing uses the grid graph (ie., with port nodes), but the optimal routing does not
-        # this is fine for the bundle step, which also uses the line graph (i.e., without port nodes)
-        # but for drawing we need the port nodes, so a postprocessing step is required that inserts them.
-        # we have
-        # G = multigraph with center and physical nodes/edges
-        # L = a multigraph with (layer, support) edges and center nodes
-        G = convert_line_graph_to_grid_graph(instance, L, G, element_set_partition)
-        L = G
+    # if router == "opt":
+    #    # the heuristic routing uses the grid graph (ie., with port nodes), but the optimal routing does not
+    #    # this is fine for the bundle step, which also uses the line graph (i.e., without port nodes)
+    #    # but for drawing we need the port nodes, so a postprocessing step is required that inserts them.
+    #    # we have
+    #    # G = multigraph with center and physical nodes/edges
+    #    # L = a multigraph with (layer, support) edges and center nodes
+    #    G = convert_line_graph_to_grid_graph(instance, L, G, element_set_partition)
+    #    L = G
 
     L = cosmetic_post_processing(instance, L)
 
@@ -482,10 +481,10 @@ def vis(
     grid_width, grid_height = get_grid(include_pad=False)
     print(f"Grid size is {grid_width} x {grid_height}")
 
+    inst = read_instance(
+        config_vars["general.readdir"].get(), config_vars["general.dataset"].get()
+    )
     if grid_width == 0 or grid_height == 0:
-        inst = read_instance(
-            config_vars["general.readdir"].get(), config_vars["general.dataset"].get()
-        )
         nrow = len(inst["elements"])
         grid_width, grid_height = autogridsize(nrow)
         config_vars["general.gridwidth"].set(grid_width)
@@ -509,7 +508,7 @@ def vis(
                 {
                     "success": True,
                     "duration_ms": duration * 1000,
-                    "metrics": compute_metrics(G, inst),
+                    #"metrics": compute_metrics(G, inst),
                     "ctx": {key: value.get() for key, value in config_vars.items()},
                 },
                 f,
