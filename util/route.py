@@ -503,15 +503,12 @@ def route_brosi_ilp(instance, C, G, esp, layer):
 
     # here the idea is to avoid an input edge carrying the same sets re-using an arc
     # while allowing it for input edges with differing sets
-    unprocessed_ie = input_edges.copy()
-    while len(unprocessed_ie):
-        edge = unprocessed_ie.pop(0)
-        edgelist = [edge]
-        for i, other in list(enumerate(unprocessed_ie)):
-            if C.edges[other]["sets"] == C.edges[edge]["sets"]:
-                edgelist.append(other)
-                unprocessed_ie.remove(other)
-        print(C.edges[edge]["sets"], edgelist)
+    sets_at_input_edges = set(map(lambda e: frozenset(C.edges[e]["sets"]), input_edges))
+    while len(sets_at_input_edges):
+        s = sets_at_input_edges.pop()
+        edgelist = [
+            e for e in input_edges if len(C.edges[e]["sets"].intersection(s)) > 0
+        ]
         for u, v in grid_edges:
             model.addConstr(
                 gp.quicksum([x_ew[e, (u, v)] + x_ew[e, (v, u)] for e in edgelist]) <= 1
@@ -572,9 +569,10 @@ def route_brosi_ilp(instance, C, G, esp, layer):
 
         for e in input_edges:
             if x_ew[(e, w)].x > 0:
-                # print('layer', layer, 'at grid edge', w, 'sets', C.edges[e]["sets"])
                 existing_sets = (
-                    MM.edges[(u, v)]["sets"] if (u, v) in MM.edges else set()
+                    MM.edges[(u, v, (layer, EdgeType.SUPPORT))]["sets"]
+                    if (u, v, (layer, EdgeType.SUPPORT)) in MM.edges
+                    else set()
                 )
 
                 MM.add_edge(
