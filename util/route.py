@@ -462,6 +462,43 @@ def get_tour_approx(D, nodeset):
     return path_to_edges(S)
 
 
+def get_dir(p1, p2):
+    x1, y1 = p1
+    x2, y2 = p2
+
+    dx = x2 - x1
+    dy = y2 - y1
+
+    if dx > 0 and dy == 0:
+        return 0
+    elif dx > 0 and dy < 0:
+        return 1
+    elif dx == 0 and dy < 0:
+        return 2
+    elif dx < 0 and dy < 0:
+        return 3
+    elif dx < 0 and dy == 0:
+        return 4
+    elif dx < 0 and dy > 0:
+        return 5
+    elif dx == 0 and dy > 0:
+        return 6
+    elif dx > 0 and dy > 0:
+        return 7
+
+
+def dir_to_penalty(dir):
+    if dir not in range(8):
+        raise BaseException(f"invalid dir {dir}")
+    if dir in (1, 7):
+        return 3
+    elif dir in (2, 6):
+        return 2
+    elif dir in (3, 5):
+        return 1
+    return 0
+
+
 def route_brosi_ilp(instance, C, G, esp, layer):
     G_ = nx.Graph()
     G_.add_nodes_from(
@@ -496,6 +533,13 @@ def route_brosi_ilp(instance, C, G, esp, layer):
         [(e, w) for e in input_edges for w in grid_arcs], vtype=GRB.BINARY, name="x_ew"
     )
 
+    # convenience variables that tell whether a grid edge is used by any input edge
+    x = model.addVars([(u, v) for u, v in grid_edges], vtype=GRB.BINARY)
+    for u, v in grid_edges:
+        for e in input_edges:
+            model.addConstr(x[(u, v)] >= x_ew[(e, (u, v))])
+            model.addConstr(x[(u, v)] >= x_ew[(e, (v, u))])
+
     # use only one arc per grid edge
     for u, v in grid_edges:
         for e in input_edges:
@@ -503,7 +547,9 @@ def route_brosi_ilp(instance, C, G, esp, layer):
 
     # here the idea is to avoid an input edge carrying the same sets re-using an arc
     # while allowing it for input edges with differing sets
-    sets_at_input_edges = set(map(lambda e: frozenset(C.edges[e]["sets"]), input_edges))
+    sets_at_input_edges = set(
+        map(lambda e: frozenset(C.edges[e]["sets"]), input_edges)
+    )
     while len(sets_at_input_edges):
         s = sets_at_input_edges.pop()
         edgelist = [
@@ -511,7 +557,8 @@ def route_brosi_ilp(instance, C, G, esp, layer):
         ]
         for u, v in grid_edges:
             model.addConstr(
-                gp.quicksum([x_ew[e, (u, v)] + x_ew[e, (v, u)] for e in edgelist]) <= 1
+                gp.quicksum([x_ew[e, (u, v)] + x_ew[e, (v, u)] for e in edgelist])
+                <= 1
             )
 
     # s-t shortest path formulation
@@ -548,15 +595,34 @@ def route_brosi_ilp(instance, C, G, esp, layer):
                     model.addConstr(sum_out == 0)
                     model.addConstr(sum_in == 0)
 
+    obj = gp.quicksum(
+        [x_ew[(e, w)] * M.edges[w]["weight"] for e in input_edges for w in grid_arcs]
+    )
+
+    # 19-21) make line bends nice at input nodes
+    for p in M.nodes():
+        if p in instance["glyph_positions"][layer]:
+            i = instance["glyph_positions"][layer].index(p)
+            input_edge_pairs_at_p = combinations(C.edges(nbunch=i), r=2)
+
+            port_edges = [(p, n) for n in nx.neighbors(M, p)]
+
+            for e1, e2 in combinations(port_edges, r=2):
+                e1 = tuple(reversed(e1)) if e1 not in grid_edges else e1
+                e2 = tuple(reversed(e2)) if e2 not in grid_edges else e2
+                dir_e1 = get_dir(e1[0], e1[1])
+                dir_e2 = get_dir(e2[0], e2[1])
+                dir = abs(dir_e1 - dir_e2) % 8
+                # TODO correct dir and penalty? looks weird sometimes
+                pen = dir_to_penalty(dir)
+
+                obj += x[e1] * x[e2] * pen
+
     # TODO? used in paper as well:
     # 10) prevent grid nodes be used for more than one edge
     # 14) pick only one of the crossing twin edges
-    # 15-18) ensure edge order at input/grid nodes
-    # 19-21) make line bends nice at input nodes
+    # 15-18) ensure edge order at input/grid nodes <- this one can prevent some crossings
 
-    obj = gp.quicksum(x_ew) * 100 + gp.quicksum(
-        [x_ew[(e, w)] * M.edges[w]["weight"] for e in input_edges for w in grid_arcs]
-    )
     model.update()
     model.setObjective(obj, sense=GRB.MINIMIZE)
     model.optimize()
