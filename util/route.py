@@ -651,7 +651,7 @@ def route_brosi_ilp(instance, C, G, esp, layer):
     return MM
 
 
-def get_spanning_tree(instance, D, element_set_partition):
+def get_spanning_tree(instance, D, element_set_partition, tour=False):
     # another ILP but let's do a MCF formulation with a spanning tree
 
     model = gp.Model("mst")
@@ -768,9 +768,13 @@ def get_spanning_tree(instance, D, element_set_partition):
         for l in all_labels:
             model.addConstr(gp.quicksum([x_l[a, l] for a in in_arcs]) <= 1)
 
+            # when we look for a tour for each label, they must also go out at one edge
+            if tour:
+                model.addConstr(gp.quicksum([x_l[a, l] for a in out_arcs]) <= 1)
+
     obj = gp.quicksum(
         [x_l[e, l] * G_d.edges[e]["weight"] for e in arcs for l in all_labels]
-    ) + gp.quicksum([x[e] * G_d.edges[e]["weight"] for e in edges])
+    )  # + gp.quicksum([x[e] * G_d.edges[e]["weight"] for e in edges])
     model.update()
     # print(flow)
     model.setObjective(obj, sense=GRB.MINIMIZE)
@@ -821,7 +825,7 @@ def route(instance, G, element_set_partition):
 
         # TODO exact TSP/MST
         C = (
-            get_tour_approx(D, nodeset)
+            get_spanning_tree(instance, D, element_set_partition, tour=True)
             if support_type == "path"
             else get_spanning_tree(instance, D, element_set_partition)
         )
