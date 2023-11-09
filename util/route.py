@@ -547,9 +547,7 @@ def route_brosi_ilp(instance, C, G, esp, layer):
 
     # here the idea is to avoid an input edge carrying the same sets re-using an arc
     # while allowing it for input edges with differing sets
-    sets_at_input_edges = set(
-        map(lambda e: frozenset(C.edges[e]["sets"]), input_edges)
-    )
+    sets_at_input_edges = set(map(lambda e: frozenset(C.edges[e]["sets"]), input_edges))
     while len(sets_at_input_edges):
         s = sets_at_input_edges.pop()
         edgelist = [
@@ -557,8 +555,7 @@ def route_brosi_ilp(instance, C, G, esp, layer):
         ]
         for u, v in grid_edges:
             model.addConstr(
-                gp.quicksum([x_ew[e, (u, v)] + x_ew[e, (v, u)] for e in edgelist])
-                <= 1
+                gp.quicksum([x_ew[e, (u, v)] + x_ew[e, (v, u)] for e in edgelist]) <= 1
             )
 
     # s-t shortest path formulation
@@ -600,27 +597,28 @@ def route_brosi_ilp(instance, C, G, esp, layer):
     )
 
     # 19-21) make line bends nice at input nodes
-    for p in M.nodes():
-        if p in instance["glyph_positions"][layer]:
-            i = instance["glyph_positions"][layer].index(p)
-            input_edge_pairs_at_p = combinations(C.edges(nbunch=i), r=2)
+    if False:
+        for p in M.nodes():
+            if p in instance["glyph_positions"][layer]:
+                i = instance["glyph_positions"][layer].index(p)
+                input_edge_pairs_at_p = combinations(C.edges(nbunch=i), r=2)
 
-            port_edges = [(p, n) for n in nx.neighbors(M, p)]
+                port_edges = [(p, n) for n in nx.neighbors(M, p)]
 
-            for e1, e2 in combinations(port_edges, r=2):
-                e1 = tuple(reversed(e1)) if e1 not in grid_edges else e1
-                e2 = tuple(reversed(e2)) if e2 not in grid_edges else e2
-                dir_e1 = get_dir(e1[0], e1[1])
-                dir_e2 = get_dir(e2[0], e2[1])
-                dir = abs(dir_e1 - dir_e2) % 8
-                # TODO correct dir and penalty? looks weird sometimes
-                pen = dir_to_penalty(dir)
+                for e1, e2 in combinations(port_edges, r=2):
+                    e1 = tuple(reversed(e1)) if e1 not in grid_edges else e1
+                    e2 = tuple(reversed(e2)) if e2 not in grid_edges else e2
+                    dir_e1 = get_dir(e1[0], e1[1])
+                    dir_e2 = get_dir(e2[0], e2[1])
+                    dir = abs(dir_e1 - dir_e2) % 8
+                    # TODO correct dir and penalty? looks weird sometimes
+                    pen = dir_to_penalty(dir)
 
-                obj += x[e1] * x[e2] * pen
+                    obj += x[e1] * x[e2] * pen
 
     # TODO? used in paper as well:
     # 10) prevent grid nodes be used for more than one edge
-    # 14) pick only one of the crossing twin edges
+    # 14) pick only one of the crossing twin edges <- not super promising because our graph is not necessarily planar
     # 15-18) ensure edge order at input/grid nodes <- this one can prevent some crossings
 
     model.update()
@@ -653,6 +651,152 @@ def route_brosi_ilp(instance, C, G, esp, layer):
     return MM
 
 
+def get_spanning_tree(instance, D, element_set_partition):
+    # another ILP but let's do a MCF formulation with a spanning tree
+
+    model = gp.Model("mst")
+    if config_vars["route.ilptimeoutsecs"].get() > 0:
+        model.params.timeLimit = config_vars["route.ilptimeoutsecs"].get()
+
+    model.params.MIPGap = config_vars["route.ilpmipgap"].get()
+
+    n_nodes = len(instance["elements"])
+    labels = []
+    for i in range(n_nodes):
+        i_labels = set()
+        for elements, sets in element_set_partition:
+            if instance["elements"][i] in elements:
+                i_labels.add(frozenset(sets))
+        labels.append(frozenset(i_labels))
+
+    G = nx.Graph()
+    edges = list(combinations(range(n_nodes), r=2))
+    for i, j in edges:
+        G.add_node(i, labels=labels[i])
+        G.add_node(j, labels=labels[j])
+
+        G.add_edge(i, j, weight=D[i, j])
+
+    G_d = nx.DiGraph(incoming_graph_data=G)
+    G_d.add_node("root")
+    for i in range(n_nodes):
+        G_d.add_edge("root", i, weight=0)
+
+    arcs = list(G_d.edges())
+
+    comm_nodes = []
+    elements, sets = zip(*element_set_partition)
+    all_labels = list(map(lambda s: frozenset(s), sets))
+    print(all_labels)
+    for i, l in enumerate(all_labels):
+        for e in elements[i]:
+            comm_nodes.append((l, instance["elements_inv"][e]))
+
+    # flow tell if an arc transports a commodity
+    flow = model.addVars(
+        [(a, ce) for a in arcs for ce in comm_nodes], vtype=GRB.BINARY, name="flow"
+    )
+
+    # only in one direction at an edge
+    for i, j in edges:
+        for ce in comm_nodes:
+            model.addConstr(flow[((i, j), ce)] + flow[((j, i), ce)] <= 1)
+
+    # x tell if an edge is used to transport any commodity
+    x = model.addVars(edges, vtype=GRB.BINARY, name="x")
+    for e in edges:
+        for ce in comm_nodes:
+            i, j = e
+            model.addConstr(x[(i, j)] >= flow[((i, j), ce)])
+            model.addConstr(x[(i, j)] >= flow[((j, i), ce)])
+
+    # x_l tell if an arc is used to transport commodities of a given label
+    x_l = model.addVars([(a, l) for a in arcs for l in all_labels], vtype=GRB.BINARY)
+
+    # outgoing arcs of root transport all commodities
+    root_arcs = [("root", n) for n in range(n_nodes)]
+    for ce in comm_nodes:
+        model.addConstr(gp.quicksum([flow[(a, ce)] for a in root_arcs]) == 1)
+
+    # but all commodities of the same label must go out on the same arc
+    # (otherwise we get a point-wise distribution root->node)
+    for l in all_labels:
+        model.addConstr(gp.quicksum([x_l[(a, l)] for a in root_arcs]) <= 1)
+
+        commodities = [ce for ce in comm_nodes if ce[0] == l]
+        # link x_l and flow
+        for ce in commodities:
+            for a in arcs:
+                model.addConstr(x_l[(a, l)] >= flow[(a, ce)])
+
+    # allow transport of commodities only between nodes that also belong to that label
+    for i, j in arcs:
+        if i == "root":
+            continue
+        common_l = labels[i].intersection(labels[j])
+
+        for ce in comm_nodes:
+            if ce[0] not in common_l:
+                model.addConstr(flow[((i, j), ce)] == 0)
+
+    for i in range(n_nodes):
+        in_arcs = [a for a in arcs if a[1] == i]
+        out_arcs = [a for a in arcs if a[0] == i]
+
+        # a node must give out all commodities it receives that doesn't belong to it
+        not_my_stuff = [ce for ce in comm_nodes if ce[1] != i]
+        for ce in not_my_stuff:
+            model.addConstr(
+                gp.quicksum([flow[a, ce] for a in in_arcs])
+                - gp.quicksum([flow[a, ce] for a in out_arcs])
+                == 0
+            )
+
+        # a node must get all commodities that belong to it
+        my_stuff = [ce for ce in comm_nodes if ce[1] == i]
+        for ce in my_stuff:
+            model.addConstr(gp.quicksum([flow[a, ce] for a in in_arcs]) == 1)
+            model.addConstr(gp.quicksum([flow[a, ce] for a in out_arcs]) == 0)
+
+        # limit edges incident at each node
+        # because we can't plot more than 8
+        # even less so that layout gets nicer?
+        edges_at_i = [e for e in edges if i in e]
+        model.addConstr(gp.quicksum([x[e] for e in edges_at_i]) <= 6)
+
+        # commodities of the same label must enter at one edge
+        for l in all_labels:
+            model.addConstr(gp.quicksum([x_l[a, l] for a in in_arcs]) <= 1)
+
+    obj = gp.quicksum(
+        [x_l[e, l] * G_d.edges[e]["weight"] for e in arcs for l in all_labels]
+    ) + gp.quicksum([x[e] * G_d.edges[e]["weight"] for e in edges])
+    model.update()
+    # print(flow)
+    model.setObjective(obj, sense=GRB.MINIMIZE)
+    model.optimize()
+
+    write_status(f"route_mst", model)
+
+    MM = nx.Graph()
+    for i, j in arcs:
+        if i == "root":
+            continue
+
+        for ce in comm_nodes:
+            if flow[((i, j), ce)].x > 0:
+                sets_at_ij = MM.edges[i, j]["sets"] if (i, j) in MM.edges else set()
+                l = set([s for s in ce[0]])
+                MM.add_edge(i, j, sets=sets_at_ij.union(l))
+
+        # if x[(i, j)].x > 0:
+        #    labels = [l for l in all_labels if x_l[((i, j), l)].x > 0]
+        #    MM.add_edge(i, j, sets=set(flatten(labels)))
+
+    print(list(MM.edges(data=True)))
+    return MM
+
+
 def route(instance, G, element_set_partition):
     router = determine_router()
 
@@ -675,20 +819,19 @@ def route(instance, G, element_set_partition):
         for elements, sets in element_set_partition:
             nodeset = list(map(lambda e: instance["elements_inv"][e], elements))
 
-            # TODO exact TSP/MST
-            connectivity_edges = (
-                get_tour_approx(D, nodeset)
-                if support_type == "path"
-                else get_spanning_tree_approx(D, nodeset)
-            )
+        # TODO exact TSP/MST
+        C = (
+            get_tour_approx(D, nodeset)
+            if support_type == "path"
+            else get_spanning_tree(instance, D, element_set_partition)
+        )
 
-            for u, v in connectivity_edges:
-                existing_sets_at_edge = (
-                    C.edges[(u, v)]["sets"] if (u, v) in C.edges else set()
-                )
-                existing_sets_at_edge = existing_sets_at_edge.union(set(sets))
-                C.add_edge(u, v, sets=existing_sets_at_edge)
-        print(list(C.edges(data=True)))
+        # for u, v in connectivity_edges:
+        #    existing_sets_at_edge = (
+        #        C.edges[(u, v)]["sets"] if (u, v) in C.edges else set()
+        #    )
+        #    existing_sets_at_edge = existing_sets_at_edge.union(set(sets))
+        #    C.add_edge(u, v, sets=existing_sets_at_edge)
 
         L = (
             route_brosi_ilp(
