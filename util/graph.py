@@ -497,7 +497,7 @@ def group_aware_greedy_tsp(
             with updated_port_node_edge_weights_incident_at(G_, lava, math.inf):
                 sp = nx.shortest_path(G_, cycle[-1], n, weight=weight)
                 shortest_paths.append(sp)
-                phys_dists.append(dist_euclidean(cycle[-1],n))
+                phys_dists.append(dist_euclidean(cycle[-1], n))
 
         dists = phys_dists
         argmin = np.argmin(dists)
@@ -1218,3 +1218,13 @@ def convert_line_graph_to_grid_graph(instance, L, G, element_set_partition):
     )
     return G
 
+
+def get_outgoing_edge_to_other_center_from_port(G, p):
+    pparent = G.nodes[p]["belongs_to"]
+    p_adjacent = list(nx.neighbors(G, p))
+    for neighbor in p_adjacent:
+        nparent = G.nodes[neighbor].get("belongs_to")
+        if nparent is not None and nparent != pparent:
+            return (p, neighbor)
+
+    raise BaseException(f"no connection from {p}")

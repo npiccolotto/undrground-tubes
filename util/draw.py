@@ -10,6 +10,7 @@ from util.graph import (
     get_port_edges,
     edge_filter_ports,
     orient_edge_node_inside,
+    get_outgoing_edge_to_other_center_from_port,
 )
 from util.geometry import (
     get_angle,
@@ -136,7 +137,7 @@ def geometrize(instance, L, element_set_partition, layer=0):
         config_vars["draw.marginhorizontal"].get(),
         config_vars["draw.marginvertical"].get(),
     )
-    set_colors = instance['set_colors']
+    set_colors = instance["set_colors"]
     M = extract_support_layer(L, layer)
 
     # project nodes
@@ -250,30 +251,14 @@ def geometrize(instance, L, element_set_partition, layer=0):
                 continue
             uparent = M.nodes[u]["belongs_to"]
 
-            u_adjacent = list([x if w == u else w for w, x in M.edges(nbunch=[u])])
-            uu = None
-            for x in u_adjacent:
-                xparent = M.nodes[x].get("belongs_to")
-                if xparent is not None and xparent != uparent:
-                    uu = x
-                    break
-
-            v_adjacent = list([x if w == v else w for w, x in M.edges(nbunch=[v])])
-            vv = None
-            for x in v_adjacent:
-                xparent = M.nodes[x].get("belongs_to")
-                if xparent is not None and xparent != uparent:
-                    vv = x
-                    break
-
-            if uu is None or vv is None:
-                print("howw")
-                continue
+            _,uu = get_outgoing_edge_to_other_center_from_port(M, u)
+            _,vv = get_outgoing_edge_to_other_center_from_port(M, v)
 
             if (
                 set_id not in M.edges[(uu, u)]["sets"]
                 or set_id not in M.edges[(v, vv)]["sets"]
             ):
+                print('whyy')
                 continue
             uupos, upos = M.edges[(uu, u)]["edge_pos"][set_id][(uu, u)]
             vpos, vvpos = M.edges[(v, vv)]["edge_pos"][set_id][(v, vv)]
@@ -304,7 +289,7 @@ def geometrize(instance, L, element_set_partition, layer=0):
             geometries.append(line)
 
         # so this then draws connections within occupied nodes
-        if determine_router() != "opt":
+        if False:
             for node in [
                 n
                 for n, d in M.nodes(data=True)
