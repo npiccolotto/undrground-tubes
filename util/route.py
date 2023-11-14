@@ -6,7 +6,7 @@ from gurobipy import GRB
 from itertools import product, combinations
 from collections import defaultdict
 from util.enums import EdgeType, EdgePenalty, NodeType, PortDirs
-from util.geometry import get_angle
+from util.geometry import get_angle, do_lines_intersect, get_segment_circle_intersection
 from util.perf import timing
 from util.graph import (
     update_weights_for_support_edge,
@@ -651,7 +651,7 @@ def route_brosi_ilp(instance, C, G, esp, layer):
     return MM
 
 
-def get_spanning_tree(instance, D, element_set_partition, tour=False):
+def get_spanning_tree(instance, D, element_set_partition, layer=0, tour=False):
     # another ILP but let's do a MCF formulation with a spanning tree
 
     model = gp.Model("mst")
@@ -661,6 +661,7 @@ def get_spanning_tree(instance, D, element_set_partition, tour=False):
     model.params.MIPGap = config_vars["route.ilpmipgap"].get()
 
     n_nodes = len(instance["elements"])
+    pos = instance["glyph_positions"][layer]
     labels = []
     for i in range(n_nodes):
         i_labels = set()
@@ -687,7 +688,7 @@ def get_spanning_tree(instance, D, element_set_partition, tour=False):
     comm_nodes = []
     elements, sets = zip(*element_set_partition)
     all_labels = list(map(lambda s: frozenset(s), sets))
-    print(all_labels)
+
     for i, l in enumerate(all_labels):
         for e in elements[i]:
             comm_nodes.append((l, instance["elements_inv"][e]))
@@ -713,13 +714,16 @@ def get_spanning_tree(instance, D, element_set_partition, tour=False):
     # x_l tell if an arc is used to transport commodities of a given label
     x_l = model.addVars([(a, l) for a in arcs for l in all_labels], vtype=GRB.BINARY)
 
+    model._x = x
+    model._xl = x_l
+    model._f = flow
+
     # outgoing arcs of root transport all commodities
     root_arcs = [("root", n) for n in range(n_nodes)]
     for ce in comm_nodes:
         model.addConstr(gp.quicksum([flow[(a, ce)] for a in root_arcs]) == 1)
 
     # but all commodities of the same label must go out on the same arc
-    # (otherwise we get a point-wise distribution root->node)
     for l in all_labels:
         model.addConstr(gp.quicksum([x_l[(a, l)] for a in root_arcs]) <= 1)
 
@@ -733,10 +737,9 @@ def get_spanning_tree(instance, D, element_set_partition, tour=False):
     for i, j in arcs:
         if i == "root":
             continue
-        common_l = labels[i].intersection(labels[j])
 
         for ce in comm_nodes:
-            if ce[0] not in common_l:
+            if ce[0] not in labels[i].intersection(labels[j]):
                 model.addConstr(flow[((i, j), ce)] == 0)
 
     for i in range(n_nodes):
@@ -752,7 +755,7 @@ def get_spanning_tree(instance, D, element_set_partition, tour=False):
                 == 0
             )
 
-        # a node must get all commodities that belong to it
+        # a node must receive and keep all commodities that belong to it
         my_stuff = [ce for ce in comm_nodes if ce[1] == i]
         for ce in my_stuff:
             model.addConstr(gp.quicksum([flow[a, ce] for a in in_arcs]) == 1)
@@ -760,27 +763,67 @@ def get_spanning_tree(instance, D, element_set_partition, tour=False):
 
         # limit edges incident at each node
         # because we can't plot more than 8
-        # even less so that layout gets nicer?
         edges_at_i = [e for e in edges if i in e]
-        model.addConstr(gp.quicksum([x[e] for e in edges_at_i]) <= 6)
+        model.addConstr(gp.quicksum([x[e] for e in edges_at_i]) <= 8)
 
         # commodities of the same label must enter at one edge
         for l in all_labels:
             model.addConstr(gp.quicksum([x_l[a, l] for a in in_arcs]) <= 1)
 
-            # when we look for a tour for each label, they must also go out at one edge
+            # when we look for a tour for each label, they must also exit at one edge
             if tour:
                 model.addConstr(gp.quicksum([x_l[a, l] for a in out_arcs]) <= 1)
 
-    obj = gp.quicksum(
-        [x_l[e, l] * G_d.edges[e]["weight"] for e in arcs for l in all_labels]
-    )  # + gp.quicksum([x[e] * G_d.edges[e]["weight"] for e in edges])
+    # minimize the edge length in the drawing
+    obj = gp.quicksum([x[e] * G_d.edges[e]["weight"] for e in edges])
+
+    def addDynamicConstraints(m, x, xl):
+        # check if any two selected edges overlap
+        # if they overlap, check if they carry the same sets
+        # if they do, add constrain flow of those sets to not use both input edges
+        selected_edges = set([e for e in edges if x[e] > 0])
+
+        for e1, e2 in combinations(selected_edges, r=2):
+            u, v = e1
+            w, z = e2
+
+            if do_lines_intersect(pos[u], pos[v], pos[w], pos[z]):
+                common_labels = [
+                    l for l in all_labels if xl[(e1, l)] > 0 and xl[(e2, l)] > 0
+                ]
+                for l in common_labels:
+                    # of the four possible arcs, use only one
+                    m.cbLazy(
+                        m._xl[((u, v), l)]
+                        + m._xl[((v, u), l)]
+                        + m._xl[((w, z), l)]
+                        + m._xl[((z, w), l)]
+                        <= 1
+                    )
+
+    def callback(model, where):
+        # check integer solutions for feasibility
+        if where == GRB.Callback.MIPSOL:
+            # get solution values for variables x
+            xValues = model.cbGetSolution(model._x)
+            xlValues = model.cbGetSolution(model._xl)
+            addDynamicConstraints(model, xValues, xlValues)
+        elif (
+            where == GRB.Callback.MIPNODE
+            and model.cbGet(GRB.Callback.MIPNODE_STATUS) == GRB.OPTIMAL
+        ):
+            # get solution values for variables x
+            xValues = model.cbGetNodeRel(model._x)
+            xlValues = model.cbGetNodeRel(model._xl)
+            addDynamicConstraints(model, xValues, xlValues)
+
     model.update()
     # print(flow)
     model.setObjective(obj, sense=GRB.MINIMIZE)
-    model.optimize()
+    model.Params.LazyConstraints = 1
+    model.optimize(callback)
 
-    write_status(f"route_mst", model)
+    write_status(f"route_mst_{layer}", model)
 
     MM = nx.Graph()
     for i, j in arcs:
@@ -825,9 +868,11 @@ def route(instance, G, element_set_partition):
 
         # TODO exact TSP/MST
         C = (
-            get_spanning_tree(instance, D, element_set_partition, tour=True)
+            get_spanning_tree(
+                instance, D, element_set_partition, layer=layer, tour=True
+            )
             if support_type == "path"
-            else get_spanning_tree(instance, D, element_set_partition)
+            else get_spanning_tree(instance, D, element_set_partition, layer=layer)
         )
 
         # for u, v in connectivity_edges:
