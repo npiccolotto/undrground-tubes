@@ -603,22 +603,22 @@ def route_brosi_ilp(instance, C, G, esp, layer):
                     model.addConstr(sum_in == 0)
 
     # each input edge may use only one arc at a grid node
+    # that SHOULD be obvious to the solver given the edge weights but better safe than sorry
     for n in M.nodes():
         if M.nodes[n]["node"] == NodeType.CENTER:
-            port_edges = [(u, v) for u, v in get_port_edges(M, n)]
-            port_edges = port_edges + list(
-                map(lambda e: tuple(reversed(e)), port_edges)
-            )
-            center_edges = [(n, p) for p in nx.neighbors(M, n)]
-            center_edges = center_edges + list(
+            ports = nx.neighbors(M, n)
+            port_edges = list(combinations(ports, r=2))
+            port_arcs = port_edges + list(map(lambda e: tuple(reversed(e)), port_edges))
+            center_edges = list(map(lambda p: (n, p), ports))
+            center_arcs = center_edges + list(
                 map(lambda e: tuple(reversed(e)), center_edges)
             )
-
             for e in input_edges:
                 model.addConstr(
-                    gp.quicksum([x_ew[(e, w)] for w in port_edges + center_edges]) <= 1
+                    gp.quicksum([x_ew[(e, w)] for w in port_arcs + center_arcs]) <= 1
                 )
 
+    if True:
         # 15-18) ensure edge order at input/grid nodes <- this one can prevent some crossings
         delta = model.addVars(
             [(v, e) for v in range(n_nodes) for e in input_edges if v in e],
@@ -636,16 +636,15 @@ def route_brosi_ilp(instance, C, G, esp, layer):
                 if M.nodes[u]["node"] == NodeType.CENTER:
                     ports = sort_ports(M, nx.neighbors(M, u), origin="e")
                     dir_sum_s += gp.quicksum(
-                        [x_ew[(e, (u, p))] * (i + 1) for i, p in enumerate(ports)]
+                        [x_ew[(e, (u, p))] * (i) for i, p in enumerate(ports)]
                     )
                     dir_sum_t += gp.quicksum(
-                        [x_ew[(e, (p, u))] * (i + 1) for i, p in enumerate(ports)]
+                        [x_ew[(e, (p, u))] * (i) for i, p in enumerate(ports)]
                     )
 
             model.addConstr(delta[(s, e)] - dir_sum_s == 0)
             model.addConstr(delta[(t, e)] - dir_sum_t == 0)
 
-    if False:
         beta = model.addVars(
             [
                 (p, u)
@@ -683,7 +682,7 @@ def route_brosi_ilp(instance, C, G, esp, layer):
                     assert e1 in input_edges
                     assert e2 in input_edges
                     model.addConstr(
-                        delta[(u, e1)] - delta[(u, e2)] + 8 * beta[p, u] >= 1
+                        delta[(u, e1)] - delta[(u, e2)] + 8 * beta[p, u] >= 0
                     )
                 model.addConstr(gp.quicksum([beta[p, u] for p in ps]) <= 1)
 
@@ -740,8 +739,11 @@ def route_brosi_ilp(instance, C, G, esp, layer):
 
     model.update()
     model.setObjective(obj, sense=GRB.MINIMIZE)
-    model.Params.LazyConstraints = 1
-    model.optimize(callback)
+    if True:
+        model.Params.LazyConstraints = 1
+        model.optimize(callback)
+    else:
+        model.optimize()
 
     write_status(f"route_{layer}", model)
 
@@ -841,6 +843,10 @@ def get_spanning_tree(instance, D, element_set_partition, layer=0, tour=False):
     for ce in comm_nodes:
         model.addConstr(gp.quicksum([flow[(a, ce)] for a in root_arcs]) == 1)
 
+    for l in all_labels:
+        for e in edges:
+            model.addConstr(x[e] >= x_l[e, l])
+
     # but all commodities of the same label must go out on the same arc
     for l in all_labels:
         model.addConstr(gp.quicksum([x_l[(a, l)] for a in root_arcs]) <= 1)
@@ -894,22 +900,27 @@ def get_spanning_tree(instance, D, element_set_partition, layer=0, tour=False):
 
     # minimize the edge length in the drawing
     obj = gp.quicksum([x[e] * G_d.edges[e]["weight"] for e in edges])
-    #obj = gp.quicksum([x_l[tuple(reversed(e)),l]*x_l[e,l] * G_d.edges[e]["weight"] for e in edges for l in all_labels])
+    # obj = gp.quicksum([x_l[tuple(reversed(e)),l]*x_l[e,l] * G_d.edges[e]["weight"] for e in edges for l in all_labels])
 
     def addDynamicConstraints(m, x, xl):
         # check if any two selected edges overlap
         # if they overlap, check if they carry the same sets
         # if they do, add constrain flow of those sets to not use both input edges
         selected_edges = set([e for e in edges if x[e] > 0])
-        #with timing(f'{len(selected_edges)} selected edges'):
+        # with timing(f'{len(selected_edges)} selected edges'):
         for e1, e2 in combinations(selected_edges, r=2):
             u, v = e1
             w, z = e2
             common_labels = [
-                l for l in all_labels if xl[(e1, l)] > 0 and xl[(e2, l)] > 0
+                l
+                for l in all_labels
+                if (xl[((u, v), l)] > 0 or xl[((v, u), l)] > 0)
+                and (xl[((w, z), l)] > 0 or xl[((z, w), l)] > 0)
             ]
 
-            if len(common_labels) > 0 and do_lines_intersect(pos[u], pos[v], pos[w], pos[z]):
+            if len(common_labels) > 0 and do_lines_intersect(
+                pos[u], pos[v], pos[w], pos[z]
+            ):
                 for l in common_labels:
                     # of the four possible arcs, use only one
                     m.cbLazy(
@@ -939,8 +950,11 @@ def get_spanning_tree(instance, D, element_set_partition, layer=0, tour=False):
     model.update()
     # print(flow)
     model.setObjective(obj, sense=GRB.MINIMIZE)
-    model.Params.LazyConstraints = 1
-    model.optimize(callback)
+    if True:
+        model.Params.LazyConstraints = 1
+        model.optimize(callback)
+    else:
+        model.optimize()
 
     write_status(f"route_mst_{layer}", model)
 

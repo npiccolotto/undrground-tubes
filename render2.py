@@ -82,7 +82,7 @@ def add_ports_to_sqr_node(G, node, data, side_length=0.25):
                 sqr_corners[j],
                 EdgeType.PHYSICAL,
                 edge=EdgeType.PHYSICAL,
-                weight= penalties_cw[p], #+ EdgePenalty.HOP,
+                weight= penalties_cw[p] + EdgePenalty.HOP,
                 efrom=PortDirs[i],
                 eto=PortDirs[j],
                 epenalty=penalties_cw[p],
@@ -96,7 +96,7 @@ def add_ports_to_sqr_node(G, node, data, side_length=0.25):
             n,
             EdgeType.PHYSICAL,
             edge=EdgeType.PHYSICAL,
-            weight=EdgePenalty.TO_CENTER,
+            weight=EdgePenalty.TO_CENTER+ EdgePenalty.HOP,
             efrom=n,
             eto="center",
         )
