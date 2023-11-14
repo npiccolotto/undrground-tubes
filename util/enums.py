@@ -15,7 +15,7 @@ class EdgePenalty(float, Enum):
     # Bends
     ONE_EIGHTY = 0
     ONE_THIRTY_FIVE = 1
-    NINETY = 2.5 # this should be a bit more than 2x 135 so as to not make 1 90deg bend replace 2 135degs
+    NINETY = 2 # this should be a bit more than 2x 135 so as to not make 1 90deg bend replace 2 135degs
     FORTY_FIVE = 3
 
     # To center

@@ -936,17 +936,32 @@ def get_port_edges(M, node):
     ]
     all_edges_at_ports = set()
     for port in all_ports:
-        edges_at_port = [
-            (a, b)
-            if PortDirs.index(M.nodes[a]["port"]) < PortDirs.index(M.nodes[b]["port"])
-            else (b, a)
-            for a, b, k in M.edges(nbunch=port, keys=True)
-            if k == EdgeType.PHYSICAL
-            and M.nodes[a]["node"] == NodeType.PORT
-            and M.nodes[b]["node"] == NodeType.PORT
-            and M.nodes[a]["belongs_to"] == node
-            and M.nodes[b]["belongs_to"] == node
-        ]
+        edges_at_port = (
+            [
+                (a, b)
+                if PortDirs.index(M.nodes[a]["port"])
+                < PortDirs.index(M.nodes[b]["port"])
+                else (b, a)
+                for a, b, k in M.edges(nbunch=port, keys=True)
+                if k == EdgeType.PHYSICAL
+                and M.nodes[a]["node"] == NodeType.PORT
+                and M.nodes[b]["node"] == NodeType.PORT
+                and M.nodes[a]["belongs_to"] == node
+                and M.nodes[b]["belongs_to"] == node
+            ]
+            if isinstance(M, nx.MultiGraph)
+            else [
+                (a, b)
+                if PortDirs.index(M.nodes[a]["port"])
+                < PortDirs.index(M.nodes[b]["port"])
+                else (b, a)
+                for a, b in M.edges(nbunch=port)
+                if M.nodes[a]["node"] == NodeType.PORT
+                and M.nodes[b]["node"] == NodeType.PORT
+                and M.nodes[a]["belongs_to"] == node
+                and M.nodes[b]["belongs_to"] == node
+            ]
+        )
 
         all_edges_at_ports = all_edges_at_ports.union(set(edges_at_port))
     return list(all_edges_at_ports)
@@ -1228,3 +1243,10 @@ def get_outgoing_edge_to_other_center_from_port(G, p):
             return (p, neighbor)
 
     raise BaseException(f"no connection from {p}")
+
+
+def sort_ports(G, ports, origin="n"):
+    port_dirs_from_origin = PortDirs[PortDirs.index(origin) :] + PortDirs[:PortDirs.index(origin)]
+    return list(
+        sorted(ports, key=lambda u: port_dirs_from_origin.index(G.nodes[u]["port"]))
+    )

@@ -203,6 +203,8 @@ ggplot2::ggplot(comp.df) +
     legend.position='none'
   )
 
+
+
 # Components distance matrix
 
 D.s <- outer(1:120, 1:120, Vectorize(function(i,j) {
@@ -212,8 +214,8 @@ D.s <- outer(1:120, 1:120, Vectorize(function(i,j) {
 # Write all the things
 
 # Edit these as necessary, rest should be automatic
-S <- c('kernel: 25', 'kernel: 50', 'kernel: 75', 'kernel: 100', 'Ni: high', 'S: mid')
-SC <- c('#66c2a4', '#41ae76', '#238b45', '#005824', '#ef6548', '#a6bddb')
+S <- c('kernel: 25', 'kernel: 100')
+SC <- c('#005824', '#ef6548')
 
 cl.feats <- c(comps.feats,loads.feats)
 # make binary matrix of set memberships
