@@ -537,10 +537,6 @@ def route_brosi_ilp(instance, C, G, esp, layer):
     )
     model._x_ew = x_ew
 
-    obj = gp.quicksum(
-        [x_ew[(e, w)] * M.edges[w]["weight"] for e in input_edges for w in grid_arcs]
-    )
-
     # convenience variables that tell whether a grid edge is used by any input edge
     x = model.addVars([(u, v) for u, v in grid_edges], vtype=GRB.BINARY)
     for u, v in grid_edges:
@@ -548,6 +544,10 @@ def route_brosi_ilp(instance, C, G, esp, layer):
             model.addConstr(x[(u, v)] >= x_ew[(e, (u, v))])
             model.addConstr(x[(u, v)] >= x_ew[(e, (v, u))])
     model._x = x
+
+    obj = gp.quicksum(
+        [x_ew[(e, w)] * M.edges[w]["weight"] for e in input_edges for w in grid_arcs]
+    ) + config_vars["route.snugfactor"].get() * gp.quicksum(x[a] for a in grid_edges)
 
     # use only one arc per grid edge
     for u, v in grid_edges:

@@ -82,7 +82,7 @@ def add_ports_to_sqr_node(G, node, data, side_length=0.25):
                 sqr_corners[j],
                 EdgeType.PHYSICAL,
                 edge=EdgeType.PHYSICAL,
-                weight= penalties_cw[p] + EdgePenalty.HOP,
+                weight=penalties_cw[p] + EdgePenalty.HOP,
                 efrom=PortDirs[i],
                 eto=PortDirs[j],
                 epenalty=penalties_cw[p],
@@ -96,7 +96,7 @@ def add_ports_to_sqr_node(G, node, data, side_length=0.25):
             n,
             EdgeType.PHYSICAL,
             edge=EdgeType.PHYSICAL,
-            weight=EdgePenalty.TO_CENTER+ EdgePenalty.HOP,
+            weight=EdgePenalty.TO_CENTER + EdgePenalty.HOP,
             efrom=n,
             eto="center",
         )
@@ -192,7 +192,7 @@ def make_sqr_graph(m, n, with_ports=True):
                     port_nb,
                     EdgeType.PHYSICAL,
                     edge=EdgeType.PHYSICAL,
-                    weight=EdgePenalty.HOP
+                    weight=EdgePenalty.HOP,
                 )
 
     return G_
@@ -508,7 +508,7 @@ def vis(
                 {
                     "success": True,
                     "duration_ms": duration * 1000,
-                    #"metrics": compute_metrics(G, inst),
+                    # "metrics": compute_metrics(G, inst),
                     "ctx": {key: value.get() for key, value in config_vars.items()},
                 },
                 f,
