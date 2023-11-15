@@ -392,14 +392,15 @@ def render():
     return R
 
 
-def autogridsize(nrow, margin=1):
+def autogridsize(nrow):
     side = 1
     margin = 1
+    base = math.ceil(math.log2(math.sqrt(nrow)))
     # if the layout is too dense then it may get difficult to connect everything properly
     # the failing instances were often around a factor elements/cells = 0.15
     # there may be better metrics to use but this is what i can do now
     while nrow / (side**2) > 0.1:
-        exp = math.ceil(math.log2(math.sqrt(nrow))) + margin
+        exp = base + margin
         side = 2**exp
         margin += 1
     return (side, side)

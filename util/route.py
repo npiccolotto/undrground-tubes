@@ -1068,7 +1068,6 @@ def get_optimal_connectivity(instance, D, element_set_partition, layer=0, tour=F
         # commodities of the same label must enter at one edge
         for l in all_labels:
             model.addConstr(gp.quicksum([x_l[a, l] for a in in_arcs]) <= 1)
-
             # when we look for a tour for each label, they must also exit at one edge
             if tour:
                 model.addConstr(gp.quicksum([x_l[a, l] for a in out_arcs]) <= 1)
@@ -1076,7 +1075,7 @@ def get_optimal_connectivity(instance, D, element_set_partition, layer=0, tour=F
     # minimize the edge length in the drawing
     obj = gp.quicksum([x[e] * G_d.edges[e]["weight"] for e in edges])
     # obj = gp.quicksum(
-    #    [x_l[a, l] * G_d.edges[e]["weight"] for a in arcs for l in all_labels]
+    #   [x_l[a, l] * G_d.edges[a]["weight"] for a in arcs for l in all_labels]
     # )
     # obj = gp.quicksum([x_l[tuple(reversed(e)),l]*x_l[e,l] * G_d.edges[e]["weight"] for e in edges for l in all_labels])
 
