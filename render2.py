@@ -184,7 +184,7 @@ def make_sqr_graph(m, n, with_ports=True):
                 # use physically closest port for any neighbor
                 port_nb = get_closest_point(G_.nodes[node]["pos"], ports_nb)
                 port_self = get_closest_point(G_.nodes[neighbor]["pos"], ports)
-                #length_penalty = dist_euclidean(port_nb, port_self) - 1
+                # length_penalty = dist_euclidean(port_nb, port_self) - 1
                 # print(length_penalty)
 
                 G_.add_edge(
@@ -192,7 +192,7 @@ def make_sqr_graph(m, n, with_ports=True):
                     port_nb,
                     EdgeType.PHYSICAL,
                     edge=EdgeType.PHYSICAL,
-                    center_edge = (node, neighbor),
+                    center_edge=(node, neighbor),
                     weight=EdgePenalty.HOP,
                 )
 
@@ -393,9 +393,16 @@ def render():
 
 
 def autogridsize(nrow, margin=1):
-    exp = math.ceil(math.log2(math.sqrt(nrow))) + margin
-    side = 2**exp
-    return side, side
+    side = 1
+    margin = 1
+    # if the layout is too dense then it may get difficult to connect everything properly
+    # the failing instances were often around a factor elements/cells = 0.15
+    # there may be better metrics to use but this is what i can do now
+    while nrow / (side**2) > 0.1:
+        exp = math.ceil(math.log2(math.sqrt(nrow))) + margin
+        side = 2**exp
+        margin += 1
+    return (side, side)
 
 
 @click.command()

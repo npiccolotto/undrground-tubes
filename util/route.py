@@ -981,18 +981,8 @@ def get_optimal_connectivity(instance, D, element_set_partition, layer=0, tour=F
         [(a, ce) for a in arcs for ce in comm_nodes], vtype=GRB.BINARY, name="flow"
     )
 
-    # only in one direction at an edge
-    for i, j in edges:
-        for ce in comm_nodes:
-            model.addConstr(flow[((i, j), ce)] + flow[((j, i), ce)] <= 1)
-
     # x tell if an edge is used to transport any commodity
     x = model.addVars(edges, vtype=GRB.BINARY, name="x")
-    for e in edges:
-        for ce in comm_nodes:
-            i, j = e
-            model.addConstr(x[(i, j)] >= flow[((i, j), ce)])
-            model.addConstr(x[(i, j)] >= flow[((j, i), ce)])
 
     # x_l tell if an arc is used to transport commodities of a given label
     x_l = model.addVars([(a, l) for a in arcs for l in all_labels], vtype=GRB.BINARY)
@@ -1001,33 +991,55 @@ def get_optimal_connectivity(instance, D, element_set_partition, layer=0, tour=F
     model._xl = x_l
     model._f = flow
 
+    for e in edges:
+        i, j = e
+        for ce in comm_nodes:
+            model.addConstr(x[(i, j)] >= flow[((i, j), ce)])
+            model.addConstr(x[(i, j)] >= flow[((j, i), ce)])
+        for l in all_labels:
+            model.addConstr(x[e] >= x_l[e, l])
+
+    for l in all_labels:
+        commodities = [ce for ce in comm_nodes if ce[0] == l]
+        for ce in commodities:
+            for a in arcs:
+                model.addConstr(x_l[(a, l)] >= flow[(a, ce)])
+
     # outgoing arcs of root transport all commodities
     root_arcs = [("root", n) for n in range(n_nodes)]
     for ce in comm_nodes:
         model.addConstr(gp.quicksum([flow[(a, ce)] for a in root_arcs]) == 1)
 
-    for l in all_labels:
-        for e in edges:
-            model.addConstr(x[e] >= x_l[e, l])
-
     # but all commodities of the same label must go out on the same arc
     for l in all_labels:
         model.addConstr(gp.quicksum([x_l[(a, l)] for a in root_arcs]) <= 1)
 
-        commodities = [ce for ce in comm_nodes if ce[0] == l]
-        # link x_l and flow
-        for ce in commodities:
-            for a in arcs:
-                model.addConstr(x_l[(a, l)] >= flow[(a, ce)])
+    # flow only in one direction at an edge
+    for i, j in edges:
+        for ce in comm_nodes:
+            model.addConstr(flow[((i, j), ce)] + flow[((j, i), ce)] <= 1)
 
-    # allow transport of commodities only between nodes that also belong to that label
+    # commodities of one label also must flow in one direction
     for i, j in arcs:
         if i == "root":
             continue
+        for l in all_labels:
+            model.addConstr(x_l[((i, j), l)] + x_l[((j, i), l)] <= 1)
 
-        for ce in comm_nodes:
-            if ce[0] not in labels[i].intersection(labels[j]):
-                model.addConstr(flow[((i, j), ce)] == 0)
+    for i in range(n_nodes):
+        # no inflow of foreign goods
+        model.addConstr(
+            gp.quicksum(
+                [
+                    flow[a, ce]
+                    for a in arcs
+                    if i in a
+                    for ce in comm_nodes
+                    if ce[0] not in labels[i]
+                ]
+            )
+            == 0
+        )
 
     for i in range(n_nodes):
         in_arcs = [a for a in arcs if a[1] == i]
@@ -1063,6 +1075,9 @@ def get_optimal_connectivity(instance, D, element_set_partition, layer=0, tour=F
 
     # minimize the edge length in the drawing
     obj = gp.quicksum([x[e] * G_d.edges[e]["weight"] for e in edges])
+    # obj = gp.quicksum(
+    #    [x_l[a, l] * G_d.edges[e]["weight"] for a in arcs for l in all_labels]
+    # )
     # obj = gp.quicksum([x_l[tuple(reversed(e)),l]*x_l[e,l] * G_d.edges[e]["weight"] for e in edges for l in all_labels])
 
     def addDynamicConstraints(m, x, xl):
