@@ -24,13 +24,13 @@ for i in $(seq 1 10); do
   s=$((i*20));
   dataset="ds_dataset${j}_${s}";
   for support_type in "steiner-tree" "path"; do
-    for support_partition in "intersection-group" "set"; do
-      for router in "opt" "heuristic"; do
-        for layouter in "mds" "qsap"; do
-          for overlapper in "dgrid" "hagrid"; do
-            jobname="esvis-$dataset-$support_type-$support_partition-$layouter-$overlapper-$router";
+    for layouter in "mds" "qsap"; do
+      for overlapper in "dgrid" "hagrid"; do
+        for connecter in "opt" "heuristic"; do
+          for router in "opt" "heuristic"; do
+            jobname="esvis-$dataset-$support_type-$layouter-$overlapper-$connecter-$router";
             echo "submitting $jobname";
-            qsub -N $jobname -l bc3 -l mem_free=$mem -l h_vmem=$mem -l h_rt=$hlr -e $base/logs/ -o $base/logs/ -r y run.sh $base/$jobname $support_type $support_partition $layouter $overlapper $router $dataset
+            qsub -N $jobname -l bc3 -l mem_free=$mem -l h_vmem=$mem -l h_rt=$hlr -e $base/logs/ -o $base/logs/ -r y run.sh $base/$jobname $support_type $layouter $overlapper $connecter $router $dataset
           done
         done
       done
