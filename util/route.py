@@ -1051,7 +1051,7 @@ def get_optimal_connectivity(instance, D, element_set_partition, layer=0, tour=F
         # limit edges incident at each node
         # because we can't plot more than 8
         edges_at_i = [e for e in edges if i in e]
-        model.addConstr(gp.quicksum([x[e] for e in edges_at_i]) <= 8)
+        model.addConstr(gp.quicksum([x[e] for e in edges_at_i]) <= 6)
 
         # commodities of the same label must enter at one edge
         for l in all_labels:
