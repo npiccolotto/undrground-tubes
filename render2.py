@@ -184,7 +184,7 @@ def make_sqr_graph(m, n, with_ports=True):
                 # use physically closest port for any neighbor
                 port_nb = get_closest_point(G_.nodes[node]["pos"], ports_nb)
                 port_self = get_closest_point(G_.nodes[neighbor]["pos"], ports)
-                length_penalty = dist_euclidean(port_nb, port_self) - 1
+                #length_penalty = dist_euclidean(port_nb, port_self) - 1
                 # print(length_penalty)
 
                 G_.add_edge(
@@ -193,7 +193,7 @@ def make_sqr_graph(m, n, with_ports=True):
                     EdgeType.PHYSICAL,
                     edge=EdgeType.PHYSICAL,
                     center_edge = (node, neighbor),
-                    weight=EdgePenalty.HOP + length_penalty,
+                    weight=EdgePenalty.HOP,
                 )
 
     return G_
@@ -436,6 +436,11 @@ def autogridsize(nrow, margin=1):
     type=click.Choice(["auto", "opt", "heuristic"], case_sensitive=False),
     help="optimal or heuristic routing",
 )
+@click.option(
+    "--connecter",
+    type=click.Choice(["auto", "opt", "heuristic"], case_sensitive=False),
+    help="optimal or heuristic connectivity",
+)
 def vis(
     read_dir,
     write_dir,
@@ -449,13 +454,14 @@ def vis(
     overlap_remover,
     layouter,
     router,
+    connecter,
 ):
     if dataset is not None:
         config_vars["general.dataset"].set(dataset)
     if support_partition is not None:
-        config_vars["route.subsupportgrouping"].set(support_partition)
+        config_vars["general.subsupportgrouping"].set(support_partition)
     if support_type is not None:
-        config_vars["route.subsupporttype"].set(support_type)
+        config_vars["general.subsupporttype"].set(support_type)
     if strategy is not None:
         config_vars["general.strategy"].set(strategy)
     if read_dir is not None:
@@ -470,6 +476,8 @@ def vis(
         config_vars["layout.layouter"].set(layouter)
     if router is not None:
         config_vars["route.router"].set(router)
+    if connecter is not None:
+        config_vars["connect.connecter"].set(connecter)
     if grid_width is not None:
         config_vars["general.gridwidth"].set(grid_width)
     if grid_height is not None:

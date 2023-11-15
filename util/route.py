@@ -112,8 +112,6 @@ def route_single_layer_heuristic2(instance, C, G, element_set_partition, layer=0
         sets_at_uv = C.edges[u, v]["sets"]
         elements = [instance["elements"][u], instance["elements"][v]]
 
-        print(layer,(instance['glyph_positions'][layer][u],instance['glyph_positions'][layer][v]), sets_at_uv)
-
         # lava nodes - can't touch those along the route
         S_minus = [
             n
@@ -205,7 +203,7 @@ def route_single_layer_heuristic2(instance, C, G, element_set_partition, layer=0
 
 
 def route_single_layer_heuristic(instance, G, element_set_partition, layer=0):
-    support_type = config_vars["route.subsupporttype"].get()
+    support_type = config_vars["general.subsupporttype"].get()
     G_ = nx.Graph()
     G_.add_nodes_from(
         [
@@ -384,7 +382,7 @@ def route_single_layer_heuristic(instance, G, element_set_partition, layer=0):
 
 
 def route_single_layer_ilp(instance, G, element_set_partition, layer):
-    support_type = config_vars["route.subsupporttype"].get()
+    support_type = config_vars["general.subsupporttype"].get()
     num_layers = config_vars["general.numlayers"].get()
     el_idx_lookup = instance["elements_inv"]
 
@@ -586,6 +584,13 @@ def route_single_layer_ilp(instance, G, element_set_partition, layer):
 
     return MM
 
+def determine_connecter():
+    connecter = config_vars["connect.connecter"].get()
+    if connecter == "auto":
+        connecter = (
+            "opt" if config_vars["general.strategy"].get() == "opt" else "heuristic"
+        )
+    return connecter
 
 def determine_router():
     router = config_vars["route.router"].get()
@@ -695,7 +700,7 @@ def route_brosi_ilp(instance, C, G, esp, layer):
 
     obj = gp.quicksum(
         [x_ew[(e, w)] * M.edges[w]["weight"] for e in input_edges for w in grid_arcs]
-    ) + config_vars["route.snugfactor"].get() * gp.quicksum(x[a] for a in grid_edges)
+    ) + config_vars["route.ilpsnugfactor"].get() * gp.quicksum(x[a] for a in grid_edges)
 
     # use only one arc per grid edge
     for u, v in grid_edges:
@@ -922,11 +927,11 @@ def route_brosi_ilp(instance, C, G, esp, layer):
 def get_optimal_connectivity(instance, D, element_set_partition, layer=0, tour=False):
     # another ILP but let's do a MCF formulation with a spanning tree
 
-    model = gp.Model("mst")
-    if config_vars["route.ilptimeoutsecs"].get() > 0:
-        model.params.timeLimit = config_vars["route.ilptimeoutsecs"].get()
+    model = gp.Model("connect")
+    if config_vars["connect.ilptimeoutsecs"].get() > 0:
+        model.params.timeLimit = config_vars["connect.ilptimeoutsecs"].get()
 
-    model.params.MIPGap = config_vars["route.ilpmipgap"].get()
+    model.params.MIPGap = config_vars["connect.ilpmipgap"].get()
 
     n_nodes = len(instance["elements"])
     pos = instance["glyph_positions"][layer]
@@ -1104,7 +1109,7 @@ def get_optimal_connectivity(instance, D, element_set_partition, layer=0, tour=F
     else:
         model.optimize()
 
-    write_status(f"connectivity_{layer}", model)
+    write_status(f"connect_{layer}", model)
 
     MM = nx.Graph()
     for i, j in arcs:
@@ -1125,13 +1130,13 @@ def get_optimal_connectivity(instance, D, element_set_partition, layer=0, tour=F
 
 
 def connect(instance, G, element_set_partition, layer=0):
-    support_type = config_vars["route.subsupporttype"].get()
+    support_type = config_vars["general.subsupporttype"].get()
     pos = instance["glyph_positions"][layer]
     D = sp_dist.squareform(sp_dist.pdist(pos, metric="euclidean"))
-    router = determine_router()
+    connecter = determine_connecter()
 
     C = nx.Graph()  # connectivity graph
-    if router == "opt":
+    if connecter == "opt":
         C = (
             get_optimal_connectivity(
                 instance, D, element_set_partition, layer=layer, tour=True
