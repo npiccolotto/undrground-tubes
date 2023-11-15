@@ -14,6 +14,7 @@ from util.graph import (
     are_node_sets_connected,
     block_edges_using,
     unblock_edges,
+    get_port_edge_between_centers,
     updated_edge_weights,
     updated_port_node_edge_weights_incident_at,
     approximate_steiner_tree_nx,
@@ -54,9 +55,43 @@ def get_bend(e1, e2):
     raise BaseException(f"invalid bend: {bend}")
 
 
-def route_single_layer_heuristic(instance, G, element_set_partition, layer=0):
-    support_type = config_vars["route.subsupporttype"].get()
-    # TODO 100ms spent here
+def line_deg(G, n):
+    nbs = nx.neighbors(G, n)
+    ldeg = 0
+    for nb in nbs:
+        ldeg += len(G.edges[(n, nb)]["sets"])
+    return ldeg
+
+
+def heuristic_edge_order(C):
+    unprocessed_nodes = list(map(lambda n: (n, line_deg(C, n)), C.nodes()))
+    unprocessed_nodes = sorted(unprocessed_nodes, key=lambda un: un[1], reverse=True)
+
+    edge_order = []
+
+    while len(unprocessed_nodes):
+        dangling = [unprocessed_nodes[0]]
+
+        while len(dangling):
+            dangling = sorted(dangling, key=lambda un: un[1], reverse=True)
+            n, n_deg = dangling.pop(0)
+
+            nbs = list(map(lambda nb: (nb, line_deg(C, nb)), nx.neighbors(C, n)))
+            unprocessed = list(map(lambda un: un[0], unprocessed_nodes))
+            nbs = filter(lambda nb: nb[0] in unprocessed, nbs)
+            nbs = sorted(nbs, key=lambda nb: nb[1], reverse=True)
+
+            for nb, nb_deg in nbs:
+                edge_order.append((n, nb))
+                if (nb, nb_deg) not in dangling:
+                    dangling.append((nb, nb_deg))
+
+            unprocessed_nodes.remove((n, n_deg))
+
+    return edge_order
+
+
+def route_single_layer_heuristic2(instance, C, G, element_set_partition, layer=0):
     G_ = nx.Graph()
     G_.add_nodes_from(
         [
@@ -65,7 +100,120 @@ def route_single_layer_heuristic(instance, G, element_set_partition, layer=0):
         ]
     )
 
-    # TODO could do this on outside
+    G_.add_edges_from(
+        [
+            (u, v, d)
+            for u, v, k, d in G.edges(keys=True, data=True)
+            if k == EdgeType.PHYSICAL
+        ]
+    )
+
+    for u, v in [(u,v) for u,v in sorted(C.edges(), reverse=True, key=lambda uv: len(C.edges[uv]['sets']))]:
+        sets_at_uv = C.edges[u, v]["sets"]
+        elements = [instance["elements"][u], instance["elements"][v]]
+
+        print(layer,(instance['glyph_positions'][layer][u],instance['glyph_positions'][layer][v]), sets_at_uv)
+
+        # lava nodes - can't touch those along the route
+        S_minus = [
+            n
+            for n, d in G_.nodes(data=True)
+            if d["node"] == NodeType.CENTER
+            and d["occupied"]
+            and d["label"] not in elements
+        ]
+
+        edges_carrying_uv_sets = [
+            (w, x)
+            for w, x, k in G.edges(keys=True)
+            if k == EdgeType.SUPPORT
+            and len(G.edges[w, x, k]["sets"].intersection(sets_at_uv)) >0
+        ]
+
+        crossings_of_edges_carrying_uv_sets = []
+        nodes_at_edges_carrying_uv_sets = []
+        for w, x in edges_carrying_uv_sets:
+            w_is_port = G_.nodes[w]['node'] == NodeType.PORT
+            x_is_port = G_.nodes[x]['node'] == NodeType.PORT
+
+            if w_is_port and x_is_port:
+                are_from_different_centers = G_.nodes[w]['belongs_to'] != G_.nodes[x]['belongs_to']
+                if are_from_different_centers:
+                    # center edge belonging to physical edge
+                    cw, cx = G.edges[(w, x, EdgeType.PHYSICAL)]["center_edge"]
+                    if 'crossing' in G.edges[(cw, cx, EdgeType.CENTER)]:
+                        # crossing center edge
+                        crw, crx = G.edges[(cw, cx, EdgeType.CENTER)]["crossing"]
+                        # phsical edge belonging to crossing center
+                        crossings_of_edges_carrying_uv_sets.append(
+                            get_port_edge_between_centers(G_, crw, crx)
+                        )
+                else:
+                    nodes_at_edges_carrying_uv_sets.append(G_.nodes[w]['belongs_to'])
+
+
+        # avoid lava nodes
+        with updated_port_node_edge_weights_incident_at(G_, S_minus, math.inf):
+            # avoid forks/merges (=reusing edges)
+            with updated_edge_weights(G_, edges_carrying_uv_sets, math.inf):
+                # avoid self-crossings on diagonals
+                with updated_edge_weights(
+                    G_, crossings_of_edges_carrying_uv_sets, math.inf
+                ):
+                    # avoid self-crossings at grid cells
+                    with updated_port_node_edge_weights_incident_at(G_,nodes_at_edges_carrying_uv_sets,math.inf):
+                        new_edges = []
+                        pos_u = instance["glyph_positions"][layer][u]
+                        pos_v = instance["glyph_positions"][layer][v]
+
+                        set_support_edges = path_to_edges(
+                            nx.shortest_path(G_, pos_u, pos_v, weight="weight")
+                        )
+
+                        for w, x in set_support_edges:
+                            if not G.has_edge(w, x, EdgeType.SUPPORT):
+                                new_edges.append((w, x))
+                                G.add_edge(
+                                    w,
+                                    x,
+                                    EdgeType.SUPPORT,
+                                    edge=EdgeType.SUPPORT,
+                                    sets=set(sets_at_uv),
+                                )
+                            else:
+                                G.edges[(w, x, EdgeType.SUPPORT)]["sets"] = set(
+                                    sets_at_uv
+                                ).union(G.edges[(w, x, EdgeType.SUPPORT)]["sets"])
+
+                        for e in new_edges:
+                            update_weights_for_support_edge(G_, e)
+
+    support_graph = nx.subgraph_view(
+        G, filter_edge=lambda u, v, k: k == EdgeType.SUPPORT
+    )
+    SG = nx.MultiGraph()
+    SG.add_nodes_from(support_graph.nodes(data=True))
+    for u, v in support_graph.edges():
+        SG.add_edge(
+            u,
+            v,
+            (layer, EdgeType.SUPPORT),
+            **support_graph.edges[u, v, EdgeType.SUPPORT],
+        )
+
+    return SG
+
+
+def route_single_layer_heuristic(instance, G, element_set_partition, layer=0):
+    support_type = config_vars["route.subsupporttype"].get()
+    G_ = nx.Graph()
+    G_.add_nodes_from(
+        [
+            (n, d | d["layers"][layer] if d["node"] == NodeType.CENTER else d)
+            for n, d in G.nodes(data=True)
+        ]
+    )
+
     G_.add_edges_from(
         [
             (u, v, d)
@@ -460,7 +608,7 @@ def get_tour_approx(D, nodeset):
     G = nx.Graph()
     for i, j in combinations(nodeset, r=2):
         G.add_edge(i, j, weight=D[i, j])
-    S = tsp.traveling_salesman_problem(G, cycle=False)
+    S = tsp.traveling_salesman_problem(G, cycle=False, method=tsp.greedy_tsp)
     return path_to_edges(S)
 
 
@@ -682,7 +830,7 @@ def route_brosi_ilp(instance, C, G, esp, layer):
                     assert e1 in input_edges
                     assert e2 in input_edges
                     model.addConstr(
-                        delta[(u, e1)] - delta[(u, e2)] + 8 * beta[p, u] >= 0
+                        delta[(u, e1)] - delta[(u, e2)] + 8 * beta[p, u] >= 1
                     )
                 model.addConstr(gp.quicksum([beta[p, u] for p in ps]) <= 1)
 
@@ -771,7 +919,7 @@ def route_brosi_ilp(instance, C, G, esp, layer):
     return MM
 
 
-def get_spanning_tree(instance, D, element_set_partition, layer=0, tour=False):
+def get_optimal_connectivity(instance, D, element_set_partition, layer=0, tour=False):
     # another ILP but let's do a MCF formulation with a spanning tree
 
     model = gp.Model("mst")
@@ -956,7 +1104,7 @@ def get_spanning_tree(instance, D, element_set_partition, layer=0, tour=False):
     else:
         model.optimize()
 
-    write_status(f"route_mst_{layer}", model)
+    write_status(f"connectivity_{layer}", model)
 
     MM = nx.Graph()
     for i, j in arcs:
@@ -973,59 +1121,64 @@ def get_spanning_tree(instance, D, element_set_partition, layer=0, tour=False):
         #    labels = [l for l in all_labels if x_l[((i, j), l)].x > 0]
         #    MM.add_edge(i, j, sets=set(flatten(labels)))
 
-    print(list(MM.edges(data=True)))
     return MM
 
 
-def route(instance, G, element_set_partition):
+def connect(instance, G, element_set_partition, layer=0):
+    support_type = config_vars["route.subsupporttype"].get()
+    pos = instance["glyph_positions"][layer]
+    D = sp_dist.squareform(sp_dist.pdist(pos, metric="euclidean"))
     router = determine_router()
 
-    grid_graph = G
-    line_graph = nx.subgraph_view(
-        G,
-        filter_edge=lambda u, v, k: k == EdgeType.CENTER,
-        filter_node=lambda n: G.nodes[n]["node"] == NodeType.CENTER,
-    )
-
-    num_layers = config_vars["general.numlayers"].get()
-    support_type = config_vars["route.subsupporttype"].get()
-
-    layer_solutions = []
-    for layer in range(num_layers):
-        pos = instance["glyph_positions"][layer]
-        D = sp_dist.squareform(sp_dist.pdist(pos, metric="euclidean"))
-
-        C = nx.Graph()  # connectivity graph
-        for elements, sets in element_set_partition:
-            nodeset = list(map(lambda e: instance["elements_inv"][e], elements))
-
-        # TODO exact TSP/MST
+    C = nx.Graph()  # connectivity graph
+    if router == "opt":
         C = (
-            get_spanning_tree(
+            get_optimal_connectivity(
                 instance, D, element_set_partition, layer=layer, tour=True
             )
             if support_type == "path"
-            else get_spanning_tree(instance, D, element_set_partition, layer=layer)
+            else get_optimal_connectivity(
+                instance, D, element_set_partition, layer=layer
+            )
         )
+    else:
+        for elements, sets in element_set_partition:
+            nodeset = list(map(lambda e: instance["elements_inv"][e], elements))
+            connectivity_edges = (
+                get_tour_approx(D, nodeset)
+                if support_type == "path"
+                else get_spanning_tree_approx(D, nodeset)
+            )
+            for u, v in connectivity_edges:
+                existing_sets_at_edge = (
+                    C.edges[(u, v)]["sets"] if (u, v) in C.edges else set()
+                )
+                existing_sets_at_edge = existing_sets_at_edge.union(set(sets))
+                C.add_edge(u, v, sets=existing_sets_at_edge)
 
-        # for u, v in connectivity_edges:
-        #    existing_sets_at_edge = (
-        #        C.edges[(u, v)]["sets"] if (u, v) in C.edges else set()
-        #    )
-        #    existing_sets_at_edge = existing_sets_at_edge.union(set(sets))
-        #    C.add_edge(u, v, sets=existing_sets_at_edge)
+    return C
+
+
+def route(instance, grid_graph, element_set_partition):
+    router = determine_router()
+
+    num_layers = config_vars["general.numlayers"].get()
+
+    layer_solutions = []
+    for layer in range(num_layers):
+        C = connect(instance, grid_graph, element_set_partition, layer=layer)
 
         L = (
             route_brosi_ilp(
                 instance,
-                C.copy(),
-                grid_graph.copy(),
+                C,
+                grid_graph,
                 element_set_partition,
                 layer=layer,
             )
             if router == "opt"
-            else route_single_layer_heuristic(
-                instance, grid_graph.copy(), element_set_partition, layer=layer
+            else route_single_layer_heuristic2(
+                instance, C, grid_graph.copy(), element_set_partition, layer=layer
             )
         )
         layer_solutions.append(L)

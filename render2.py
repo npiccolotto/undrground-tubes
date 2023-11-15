@@ -184,7 +184,7 @@ def make_sqr_graph(m, n, with_ports=True):
                 # use physically closest port for any neighbor
                 port_nb = get_closest_point(G_.nodes[node]["pos"], ports_nb)
                 port_self = get_closest_point(G_.nodes[neighbor]["pos"], ports)
-                length_penalty = dist_euclidean(port_nb, port_self)
+                length_penalty = dist_euclidean(port_nb, port_self) - 1
                 # print(length_penalty)
 
                 G_.add_edge(
@@ -192,7 +192,8 @@ def make_sqr_graph(m, n, with_ports=True):
                     port_nb,
                     EdgeType.PHYSICAL,
                     edge=EdgeType.PHYSICAL,
-                    weight=EdgePenalty.HOP,
+                    center_edge = (node, neighbor),
+                    weight=EdgePenalty.HOP + length_penalty,
                 )
 
     return G_
@@ -301,11 +302,7 @@ def render():
         )
         G = add_glyphs_to_nodes(instance, G)
 
-        element_set_partition = (
-            group_by_intersection_group(instance["set_system"])
-            if config_vars["route.subsupportgrouping"].get() == "intersection-group"
-            else group_by_set(instance["set_system"])
-        )
+        element_set_partition = group_by_set(instance["set_system"])
         element_set_partition = sorted(
             element_set_partition, key=lambda x: len(x[1]), reverse=True
         )
