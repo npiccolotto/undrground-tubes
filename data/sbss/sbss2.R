@@ -80,6 +80,9 @@ moransi <- function(x) {
   return(ape::Moran.I(x, D.points)$observed)
 }
 
+x <- setNames(-3:3, c('A', 'B', 'C', 'D', 'E', 'F', 'G'))
+"F" %in% names(sort(abs(x), decreasing=T)[1:3])
+
 make_feats <- function(M, feats = c()) {
   n.feats <- length(names(feats))
   # if there's at least 1 feature, apply it per col, categorize per-col values
@@ -110,30 +113,44 @@ make_feats <- function(M, feats = c()) {
     # let's classify the top/bottom N as high/low loadings
     # e.g., top 3 loadings ni, s, ag -> high ni, high s, high ag. bot 3 loadings Mg, Zn,  U -> low these. rest "unspecific".
     M.feats <- list()
-    cnames <- colnames(M)
-    for (col in cnames) {
-      M.feat <- M[,col]
-      M.break <- BAMMtools::getJenksBreaks(M.feat, 4)
-      M.label <- cut(M.feat, breaks=M.break, include.lowest=T)
-      M.label.int <- cut(M.feat, breaks=M.break, include.lowest=T, labels=1:3)
-      levels(M.label.int) <- c(
-        paste0(col, ': ', 'low'),
-        paste0(col, ': ', 'mid'),
-        paste0(col, ': ', 'high')
-      )
-      M.feats[[col]] <- list(
-        'raw'=unlist(M.feat),
-        'breaks'=M.break,
-        'labels-breaks'=M.label,
-        'labels'=M.label.int
-      )
+    
+    M.feat <- apply(M, 1, function(row) {
+      top3 <- names(sort(row,decreasing =F)[1:3])
+      bot3 <- names(sort(row,decreasing =T)[1:3])
+      M.label.int <- purrr::map(colnames(M), function(cname) {
+        if (cname %in% top3) {
+          return(paste0(cname, ': high'))
+        }
+        if (cname %in% bot3) {
+          return(paste0(cname, ': low'))
+        }
+        return(paste0(cname, ': mid'))
+      })
+      return(M.label.int)
+    })
+    
+    for (col in colnames(M)) {
+        M.feats[[col]] <- list(
+          labels=purrr::map(M.feat, function(complabels) {
+            if (paste0(col, ': high') %in% complabels) {
+              return(paste0(col, ': high'))
+            }
+            if (paste0(col, ': mid') %in% complabels) {
+              return(paste0(col, ': mid'))
+            }
+            if (paste0(col, ': low') %in% complabels) {
+              return(paste0(col, ': low'))
+            }
+          })
+        )
     }
+    
     return(M.feats)
   }
 }
 
-comps.feats <- make_feats(components, list('kurtosis'=moments::kurtosis, 'skewness'=moments::skewness, 'moransi'=moransi))
 loads.feats <- make_feats(loadings)
+comps.feats <- make_feats(components, list('kurtosis'=moments::kurtosis, 'skewness'=moments::skewness, 'moransi'=moransi))
 
 kernel_labels <- c(rep(25, 30), rep(50, 30), rep(75, 30), rep(100,30))
 comps.feats[['kernel']] <- list(
@@ -214,15 +231,18 @@ D.s <- outer(1:120, 1:120, Vectorize(function(i,j) {
 # Write all the things
 
 # Edit these as necessary, rest should be automatic
-S <- c('kernel: 25', 'kernel: 100')
-SC <- c('#005824', '#ef6548')
+#S <- c('kernel: 25', 'kernel: 100')
+#SC <- c('#005824', '#ef6548')
+
+S <- c('Ni: low', 'Ni: high')
+SC <- c('#2166ac', '#b2182b')
 
 cl.feats <- c(comps.feats,loads.feats)
 # make binary matrix of set memberships
 SM <- matrix(data=0, ncol=length(S), nrow=120)
 for (j in 1:length(S)) {
   set <- S[j]
-  category <- strsplit(set, ':')[[1]][1]
+  category <- strsplit(set, ': ')[[1]][1]
   SM[,j] <- as.integer(cl.feats[[category]]$labels == set)
 }
 SA <- as.matrix(dist(SM, method='binary'))
@@ -237,11 +257,11 @@ EA <- as.matrix(D.s)
 as_json <- list(
   'glyph_ids'=paste(paste(path_rel, 1:120, sep='/'),'jpg',sep='.'),
   'E'=E,
-  'EA'=EA,
   'S'=S,
-  'SA'=SA,
+  'SR'=SR,
   'SC'=SC,
-  'SR'=SR
+  'EA'=EA,
+  'SA'=SA,
 )
 
 jsonlite::write_json(as_json, paste(img_path, 'moss.json', sep='/'), simplifyVector = F)
