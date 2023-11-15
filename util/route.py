@@ -108,7 +108,12 @@ def route_single_layer_heuristic2(instance, C, G, element_set_partition, layer=0
         ]
     )
 
-    for u, v in [(u,v) for u,v in sorted(C.edges(), reverse=True, key=lambda uv: len(C.edges[uv]['sets']))]:
+    for u, v in [
+        (u, v)
+        for u, v in sorted(
+            C.edges(), reverse=True, key=lambda uv: len(C.edges[uv]["sets"])
+        )
+    ]:
         sets_at_uv = C.edges[u, v]["sets"]
         elements = [instance["elements"][u], instance["elements"][v]]
 
@@ -125,21 +130,23 @@ def route_single_layer_heuristic2(instance, C, G, element_set_partition, layer=0
             (w, x)
             for w, x, k in G.edges(keys=True)
             if k == EdgeType.SUPPORT
-            and len(G.edges[w, x, k]["sets"].intersection(sets_at_uv)) >0
+            and len(G.edges[w, x, k]["sets"].intersection(sets_at_uv)) > 0
         ]
 
         crossings_of_edges_carrying_uv_sets = []
         nodes_at_edges_carrying_uv_sets = []
         for w, x in edges_carrying_uv_sets:
-            w_is_port = G_.nodes[w]['node'] == NodeType.PORT
-            x_is_port = G_.nodes[x]['node'] == NodeType.PORT
+            w_is_port = G_.nodes[w]["node"] == NodeType.PORT
+            x_is_port = G_.nodes[x]["node"] == NodeType.PORT
 
             if w_is_port and x_is_port:
-                are_from_different_centers = G_.nodes[w]['belongs_to'] != G_.nodes[x]['belongs_to']
+                are_from_different_centers = (
+                    G_.nodes[w]["belongs_to"] != G_.nodes[x]["belongs_to"]
+                )
                 if are_from_different_centers:
                     # center edge belonging to physical edge
                     cw, cx = G.edges[(w, x, EdgeType.PHYSICAL)]["center_edge"]
-                    if 'crossing' in G.edges[(cw, cx, EdgeType.CENTER)]:
+                    if "crossing" in G.edges[(cw, cx, EdgeType.CENTER)]:
                         # crossing center edge
                         crw, crx = G.edges[(cw, cx, EdgeType.CENTER)]["crossing"]
                         # phsical edge belonging to crossing center
@@ -147,8 +154,7 @@ def route_single_layer_heuristic2(instance, C, G, element_set_partition, layer=0
                             get_port_edge_between_centers(G_, crw, crx)
                         )
                 else:
-                    nodes_at_edges_carrying_uv_sets.append(G_.nodes[w]['belongs_to'])
-
+                    nodes_at_edges_carrying_uv_sets.append(G_.nodes[w]["belongs_to"])
 
         # avoid lava nodes
         with updated_port_node_edge_weights_incident_at(G_, S_minus, math.inf):
@@ -159,7 +165,9 @@ def route_single_layer_heuristic2(instance, C, G, element_set_partition, layer=0
                     G_, crossings_of_edges_carrying_uv_sets, math.inf
                 ):
                     # avoid self-crossings at grid cells
-                    with updated_port_node_edge_weights_incident_at(G_,nodes_at_edges_carrying_uv_sets,math.inf):
+                    with updated_port_node_edge_weights_incident_at(
+                        G_, nodes_at_edges_carrying_uv_sets, math.inf
+                    ):
                         new_edges = []
                         pos_u = instance["glyph_positions"][layer][u]
                         pos_v = instance["glyph_positions"][layer][v]
@@ -546,7 +554,7 @@ def route_single_layer_ilp(instance, G, element_set_partition, layer):
     model.Params.LazyConstraints = 1
     model.optimize(callback)
 
-    write_status(f"route{layer}", model)
+    write_status(f"route_{layer}", model)
 
     MM = nx.MultiGraph(incoming_graph_data=G)
 
@@ -584,6 +592,7 @@ def route_single_layer_ilp(instance, G, element_set_partition, layer):
 
     return MM
 
+
 def determine_connecter():
     connecter = config_vars["connect.connecter"].get()
     if connecter == "auto":
@@ -591,6 +600,7 @@ def determine_connecter():
             "opt" if config_vars["general.strategy"].get() == "opt" else "heuristic"
         )
     return connecter
+
 
 def determine_router():
     router = config_vars["route.router"].get()
@@ -1160,6 +1170,8 @@ def connect(instance, G, element_set_partition, layer=0):
                 )
                 existing_sets_at_edge = existing_sets_at_edge.union(set(sets))
                 C.add_edge(u, v, sets=existing_sets_at_edge)
+
+        write_fake_status(f"connect_{layer}")
 
     return C
 
