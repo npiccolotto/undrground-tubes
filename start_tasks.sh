@@ -15,8 +15,7 @@ base='/home1/npiccolotto/ensemble-sets/results'
 mem=32G
 
 # set hard limit run time (seconds)
-#hlr=144000
-hlr=21600
+hlr=46800 # 13 hours. 12h are all the ILPs if we're unlucky + 1h for the rest of the code.
 
 
 for i in $(seq 1 10); do
@@ -30,7 +29,7 @@ for i in $(seq 1 10); do
           for router in "opt" "heuristic"; do
             jobname="esvis-$dataset-$support_type-$layouter-$overlapper-$connecter-$router";
             echo "submitting $jobname";
-            qsub -N $jobname -l bc3 -l mem_free=$mem -l h_vmem=$mem -l h_rt=$hlr -e $base/logs/ -o $base/logs/ -r y run.sh $base/$jobname $support_type $layouter $overlapper $connecter $router $dataset
+            qsub -N $jobname -l bc3 -l longrun=1 -l mem_free=$mem -l h_vmem=$mem -l h_rt=$hlr -e $base/logs/ -o $base/logs/ -r y run.sh $base/$jobname $support_type $layouter $overlapper $connecter $router $dataset
           done
         done
       done

@@ -35,5 +35,5 @@ dataset="$7"
 jobname="esvis-$dataset-$support_type-$layouter-$overlapper-$connecter-$router";
 
 cd $base
-python render2.py --read-dir data --write-dir $TMPDIR --support-type $support_type --layouter $layouter --overlap-remover $overlapper --connecter $connecter --router $router --read-dir $base/designspace-test --dataset $dataset
+python render2.py --write-dir $TMPDIR --support-type $support_type --layouter $layouter --overlap-remover $overlapper --connecter $connecter --router $router --read-dir $base/designspace-test --dataset $dataset
 cp -r $TMPDIR $1
