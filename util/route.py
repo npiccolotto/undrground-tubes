@@ -971,7 +971,7 @@ def get_optimal_connectivity(instance, D, element_set_partition, layer=0, tour=F
 
     comm_nodes = []
     elements, sets = zip(*element_set_partition)
-    all_labels = list(map(lambda s: frozenst(s), sets))
+    all_labels = list(map(lambda s: frozenset(s), sets))
 
     for i, l in enumerate(all_labels):
         for e in elements[i]:
