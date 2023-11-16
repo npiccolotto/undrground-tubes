@@ -82,7 +82,7 @@ def add_ports_to_sqr_node(G, node, data, side_length=0.25):
                 sqr_corners[j],
                 EdgeType.PHYSICAL,
                 edge=EdgeType.PHYSICAL,
-                weight=penalties_cw[p] + EdgePenalty.HOP,
+                weight=penalties_cw[p],
                 efrom=PortDirs[i],
                 eto=PortDirs[j],
                 epenalty=penalties_cw[p],
@@ -96,7 +96,7 @@ def add_ports_to_sqr_node(G, node, data, side_length=0.25):
             n,
             EdgeType.PHYSICAL,
             edge=EdgeType.PHYSICAL,
-            weight=EdgePenalty.TO_CENTER + EdgePenalty.HOP,
+            weight=EdgePenalty.TO_CENTER,
             efrom=n,
             eto="center",
         )
@@ -184,7 +184,7 @@ def make_sqr_graph(m, n, with_ports=True):
                 # use physically closest port for any neighbor
                 port_nb = get_closest_point(G_.nodes[node]["pos"], ports_nb)
                 port_self = get_closest_point(G_.nodes[neighbor]["pos"], ports)
-                # length_penalty = dist_euclidean(port_nb, port_self) - 1
+                penalty = dist_euclidean(port_nb, port_self) - 1
                 # print(length_penalty)
 
                 G_.add_edge(
@@ -193,7 +193,7 @@ def make_sqr_graph(m, n, with_ports=True):
                     EdgeType.PHYSICAL,
                     edge=EdgeType.PHYSICAL,
                     center_edge=(node, neighbor),
-                    weight=EdgePenalty.HOP,
+                    weight=EdgePenalty.HOP + penalty,
                 )
 
     return G_
@@ -451,7 +451,7 @@ def autogridsize(nrow):
 )
 @click.option(
     "--connect-objective",
-    type=click.Choice(["joint","separate"], case_sensitive=False),
+    type=click.Choice(["joint", "separate"], case_sensitive=False),
     help="whether connections between nodes should be jointly optimized (minimizing total edge count) or separately.",
 )
 def vis(
@@ -497,7 +497,7 @@ def vis(
     if grid_height is not None:
         config_vars["general.gridheight"].set(grid_height)
     if connect_objective is not None:
-        config_vars['connect.objective'].set(connect_objective)
+        config_vars["connect.objective"].set(connect_objective)
 
     grid_width, grid_height = get_grid(include_pad=False)
     print(f"Grid size is {grid_width} x {grid_height}")

@@ -1,5 +1,5 @@
 import math
-import sys
+import numpy as np
 import networkx as nx
 import gurobipy as gp
 from gurobipy import GRB
@@ -971,7 +971,7 @@ def get_optimal_connectivity(instance, D, element_set_partition, layer=0, tour=F
 
     comm_nodes = []
     elements, sets = zip(*element_set_partition)
-    all_labels = list(map(lambda s: frozenset(s), sets))
+    all_labels = list(map(lambda s: frozenst(s), sets))
 
     for i, l in enumerate(all_labels):
         for e in elements[i]:
@@ -1019,28 +1019,8 @@ def get_optimal_connectivity(instance, D, element_set_partition, layer=0, tour=F
     for i, j in edges:
         for ce in comm_nodes:
             model.addConstr(flow[((i, j), ce)] + flow[((j, i), ce)] <= 1)
-
-    # commodities of one label also must flow in one direction
-    for i, j in arcs:
-        if i == "root":
-            continue
         for l in all_labels:
             model.addConstr(x_l[((i, j), l)] + x_l[((j, i), l)] <= 1)
-
-    for i in range(n_nodes):
-        # no inflow of foreign goods
-        model.addConstr(
-            gp.quicksum(
-                [
-                    flow[a, ce]
-                    for a in arcs
-                    if i in a
-                    for ce in comm_nodes
-                    if ce[0] not in labels[i]
-                ]
-            )
-            == 0
-        )
 
     for i in range(n_nodes):
         in_arcs = [a for a in arcs if a[1] == i]
@@ -1068,15 +1048,21 @@ def get_optimal_connectivity(instance, D, element_set_partition, layer=0, tour=F
 
         # commodities of the same label must enter at one edge
         for l in all_labels:
-            model.addConstr(gp.quicksum([x_l[a, l] for a in in_arcs]) <= 1)
-            # when we look for a tour for each label, they must also exit at one edge
-            if tour:
-                model.addConstr(gp.quicksum([x_l[a, l] for a in out_arcs]) <= 1)
+            in_arc_sum = gp.quicksum([x_l[a, l] for a in in_arcs])
+            out_arc_sum = gp.quicksum([x_l[a, l] for a in out_arcs])
+            if l in labels[i]:
+                model.addConstr(in_arc_sum <= 1)
+                # when we look for a tour for each label, they must also exit at one edge
+                if tour:
+                    model.addConstr(out_arc_sum <= 1)
+            else:
+                model.addConstr(in_arc_sum == 0)
+                model.addConstr(out_arc_sum == 0)
 
     # minimize the edge length in the drawing
     if conn_objective == "joint":
         obj = gp.quicksum([x[e] * G_d.edges[e]["weight"] for e in edges])
-    else:
+    elif conn_objective == "separate":
         obj = gp.quicksum(
             [x_l[a, l] * G_d.edges[a]["weight"] for a in arcs for l in all_labels]
         )
@@ -1130,7 +1116,7 @@ def get_optimal_connectivity(instance, D, element_set_partition, layer=0, tour=F
     model.update()
     # print(flow)
     model.setObjective(obj, sense=GRB.MINIMIZE)
-    if True:
+    if conn_objective == "joint":
         model.Params.LazyConstraints = 1
         model.optimize(callback)
     else:
@@ -1158,21 +1144,17 @@ def get_optimal_connectivity(instance, D, element_set_partition, layer=0, tour=F
 
 def connect(instance, G, element_set_partition, layer=0):
     support_type = config_vars["general.subsupporttype"].get()
-    pos = instance["glyph_positions"][layer]
+    # multiply grid positions with large number so that we don't run into numerical issues
+    factor = 1000
+    pos = (instance["glyph_positions"] * np.array([factor, factor]))[layer]
     D = sp_dist.squareform(sp_dist.pdist(pos, metric="euclidean"))
     connecter = determine_connecter()
     conn_objective = config_vars["connect.objective"].get()
 
     C = nx.Graph()  # connectivity graph
     if connecter == "opt":
-        C = (
-            get_optimal_connectivity(
-                instance, D, element_set_partition, layer=layer, tour=True
-            )
-            if support_type == "path"
-            else get_optimal_connectivity(
-                instance, D, element_set_partition, layer=layer
-            )
+        C = get_optimal_connectivity(
+            instance, D, element_set_partition, layer=layer, tour=support_type == "path"
         )
     else:
         if conn_objective == "joint":
