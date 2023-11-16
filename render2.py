@@ -449,6 +449,11 @@ def autogridsize(nrow):
     type=click.Choice(["auto", "opt", "heuristic"], case_sensitive=False),
     help="optimal or heuristic connectivity",
 )
+@click.option(
+    "--connect-objective",
+    type=click.Choice(["joint","separate"], case_sensitive=False),
+    help="whether connections between nodes should be jointly optimized (minimizing total edge count) or separately.",
+)
 def vis(
     read_dir,
     write_dir,
@@ -463,6 +468,7 @@ def vis(
     layouter,
     router,
     connecter,
+    connect_objective,
 ):
     if dataset is not None:
         config_vars["general.dataset"].set(dataset)
@@ -490,6 +496,8 @@ def vis(
         config_vars["general.gridwidth"].set(grid_width)
     if grid_height is not None:
         config_vars["general.gridheight"].set(grid_height)
+    if connect_objective is not None:
+        config_vars['connect.objective'].set(connect_objective)
 
     grid_width, grid_height = get_grid(include_pad=False)
     print(f"Grid size is {grid_width} x {grid_height}")

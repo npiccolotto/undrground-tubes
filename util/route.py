@@ -936,6 +936,7 @@ def route_brosi_ilp(instance, C, G, esp, layer):
 
 def get_optimal_connectivity(instance, D, element_set_partition, layer=0, tour=False):
     # another ILP but let's do a MCF formulation with a spanning tree
+    conn_objective = config_vars["connect.objective"].get()
 
     model = gp.Model("connect")
     if config_vars["connect.ilptimeoutsecs"].get() > 0:
@@ -1073,10 +1074,12 @@ def get_optimal_connectivity(instance, D, element_set_partition, layer=0, tour=F
                 model.addConstr(gp.quicksum([x_l[a, l] for a in out_arcs]) <= 1)
 
     # minimize the edge length in the drawing
-    obj = gp.quicksum([x[e] * G_d.edges[e]["weight"] for e in edges])
-    # obj = gp.quicksum(
-    #   [x_l[a, l] * G_d.edges[a]["weight"] for a in arcs for l in all_labels]
-    # )
+    if conn_objective == "joint":
+        obj = gp.quicksum([x[e] * G_d.edges[e]["weight"] for e in edges])
+    else:
+        obj = gp.quicksum(
+            [x_l[a, l] * G_d.edges[a]["weight"] for a in arcs for l in all_labels]
+        )
     # obj = gp.quicksum([x_l[tuple(reversed(e)),l]*x_l[e,l] * G_d.edges[e]["weight"] for e in edges for l in all_labels])
 
     def addDynamicConstraints(m, x, xl):
@@ -1158,6 +1161,7 @@ def connect(instance, G, element_set_partition, layer=0):
     pos = instance["glyph_positions"][layer]
     D = sp_dist.squareform(sp_dist.pdist(pos, metric="euclidean"))
     connecter = determine_connecter()
+    conn_objective = config_vars["connect.objective"].get()
 
     C = nx.Graph()  # connectivity graph
     if connecter == "opt":
@@ -1171,6 +1175,10 @@ def connect(instance, G, element_set_partition, layer=0):
             )
         )
     else:
+        if conn_objective == "joint":
+            print(
+                "[WARN]: No heuristic for joint objective available, use `opt` setting for connecter. Continuing anyways..."
+            )
         for elements, sets in element_set_partition:
             nodeset = list(map(lambda e: instance["elements_inv"][e], elements))
             connectivity_edges = (
