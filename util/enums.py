@@ -10,12 +10,12 @@ from enum import IntEnum, Enum
 
 class EdgePenalty(float, Enum):
     IN_SUPPORT = -1
-    COMMON_MULTILAYER = -0.5
+    COMMON_MULTILAYER = 0
 
     # Bends
     ONE_EIGHTY = 0
     ONE_THIRTY_FIVE = 1
-    NINETY = 2.5 # this should be a bit more than 2x 135 so as to not make 1 90deg bend replace 2 135degs
+    NINETY = 2 # this should be a bit more than 2x 135 so as to not make 1 90deg bend replace 2 135degs
     FORTY_FIVE = 3
 
     # To center
@@ -30,7 +30,7 @@ class EdgePenalty(float, Enum):
     # crossings relative to node
     # diagonal edges between different nodes
     # there aren't too many in the grid graph of those so the effect is meh
-    CROSSING_OUTSIDE = 1000
+    CROSSING_OUTSIDE = 0
 
     # at port edge of an occupied node
     # would not recommend to set that because we often can't work around them anyways

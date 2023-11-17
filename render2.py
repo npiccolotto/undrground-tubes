@@ -82,7 +82,7 @@ def add_ports_to_sqr_node(G, node, data, side_length=0.25):
                 sqr_corners[j],
                 EdgeType.PHYSICAL,
                 edge=EdgeType.PHYSICAL,
-                weight=EdgePenalty.HOP + penalties_cw[p],
+                weight=penalties_cw[p],
                 efrom=PortDirs[i],
                 eto=PortDirs[j],
                 epenalty=penalties_cw[p],
@@ -184,15 +184,16 @@ def make_sqr_graph(m, n, with_ports=True):
                 # use physically closest port for any neighbor
                 port_nb = get_closest_point(G_.nodes[node]["pos"], ports_nb)
                 port_self = get_closest_point(G_.nodes[neighbor]["pos"], ports)
-                length_penalty = dist_euclidean(port_nb, port_self)
-                #print(length_penalty)
+                penalty = dist_euclidean(port_nb, port_self) - 1
+                # print(length_penalty)
 
                 G_.add_edge(
                     port_self,
                     port_nb,
                     EdgeType.PHYSICAL,
                     edge=EdgeType.PHYSICAL,
-                    weight=max(EdgePenalty.HOP,EdgePenalty.HOP + length_penalty -1)
+                    center_edge=(node, neighbor),
+                    weight=EdgePenalty.HOP + penalty,
                 )
 
     return G_
@@ -262,7 +263,13 @@ def read_instance(directory, name):
         "set_system": list_of_lists_to_set_system_dict(elements, data["SR"]),
         "D_EA": data["EA"],
         "D_SR": data["SA"],
-        "set_ftb_order": list(sorted(sets)),
+        "set_colors": dict(
+            zip(
+                sets,
+                data["SC"] if "SC" in data else config_vars["draw.setcolors"].get(),
+            )
+        ),
+        "set_ftb_order": sets,
     }
     if "glyph_ids" in data:
         inst["glyph_ids"] = data["glyph_ids"]
@@ -295,11 +302,7 @@ def render():
         )
         G = add_glyphs_to_nodes(instance, G)
 
-        element_set_partition = (
-            group_by_intersection_group(instance["set_system"])
-            if config_vars["route.subsupportgrouping"].get() == "intersection-group"
-            else group_by_set(instance["set_system"])
-        )
+        element_set_partition = group_by_set(instance["set_system"])
         element_set_partition = sorted(
             element_set_partition, key=lambda x: len(x[1]), reverse=True
         )
@@ -312,21 +315,17 @@ def render():
 
     router = determine_router()
     with timing("bundle lines"):
-        L = (
-            bundle_lines_lg(instance, L)
-            if router == "opt"
-            else bundle_lines_gg(instance, L)
-        )
+        L = bundle_lines_gg(instance, L)
 
-    if router == "opt":
-        # the heuristic routing uses the grid graph (ie., with port nodes), but the optimal routing does not
-        # this is fine for the bundle step, which also uses the line graph (i.e., without port nodes)
-        # but for drawing we need the port nodes, so a postprocessing step is required that inserts them.
-        # we have
-        # G = multigraph with center and physical nodes/edges
-        # L = a multigraph with (layer, support) edges and center nodes
-        G = convert_line_graph_to_grid_graph(instance, L, G, element_set_partition)
-        L = G
+    # if router == "opt":
+    #    # the heuristic routing uses the grid graph (ie., with port nodes), but the optimal routing does not
+    #    # this is fine for the bundle step, which also uses the line graph (i.e., without port nodes)
+    #    # but for drawing we need the port nodes, so a postprocessing step is required that inserts them.
+    #    # we have
+    #    # G = multigraph with center and physical nodes/edges
+    #    # L = a multigraph with (layer, support) edges and center nodes
+    #    G = convert_line_graph_to_grid_graph(instance, L, G, element_set_partition)
+    #    L = G
 
     L = cosmetic_post_processing(instance, L)
 
@@ -393,10 +392,18 @@ def render():
     return R
 
 
-def autogridsize(nrow, margin=1):
-    exp = math.ceil(math.log2(math.sqrt(nrow))) + margin
-    side = 2**exp
-    return side, side
+def autogridsize(nrow):
+    side = 1
+    margin = 1
+    base = math.ceil(math.log2(math.sqrt(nrow)))
+    # if the layout is too dense then it may get difficult to connect everything properly
+    # the failing instances were often around a factor elements/cells = 0.15
+    # there may be better metrics to use but this is what i can do now
+    while nrow / (side**2) > 0.1:
+        exp = base + margin
+        side = 2**exp
+        margin += 1
+    return (side, side)
 
 
 @click.command()
@@ -437,6 +444,16 @@ def autogridsize(nrow, margin=1):
     type=click.Choice(["auto", "opt", "heuristic"], case_sensitive=False),
     help="optimal or heuristic routing",
 )
+@click.option(
+    "--connecter",
+    type=click.Choice(["auto", "opt", "heuristic"], case_sensitive=False),
+    help="optimal or heuristic connectivity",
+)
+@click.option(
+    "--connect-objective",
+    type=click.Choice(["joint", "separate"], case_sensitive=False),
+    help="whether connections between nodes should be jointly optimized (minimizing total edge count) or separately.",
+)
 def vis(
     read_dir,
     write_dir,
@@ -450,13 +467,15 @@ def vis(
     overlap_remover,
     layouter,
     router,
+    connecter,
+    connect_objective,
 ):
     if dataset is not None:
         config_vars["general.dataset"].set(dataset)
     if support_partition is not None:
-        config_vars["route.subsupportgrouping"].set(support_partition)
+        config_vars["general.subsupportgrouping"].set(support_partition)
     if support_type is not None:
-        config_vars["route.subsupporttype"].set(support_type)
+        config_vars["general.subsupporttype"].set(support_type)
     if strategy is not None:
         config_vars["general.strategy"].set(strategy)
     if read_dir is not None:
@@ -471,16 +490,22 @@ def vis(
         config_vars["layout.layouter"].set(layouter)
     if router is not None:
         config_vars["route.router"].set(router)
+    if connecter is not None:
+        config_vars["connect.connecter"].set(connecter)
     if grid_width is not None:
         config_vars["general.gridwidth"].set(grid_width)
     if grid_height is not None:
         config_vars["general.gridheight"].set(grid_height)
+    if connect_objective is not None:
+        config_vars["connect.objective"].set(connect_objective)
 
     grid_width, grid_height = get_grid(include_pad=False)
     print(f"Grid size is {grid_width} x {grid_height}")
 
+    inst = read_instance(
+        config_vars["general.readdir"].get(), config_vars["general.dataset"].get()
+    )
     if grid_width == 0 or grid_height == 0:
-        inst = read_instance(config_vars["general.readdir"].get(), config_vars['general.dataset'].get())
         nrow = len(inst["elements"])
         grid_width, grid_height = autogridsize(nrow)
         config_vars["general.gridwidth"].set(grid_width)
@@ -504,7 +529,7 @@ def vis(
                 {
                     "success": True,
                     "duration_ms": duration * 1000,
-                    "metrics": compute_metrics(G),
+                    "metrics": compute_metrics(G, inst),
                     "ctx": {key: value.get() for key, value in config_vars.items()},
                 },
                 f,

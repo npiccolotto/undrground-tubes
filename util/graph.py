@@ -489,6 +489,7 @@ def group_aware_greedy_tsp(
             # left are from the same group, which by assumption is connected already
             break
         shortest_paths = []
+        phys_dists = []
         for n in nodelist:
             # exclude nodes that are not n or the end of the cycle to avoid
             # shortest paths over other nodes (if that can happen)
@@ -496,11 +497,9 @@ def group_aware_greedy_tsp(
             with updated_port_node_edge_weights_incident_at(G_, lava, math.inf):
                 sp = nx.shortest_path(G_, cycle[-1], n, weight=weight)
                 shortest_paths.append(sp)
+                phys_dists.append(dist_euclidean(cycle[-1], n))
 
-        dists = [
-            calculate_path_length(G_, path_to_edges(sp), weight=weight)
-            for sp in shortest_paths
-        ]
+        dists = phys_dists
         argmin = np.argmin(dists)
         min_idx = argmin[0] if isinstance(argmin, list) else argmin
         next_node = nodelist[min_idx]
@@ -600,6 +599,7 @@ def approximate_tsp_tour(G, S, current_support):
 
     path, _ = group_aware_greedy_tsp(G, current_support, weight="weight", groups=S)
 
+    return path
     # follow-up with 2-opt heuristic
     elements = [e for e in list(set.union(*S)) if e in path]
 
@@ -936,17 +936,32 @@ def get_port_edges(M, node):
     ]
     all_edges_at_ports = set()
     for port in all_ports:
-        edges_at_port = [
-            (a, b)
-            if PortDirs.index(M.nodes[a]["port"]) < PortDirs.index(M.nodes[b]["port"])
-            else (b, a)
-            for a, b, k in M.edges(nbunch=port, keys=True)
-            if k == EdgeType.PHYSICAL
-            and M.nodes[a]["node"] == NodeType.PORT
-            and M.nodes[b]["node"] == NodeType.PORT
-            and M.nodes[a]["belongs_to"] == node
-            and M.nodes[b]["belongs_to"] == node
-        ]
+        edges_at_port = (
+            [
+                (a, b)
+                if PortDirs.index(M.nodes[a]["port"])
+                < PortDirs.index(M.nodes[b]["port"])
+                else (b, a)
+                for a, b, k in M.edges(nbunch=port, keys=True)
+                if k == EdgeType.PHYSICAL
+                and M.nodes[a]["node"] == NodeType.PORT
+                and M.nodes[b]["node"] == NodeType.PORT
+                and M.nodes[a]["belongs_to"] == node
+                and M.nodes[b]["belongs_to"] == node
+            ]
+            if isinstance(M, nx.MultiGraph)
+            else [
+                (a, b)
+                if PortDirs.index(M.nodes[a]["port"])
+                < PortDirs.index(M.nodes[b]["port"])
+                else (b, a)
+                for a, b in M.edges(nbunch=port)
+                if M.nodes[a]["node"] == NodeType.PORT
+                and M.nodes[b]["node"] == NodeType.PORT
+                and M.nodes[a]["belongs_to"] == node
+                and M.nodes[b]["belongs_to"] == node
+            ]
+        )
 
         all_edges_at_ports = all_edges_at_ports.union(set(edges_at_port))
     return list(all_edges_at_ports)
@@ -1217,3 +1232,21 @@ def convert_line_graph_to_grid_graph(instance, L, G, element_set_partition):
         [(u, v, k) for u, v, k in G.edges(keys=True) if k == EdgeType.CENTER]
     )
     return G
+
+
+def get_outgoing_edge_to_other_center_from_port(G, p):
+    pparent = G.nodes[p]["belongs_to"]
+    p_adjacent = list(nx.neighbors(G, p))
+    for neighbor in p_adjacent:
+        nparent = G.nodes[neighbor].get("belongs_to")
+        if nparent is not None and nparent != pparent:
+            return (p, neighbor)
+
+    raise BaseException(f"no connection from {p}")
+
+
+def sort_ports(G, ports, origin="n"):
+    port_dirs_from_origin = PortDirs[PortDirs.index(origin) :] + PortDirs[:PortDirs.index(origin)]
+    return list(
+        sorted(ports, key=lambda u: port_dirs_from_origin.index(G.nodes[u]["port"]))
+    )

@@ -75,7 +75,7 @@ def hilbert_decode(p, size):
     return px, py
 
 
-def gridify_square(P, level="auto"):
+def gridify_square(P, level="auto", layer=0):
     """
     Hagrid from Cutura et al. [1] using Hilbert curve and optimal collision resolution.
 
@@ -109,14 +109,14 @@ def gridify_square(P, level="auto"):
     cntr = Counter(Ph)
     collision_detected = any([v > 1 for v in cntr.values()])
     if collision_detected:
-        Ph = solve_hagrid_optimal(curve_length, Ph)
+        Ph = solve_hagrid_optimal(curve_length, Ph, layer=layer)
 
     result = np.array([hilbert_decode(p, size) for p in Ph])
 
     return result
 
 
-def solve_qsap(elements, D, m, n, norm=2, weight=0.5):
+def solve_qsap(elements, D, m, n, norm=2, weight=0.5, layer=0):
     """compact formulation of QSAP compared to the linearized version.
 
     it's still a QSAP though, so the only problems this solves is that
@@ -195,7 +195,7 @@ def solve_qsap(elements, D, m, n, norm=2, weight=0.5):
 
     model.optimize()
 
-    write_status(f"layout{weight}", model)
+    write_status(f"layout_{layer}", model)
 
     return np.array([(x[i].X, y[i].X) for i in range(len(elements))])
 
@@ -249,10 +249,10 @@ def solve_qsap_linearized(a, A, b, B):
     return np.array(result)
 
 
-def layout_qsap(elements, D, m=10, n=10, weight=0.5):
+def layout_qsap(elements, D, m=10, n=10, weight=0.5, layer=0):
     """Quadratic assignment onto grid, for now assuming constant space between cells."""
 
-    return solve_qsap(elements, D, m, n, norm=2, weight=weight)
+    return solve_qsap(elements, D, m, n, norm=2, weight=weight, layer=layer)
     # 2) make host distances H
 
     # add dummy elements - qap does a bijective mapping
@@ -282,7 +282,7 @@ def layout_qsap(elements, D, m=10, n=10, weight=0.5):
     return pos
 
 
-def solve_hagrid_optimal(max_domain, pos):
+def solve_hagrid_optimal(max_domain, pos, layer=0):
     model = gp.Model("hagrid")
 
     rle = list(range(len(pos)))
@@ -355,7 +355,7 @@ def solve_hagrid_optimal(max_domain, pos):
     model.write("hagrid.lp")
     model.optimize(callback)
 
-    write_status("overlapremoval", model)
+    write_status(f"overlapremoval_{layer}", model)
 
     # for i in rle:
     #    print(
@@ -406,8 +406,8 @@ def naive_matching(L1, L2):
     return rot, scale
 
 
-def layout_mds(D, m=10, n=10, weight=0.5):
-    write_fake_status(f"layout{weight}")
+def layout_mds(D, m=10, n=10, weight=0.5, layer=0):
+    write_fake_status(f"layout_{layer}")
     return MDS(
         n_components=2,
         metric=True,
@@ -417,7 +417,7 @@ def layout_mds(D, m=10, n=10, weight=0.5):
     ).fit_transform(D)
 
 
-def layout_single(elements, D_EA, D_SR, m=10, n=10, weight=0.5):
+def layout_single(elements, D_EA, D_SR, m=10, n=10, weight=0.5, layer=0):
     layouter = config_vars["layout.layouter"].get()
 
     if layouter == "auto":
@@ -430,9 +430,9 @@ def layout_single(elements, D_EA, D_SR, m=10, n=10, weight=0.5):
 
     match layouter:
         case "mds":
-            return layout_mds(D, m=m, n=n, weight=weight)
+            return layout_mds(D, m=m, n=n, weight=weight, layer=layer)
         case "qsap":
-            return layout_qsap(elements, D, m=m, n=n, weight=weight)
+            return layout_qsap(elements, D, m=m, n=n, weight=weight, layer=layer)
 
 
 def align_layouts(layouts):
@@ -449,7 +449,7 @@ def align_layouts(layouts):
     return output_pos
 
 
-def remove_overlaps(layout, m=10, n=10):
+def remove_overlaps(layout, m=10, n=10, layer=0):
     x_min = layout.min(axis=0)[0]
     y_min = layout.min(axis=0)[1]
     x_max = layout.max(axis=0)[0]
@@ -474,9 +474,9 @@ def remove_overlaps(layout, m=10, n=10):
 
     match remover:
         case "hagrid":
-            return gridify_square(layout, int(power2_exp)).astype(int)
+            return gridify_square(layout, int(power2_exp), layer=layer).astype(int)
         case "dgrid":
-            write_fake_status("overlapremoval")
+            write_fake_status(f"overlapremoval_{layer}")
             return (
                 DGrid(glyph_width=1, glyph_height=1, delta=1)
                 .fit_transform(layout)
@@ -490,12 +490,14 @@ def pad_layout(layout, pad):
 
 def layout(elements, D_EA, D_SR, m=10, n=10, pad=1, num_weights=3):
     layouts = [
-        layout_single(elements, D_EA, D_SR, m=m, n=n, weight=w)
-        for w in np.linspace(0, 1, num_weights)
+        layout_single(elements, D_EA, D_SR, m=m, n=n, weight=w, layer=l)
+        for l, w in enumerate(np.linspace(0, 1, num_weights))
     ]
 
     layouts = align_layouts(layouts)
-    layouts = [remove_overlaps(layout, m=m, n=n) for layout in layouts]
+    layouts = [
+        remove_overlaps(layout, m=m, n=n, layer=l) for l, layout in enumerate(layouts)
+    ]
 
     layouts = [pad_layout(layout, pad) for layout in layouts]
 
