@@ -36,6 +36,34 @@ import scipy.spatial.distance as sp_dist
 import networkx.algorithms.approximation.traveling_salesman as tsp
 
 
+def get_penalty(bend):
+    if bend == 4:
+        return 0
+    if bend in [3, 5]:
+        return 1
+    if bend in [2, 6]:
+        return 10
+    if bend in [1, 7]:
+        return 100
+
+
+def get_bend2(G, e1, e2):
+    u, v = e1
+    v, w = e2
+
+    up = G.nodes[u]["port"]
+    wp = G.nodes[w]["port"]
+
+    if up == wp:
+        return -1
+
+    ud = PortDirs.index(up)
+    wd = PortDirs.index(wp)
+
+    bend = abs(ud - wd) % 8
+    return bend
+
+
 def get_bend(e1, e2):
     u, v = e1
     v, x = e2
@@ -57,7 +85,7 @@ def get_bend(e1, e2):
         case 45:
             return 3
 
-    raise BaseException(f"invalid bend: {bend}")
+    raise BaseException(f"invalid bend: {bend}. {u}, {v}, {x}")
 
 
 def line_deg(G, n):
@@ -786,10 +814,36 @@ def route_brosi_ilp(instance, C, G, esp, layer):
                     gp.quicksum([x_ew[(e, w)] for w in port_arcs + center_arcs]) <= 1
                 )
 
+    if False:
+        # TODO for bends at nodes it would be nice if C is a directed graph
+        for n in M.nodes():
+            if M.nodes[n]["node"] == NodeType.CENTER and M.nodes[n]["occupied"]:
+                out_arcs = M.edges(nbunch=n)
+                in_arcs = [(v, u) for u, v in out_arcs]
+                edges_with_shared_sets_here = [
+                    (e1, e2)
+                    for e1, e2 in combinations(input_edges, r=2)
+                    if instance["elements_inv"][M.nodes[n]["label"]] in e1 and instance["elements_inv"][M.nodes[n]["label"]] in e2 and C.edges[e1]["sets"].intersection(C.edges[e2]["sets"])
+                ]
+                if edges_with_shared_sets_here:
+                    for inn, out in product(in_arcs + out_arcs, repeat=2):
+                        u, _ = inn
+                        _, v = out
+                        bend = get_bend2(M, inn, out)
+                        if bend < 0:
+                            continue
+                        obj += gp.quicksum(
+                            [
+                                x_ew[e1, inn] * x_ew[e2, out] * get_penalty(bend)
+                                for e1, e2 in edges_with_shared_sets_here
+                            ]
+                        )
+
     if True:
         # 15-18) ensure edge order at input/grid nodes <- this one can prevent some crossings
         delta = model.addVars(
-            [(v, e) for v in range(n_nodes) for e in input_edges if v in e],
+            [(e[0], e) for e in input_edges] + [(e[1], e) for e in input_edges],
+            # [(v, e) for v in range(n_nodes) for e in input_edges if v in e],
             vtype=GRB.INTEGER,
             name="delta",
             lb=0,
@@ -797,18 +851,26 @@ def route_brosi_ilp(instance, C, G, esp, layer):
         )
         for e in input_edges:
             s, t = e
-            dir_sum_s = gp.LinExpr(0)
-            dir_sum_t = gp.LinExpr(0)
 
-            for u in M.nodes():
-                if M.nodes[u]["node"] == NodeType.CENTER:
-                    ports = sort_ports(M, nx.neighbors(M, u), origin="e")
-                    dir_sum_s += gp.quicksum(
-                        [x_ew[(e, (u, p))] * (i) for i, p in enumerate(ports)]
+            pos_s = instance["glyph_positions"][layer][s]
+            pos_t = instance["glyph_positions"][layer][t]
+
+            dir_sum_s = gp.quicksum(
+                [
+                    x_ew[(e, (pos_s, p))] * (i)
+                    for i, p in enumerate(
+                        sort_ports(M, nx.neighbors(M, pos_s), origin="e")
                     )
-                    dir_sum_t += gp.quicksum(
-                        [x_ew[(e, (p, u))] * (i) for i, p in enumerate(ports)]
+                ]
+            )
+            dir_sum_t = gp.quicksum(
+                [
+                    x_ew[(e, (p, pos_t))] * (i)
+                    for i, p in enumerate(
+                        sort_ports(M, nx.neighbors(M, pos_t), origin="e")
                     )
+                ]
+            )
 
             model.addConstr(delta[(s, e)] - dir_sum_s == 0)
             model.addConstr(delta[(t, e)] - dir_sum_t == 0)
@@ -817,8 +879,8 @@ def route_brosi_ilp(instance, C, G, esp, layer):
             [
                 (p, u)
                 for u in range(n_nodes)
-                for p in range(C.degree[u])
                 if C.degree[u] > 2
+                for p in range(C.degree[u])
             ],
             vtype=GRB.BINARY,
             name="beta",
@@ -832,8 +894,8 @@ def route_brosi_ilp(instance, C, G, esp, layer):
                     neighbors,
                     reverse=False,
                     key=lambda v: get_angle(
-                        instance["glyph_positions"][layer][u],
-                        instance["glyph_positions"][layer][v],
+                        1000 * np.array(instance["glyph_positions"][layer][u]),
+                        1000 * np.array(instance["glyph_positions"][layer][v]),
                     ),
                 )
                 for p, p1 in pairwise(ps):
@@ -863,31 +925,61 @@ def route_brosi_ilp(instance, C, G, esp, layer):
         # check if any two selected edges overlap
         # if they overlap, check if they carry the same sets
         # if they do, add constrain flow of those sets to not use both input edges
-        for n in M.nodes():
-            if M.nodes[n]["node"] == NodeType.CENTER:
-                port_edges = get_port_edges(M, n)
-                port_arcs = port_edges + list(
-                    map(lambda e: tuple(reversed(e)), port_edges)
-                )
-                for p1, p2 in combinations(port_arcs, r=2):
-                    e_p1 = [e for e in input_edges if x_ew[e, p1] > 0]
-                    e_p2 = [e for e in input_edges if x_ew[e, p2] > 0]
-                    if len(e_p1) > 0 and len(e_p2) > 0:
-                        l_p1 = set.union(*[C.edges[e]["sets"] for e in e_p1])
-                        l_p2 = set.union(*[C.edges[e]["sets"] for e in e_p2])
-                        common_l = l_p1.intersection(l_p2)
+        if False:
+            activated_arcs = set(
+                [a for e in input_edges for a in M.edges() if x_ew[e, a] > 0]
+            )
 
-                        if len(common_l) > 0:
-                            m.cbLazy(
-                                gp.quicksum(
-                                    [
-                                        m._x_ew[e, p]
-                                        for e in e_p1 + e_p2
-                                        for p in port_arcs
-                                    ]
+            for a1, a2 in combinations(activated_arcs, r=2):
+                u, v = a1
+                w, z = a2
+
+                up = M.nodes[u]["pos"]
+                vp = M.nodes[v]["pos"]
+                wp = M.nodes[w]["pos"]
+                zp = M.nodes[z]["pos"]
+
+                if len(set([u, v, w, z])) == 4 and do_lines_intersect2(up, vp, wp, zp):
+                    # find input edges at arcs
+                    a1_edges = [e for e in input_edges if x_ew[e, a1] > 0]
+                    a2_edges = [e for e in input_edges if x_ew[e, a2] > 0]
+                    l_p1 = set.union(*[C.edges[e]["sets"] for e in a1_edges])
+                    l_p2 = set.union(*[C.edges[e]["sets"] for e in a2_edges])
+                    common = set(l_p1).intersection(set(l_p2))
+
+                    if len(common) > 0:
+                        m.cbLazy(
+                            gp.quicksum([x_ew[e, a1] for e in a1_edges])
+                            + gp.quicksum([x_ew[e, a2] for e in a2_edges])
+                            <= 1
+                        )
+        if True:
+            # TODO avoid self-crossings at diagonals
+            for n in M.nodes():
+                if M.nodes[n]["node"] == NodeType.CENTER:
+                    port_edges = get_port_edges(M, n)
+                    port_arcs = port_edges + list(
+                        map(lambda e: tuple(reversed(e)), port_edges)
+                    )
+                    for p1, p2 in combinations(port_arcs, r=2):
+                        e_p1 = [e for e in input_edges if x_ew[e, p1] > 0]
+                        e_p2 = [e for e in input_edges if x_ew[e, p2] > 0]
+                        if len(e_p1) > 0 and len(e_p2) > 0:
+                            l_p1 = set.union(*[C.edges[e]["sets"] for e in e_p1])
+                            l_p2 = set.union(*[C.edges[e]["sets"] for e in e_p2])
+                            common_l = l_p1.intersection(l_p2)
+
+                            if len(common_l) > 0:
+                                m.cbLazy(
+                                    gp.quicksum(
+                                        [
+                                            m._x_ew[e, p]
+                                            for e in e_p1 + e_p2
+                                            for p in port_arcs
+                                        ]
+                                    )
+                                    <= 1
                                 )
-                                <= 1
-                            )
 
     def callback(model, where):
         # check integer solutions for feasibility
@@ -950,7 +1042,7 @@ def get_optimal_connectivity(instance, D, element_set_partition, layer=0, tour=F
     model.params.MIPGap = config_vars["connect.ilpmipgap"].get()
 
     n_nodes = len(instance["elements"])
-    pos = instance["glyph_positions"][layer]
+    pos = 1000 * np.array(instance["glyph_positions"][layer])
     labels = []
     for i in range(n_nodes):
         i_labels = set()

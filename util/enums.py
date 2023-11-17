@@ -9,13 +9,13 @@ from enum import IntEnum, Enum
 
 
 class EdgePenalty(float, Enum):
-    IN_SUPPORT = -1
+    IN_SUPPORT = 0
     COMMON_MULTILAYER = 0
 
     # Bends
     ONE_EIGHTY = 0
     ONE_THIRTY_FIVE = 1
-    NINETY = 2 # this should be a bit more than 2x 135 so as to not make 1 90deg bend replace 2 135degs
+    NINETY = 2
     FORTY_FIVE = 3
 
     # To center

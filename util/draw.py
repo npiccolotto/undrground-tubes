@@ -251,8 +251,12 @@ def geometrize(instance, L, element_set_partition, layer=0):
                 continue
             uparent = M.nodes[u]["belongs_to"]
 
-            _,uu = get_outgoing_edge_to_other_center_from_port(M, u)
-            _,vv = get_outgoing_edge_to_other_center_from_port(M, v)
+            try:
+                _,uu = get_outgoing_edge_to_other_center_from_port(M, u)
+                _,vv = get_outgoing_edge_to_other_center_from_port(M, v)
+            except:
+                # ?? sometimes there are too many edges idk
+                continue
 
             if (
                 set_id not in M.edges[(uu, u)]["sets"]
