@@ -253,6 +253,11 @@ def compute_crossings_inside(G, what="edges"):
                 result += line_crossings
     return result
 
+def compute_set_relation():
+    return
+
+def compute_element_association():
+    return
 
 def compute_total_length(G, what="edges"):
     result = 0
