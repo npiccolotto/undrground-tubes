@@ -6,7 +6,12 @@ from gurobipy import GRB
 from itertools import product, combinations, pairwise
 from collections import defaultdict
 from util.enums import EdgeType, EdgePenalty, NodeType, PortDirs
-from util.geometry import get_angle, do_lines_intersect, get_segment_circle_intersection
+from util.geometry import (
+    get_angle,
+    do_lines_intersect,
+    do_lines_intersect2,
+    get_segment_circle_intersection,
+)
 from util.perf import timing
 from util.graph import (
     update_weights_for_support_edge,
@@ -1084,9 +1089,13 @@ def get_optimal_connectivity(instance, D, element_set_partition, layer=0, tour=F
                 and (xl[((w, z), l)] > 0 or xl[((z, w), l)] > 0)
             ]
 
-            if len(common_labels) > 0 and do_lines_intersect(
-                pos[u], pos[v], pos[w], pos[z]
-            ):
+            r = 1
+            pu = get_segment_circle_intersection((pos[u], pos[v]), (pos[u], r))
+            pv = get_segment_circle_intersection((pos[u], pos[v]), (pos[v], r))
+            pw = get_segment_circle_intersection((pos[w], pos[z]), (pos[w], r))
+            pz = get_segment_circle_intersection((pos[w], pos[z]), (pos[z], r))
+
+            if len(common_labels) > 0 and do_lines_intersect2(pu, pv, pw, pz):
                 for l in common_labels:
                     # of the four possible arcs, use only one
                     m.cbLazy(

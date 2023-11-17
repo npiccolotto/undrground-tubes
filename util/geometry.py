@@ -97,6 +97,62 @@ def triangular_area(a, b, c):
     return (bX - aX) * (cY - aY) - (cX - aX) * (bY - aY)
 
 
+# https://www.geeksforgeeks.org/check-if-two-given-line-segments-intersect/
+def orientation(p, q, r):
+    px, py = p
+    qx, qy = q
+    rx, ry = r
+    val = (qy - py) * (rx - qx) - (qx - px) * (ry - qy)
+
+    if val == 0:
+        return 0
+    return 1 if val > 0 else 2
+
+
+def onSegment(p, q, r):
+    px, py = p
+    qx, qy = q
+    rx, ry = r
+    if (
+        qx <= max(px, rx)
+        and qx >= min(px, rx)
+        and qy <= max(py, ry)
+        and qy >= min(py, ry)
+    ):
+        return True
+
+    return False
+
+
+def do_lines_intersect2(p1, q1, p2, q2):
+    o1 = orientation(p1, q1, p2)
+    o2 = orientation(p1, q1, q2)
+    o3 = orientation(p2, q2, p1)
+    o4 = orientation(p2, q2, q1)
+
+    if o1 != o2 and o3 != o4:
+        return True
+
+    # p1, q1 and p2 are collinear and p2 lies on segment p1q1
+    if o1 == 0 and onSegment(p1, p2, q1):
+        return True
+
+    # p1, q1 and q2 are collinear and q2 lies on segment p1q1
+    if o2 == 0 and onSegment(p1, q2, q1):
+        return True
+
+    # p2, q2 and p1 are collinear and p1 lies on segment p2q2
+    if o3 == 0 and onSegment(p2, p1, q2):
+        return True
+
+    # p2, q2 and q1 are collinear and q1 lies on segment p2q2
+    if o4 == 0 and onSegment(p2, q1, q2):
+        return True
+
+    return False
+    # Doesn't fall in any of the above cases
+
+
 # https://bryceboe.com/2006/10/23/line-segment-intersection-algorithm/
 def ccw(a, b, c):
     ax, ay = a
@@ -419,6 +475,7 @@ def biarc(ps, p0, p4, pt):
         "arc1": get_svg_arc_params(p0, p2, c1, r1, angle1a, angle1b, clockwise1),
         "arc2": get_svg_arc_params(p2, p4, c2, r2, angle2a, angle2b, clockwise2),
     }
+
 
 def logical_coords_to_physical(x, y, lattice_type="sqr"):
     if lattice_type == "hex":
