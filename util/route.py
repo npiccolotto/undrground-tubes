@@ -424,7 +424,7 @@ def route_single_layer_heuristic(instance, G, element_set_partition, layer=0):
 
 def route_single_layer_ilp(instance, G, element_set_partition, layer):
     support_type = config_vars["general.subsupporttype"].get()
-    num_layers = config_vars["general.numlayers"].get()
+    num_layers = config_vars["general.numweights"].get()
     el_idx_lookup = instance["elements_inv"]
 
     MAX_OUT_TERMINAL = 4
@@ -1350,7 +1350,7 @@ def connect(instance, G, element_set_partition, layer=0):
 def route(instance, grid_graph, element_set_partition):
     router = determine_router()
 
-    num_layers = config_vars["general.numlayers"].get()
+    num_layers = config_vars["general.numweights"].get()
 
     layer_solutions = []
     for layer in range(num_layers):

@@ -488,10 +488,12 @@ def pad_layout(layout, pad):
     return pad + layout
 
 
-def layout(elements, D_EA, D_SR, m=10, n=10, pad=1, num_weights=3):
+def layout(elements, D_EA, D_SR, m=10, n=10, pad=1):
+    num_weights = config_vars['general.numweights'].get()
+    weight = config_vars['general.weight'].get()
     layouts = [
         layout_single(elements, D_EA, D_SR, m=m, n=n, weight=w, layer=l)
-        for l, w in enumerate(np.linspace(0, 1, num_weights))
+        for l, w in enumerate(np.linspace(weight, 1, num_weights))
     ]
 
     layouts = align_layouts(layouts)

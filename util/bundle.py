@@ -334,7 +334,7 @@ def read_loom_output(output, G):
     return G
 
 def bundle_lines_lg(instance, M):
-    for layer in range(config_vars["general.numlayers"].get()):
+    for layer in range(config_vars["general.numweights"].get()):
         G = extract_support_layer(M, layer)
         G_for_loom = convert_to_geojson(G)
 
@@ -376,7 +376,7 @@ def bundle_lines_gg(instance, M):
     # 3) feed it to LOOM
     # 4) read result back in - bam we have an ordering
 
-    for layer in range(config_vars["general.numlayers"].get()):
+    for layer in range(config_vars["general.numweights"].get()):
         G = extract_support_layer(M, layer)
         G = convert_to_line_graph(G)
         G_for_loom = convert_to_geojson(G)

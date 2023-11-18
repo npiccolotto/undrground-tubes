@@ -281,7 +281,7 @@ def render():
     dataset = config_vars["general.dataset"].get()
     instance = read_instance(config_vars["general.readdir"].get(), dataset)
     lattice_type = "sqr"
-    num_weights = config_vars["general.numlayers"].get()
+    num_weights = config_vars["general.numweights"].get()
     instance["num_layers"] = num_weights
 
     with timing("layout"):
@@ -292,7 +292,6 @@ def render():
             m=config_vars["general.gridwidth"].get(),
             n=config_vars["general.gridheight"].get(),
             pad=config_vars["general.gridpad"].get(),
-            num_weights=num_weights,
         )
 
     with timing("routing"):
@@ -417,7 +416,10 @@ def autogridsize(nrow):
 @click.option("--grid-width", "-w", type=int, help="grid width as # cols")
 @click.option("--grid-height", "-h", type=int, help="grid height as # rows")
 @click.option(
-    "--num-weights", type=int, help="how many samples between 0..1 to use for weights"
+    "--num-weights", type=int, help="how many samples between (weight)..1 to use for weights"
+)
+@click.option(
+    "--weight", type=float, help="start offset for num-weights"
 )
 @click.option(
     "--support-type",
@@ -460,6 +462,7 @@ def vis(
     dataset,
     strategy,
     num_weights,
+    weight,
     grid_width,
     grid_height,
     support_type,
@@ -483,7 +486,9 @@ def vis(
     if write_dir is not None:
         config_vars["general.writedir"].set(write_dir)
     if num_weights is not None:
-        config_vars["general.numlayers"].set(num_weights)
+        config_vars["general.numweights"].set(num_weights)
+    if weight is not None:
+        config_vars["general.weight"].set(weight)
     if overlap_remover is not None:
         config_vars["layout.overlapremover"].set(overlap_remover)
     if layouter is not None:
