@@ -750,19 +750,24 @@ def route_brosi_ilp(instance, C, G, esp, layer):
         for e in input_edges:
             model.addConstr(x_ew[e, (u, v)] + x_ew[e, (v, u)] <= 1)
 
-    # here the idea is to avoid an input edge carrying the same sets re-using an arc
-    # while allowing it for input edges with differing sets
-    # this is to avoid forks/merges
-    sets_at_input_edges = set(map(lambda e: frozenset(C.edges[e]["sets"]), input_edges))
-    while len(sets_at_input_edges):
-        s = sets_at_input_edges.pop()
-        edgelist = [
-            e for e in input_edges if len(C.edges[e]["sets"].intersection(s)) > 0
-        ]
-        for u, v in grid_edges:
+    edges_with_set = dict()
+    for s in instance["sets"]:
+        edges_with_set[s] = [e for e in input_edges if s in C.edges[e]["sets"]]
+
+    # no two input edes with intersecting sets on a grid edge
+    for u, v in grid_edges:
+        for s in instance["sets"]:
             model.addConstr(
-                gp.quicksum([x_ew[e, (u, v)] + x_ew[e, (v, u)] for e in edgelist]) <= 1
+                gp.quicksum(
+                    [x_ew[e, (u, v)] + x_ew[e, (v, u)] for e in edges_with_set[s]]
+                )
+                <= 1
             )
+
+    # no two input edges with intersecting sets on a grid arc
+    for w in grid_arcs:
+        for s in instance["sets"]:
+            model.addConstr(gp.quicksum([x_ew[e, w] for e in edges_with_set[s]]) <= 1)
 
     # s-t shortest path formulation
     for e in input_edges:
@@ -802,17 +807,72 @@ def route_brosi_ilp(instance, C, G, esp, layer):
     # that SHOULD be obvious to the solver given the edge weights but better safe than sorry
     for n in M.nodes():
         if M.nodes[n]["node"] == NodeType.CENTER:
-            ports = nx.neighbors(M, n)
-            port_edges = list(combinations(ports, r=2))
-            port_arcs = port_edges + list(map(lambda e: tuple(reversed(e)), port_edges))
-            center_edges = list(map(lambda p: (n, p), ports))
-            center_arcs = center_edges + list(
-                map(lambda e: tuple(reversed(e)), center_edges)
-            )
-            for e in input_edges:
-                model.addConstr(
-                    gp.quicksum([x_ew[(e, w)] for w in port_arcs + center_arcs]) <= 1
+            #for e in input_edges:
+            #    model.addConstr(
+            #        gp.quicksum([x_ew[(e, w)] for w in port_arcs + center_arcs]) <= 1
+            #    )
+
+            # each non-occupied grid node can only be used by edges with disjoint sets
+            # prevents crossings and forks/merges at nodes
+            occupied = M.nodes[n]["occupied"]
+            if not occupied:
+                ports = nx.neighbors(M, n)
+                port_edges = list(combinations(ports, r=2))
+                port_arcs = port_edges + list(map(lambda e: tuple(reversed(e)), port_edges))
+                center_edges = list(map(lambda p: (n, p), ports))
+                center_arcs = center_edges + list(
+                    map(lambda e: tuple(reversed(e)), center_edges)
                 )
+                for s in instance["sets"]:
+                    model.addConstr(
+                        gp.quicksum(
+                            [
+                                x_ew[(e, w)]
+                                for e in edges_with_set[s]
+                                for w in port_arcs + center_arcs
+                            ]
+                        )
+                        <= 1
+                    )
+
+    if True:
+        # no two edges with intersecting sets may use crossing diagonal grid arcs
+        for e in G_.edges():
+            if "center_edge" in G_.edges[e]:
+                cu, cv = G_.edges[e]["center_edge"]
+                if "crossing" in G.edges[(cu, cv, EdgeType.CENTER)]:
+                    cre = G.edges[(cu, cv, EdgeType.CENTER)]["crossing"]
+                    pu, pv = get_port_edge_between_centers(G_, cre[0], cre[1])
+                    for s in instance["sets"]:
+                        model.addConstr(
+                            gp.quicksum(
+                                [
+                                    x_ew[a, b]
+                                    for a, b in product(edges_with_set[s], [(pu, pv), e,(pv,pu),tuple(reversed(e))])
+                                ]
+                            )
+                            <= 1
+                        )
+                    '''
+                    edges_with_intersecting_sets = [
+                        (e1, e2)
+                        for e1, e2 in combinations(input_edges, r=2)
+                        if C.edges[e1]["sets"].intersection(C.edges[e2]["sets"])
+                    ]
+                    for e1,e2 in edges_with_intersecting_sets:
+                        model.addConstr(
+                           gp.quicksum(
+                               [
+                                   x_ew[a, b]
+                                   for a, b in product(
+                                       [e1, e2],
+                                       [(pu, pv), e,(pv,pu),tuple(reversed(e))]
+                                   )
+                               ]
+                           )
+                           <= 1
+                        )
+                    '''
 
     if False:
         # TODO for bends at nodes it would be nice if C is a directed graph
@@ -823,7 +883,9 @@ def route_brosi_ilp(instance, C, G, esp, layer):
                 edges_with_shared_sets_here = [
                     (e1, e2)
                     for e1, e2 in combinations(input_edges, r=2)
-                    if instance["elements_inv"][M.nodes[n]["label"]] in e1 and instance["elements_inv"][M.nodes[n]["label"]] in e2 and C.edges[e1]["sets"].intersection(C.edges[e2]["sets"])
+                    if instance["elements_inv"][M.nodes[n]["label"]] in e1
+                    and instance["elements_inv"][M.nodes[n]["label"]] in e2
+                    and C.edges[e1]["sets"].intersection(C.edges[e2]["sets"])
                 ]
                 if edges_with_shared_sets_here:
                     for inn, out in product(in_arcs + out_arcs, repeat=2):
@@ -921,6 +983,8 @@ def route_brosi_ilp(instance, C, G, esp, layer):
     # 10) prevent grid nodes be used for more than one edge
     # 14) pick only one of the crossing twin edges <- not super promising because our graph is not necessarily planar
 
+    # TODO put on cluster as it is; we do regular MST's anyhow
+    # TODO also. we don't need necessarily dynamic constraints? can require that only edges with distinct sets use a node or crossing diagonals.
     def addDynamicConstraints(m, x, x_ew):
         # check if any two selected edges overlap
         # if they overlap, check if they carry the same sets
@@ -999,7 +1063,8 @@ def route_brosi_ilp(instance, C, G, esp, layer):
 
     model.update()
     model.setObjective(obj, sense=GRB.MINIMIZE)
-    if True:
+    # if config_vars['connect.objective'].get() == 'joint':
+    if False:
         model.Params.LazyConstraints = 1
         model.optimize(callback)
     else:
@@ -1217,7 +1282,8 @@ def get_optimal_connectivity(instance, D, element_set_partition, layer=0, tour=F
     model.update()
     # print(flow)
     model.setObjective(obj, sense=GRB.MINIMIZE)
-    if conn_objective == "joint":
+    # if conn_objective == "joint":
+    if True:
         model.Params.LazyConstraints = 1
         model.optimize(callback)
     else:
