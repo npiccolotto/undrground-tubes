@@ -755,19 +755,15 @@ def route_brosi_ilp(instance, C, G, esp, layer):
         edges_with_set[s] = [e for e in input_edges if s in C.edges[e]["sets"]]
 
     # no two input edes with intersecting sets on a grid edge
-    for u, v in grid_edges:
-        for s in instance["sets"]:
-            model.addConstr(
-                gp.quicksum(
-                    [x_ew[e, (u, v)] + x_ew[e, (v, u)] for e in edges_with_set[s]]
+    if False:
+        for u, v in grid_edges:
+            for s in instance["sets"]:
+                model.addConstr(
+                    gp.quicksum(
+                        [x_ew[e, (u, v)] + x_ew[e, (v, u)] for e in edges_with_set[s]]
+                    )
+                    <= 1
                 )
-                <= 1
-            )
-
-    # no two input edges with intersecting sets on a grid arc
-    for w in grid_arcs:
-        for s in instance["sets"]:
-            model.addConstr(gp.quicksum([x_ew[e, w] for e in edges_with_set[s]]) <= 1)
 
     # s-t shortest path formulation
     for e in input_edges:
@@ -807,7 +803,7 @@ def route_brosi_ilp(instance, C, G, esp, layer):
     # that SHOULD be obvious to the solver given the edge weights but better safe than sorry
     for n in M.nodes():
         if M.nodes[n]["node"] == NodeType.CENTER:
-            #for e in input_edges:
+            # for e in input_edges:
             #    model.addConstr(
             #        gp.quicksum([x_ew[(e, w)] for w in port_arcs + center_arcs]) <= 1
             #    )
@@ -818,7 +814,9 @@ def route_brosi_ilp(instance, C, G, esp, layer):
             if not occupied:
                 ports = nx.neighbors(M, n)
                 port_edges = list(combinations(ports, r=2))
-                port_arcs = port_edges + list(map(lambda e: tuple(reversed(e)), port_edges))
+                port_arcs = port_edges + list(
+                    map(lambda e: tuple(reversed(e)), port_edges)
+                )
                 center_edges = list(map(lambda p: (n, p), ports))
                 center_arcs = center_edges + list(
                     map(lambda e: tuple(reversed(e)), center_edges)
@@ -835,44 +833,46 @@ def route_brosi_ilp(instance, C, G, esp, layer):
                         <= 1
                     )
 
-    if True:
-        # no two edges with intersecting sets may use crossing diagonal grid arcs
-        for e in G_.edges():
-            if "center_edge" in G_.edges[e]:
-                cu, cv = G_.edges[e]["center_edge"]
-                if "crossing" in G.edges[(cu, cv, EdgeType.CENTER)]:
-                    cre = G.edges[(cu, cv, EdgeType.CENTER)]["crossing"]
-                    pu, pv = get_port_edge_between_centers(G_, cre[0], cre[1])
-                    for s in instance["sets"]:
-                        model.addConstr(
-                            gp.quicksum(
-                                [
-                                    x_ew[a, b]
-                                    for a, b in product(edges_with_set[s], [(pu, pv), e,(pv,pu),tuple(reversed(e))])
-                                ]
-                            )
-                            <= 1
+    # no two edges with intersecting sets may use crossing diagonal grid arcs
+    for e in G_.edges():
+        if "center_edge" in G_.edges[e]:
+            cu, cv = G_.edges[e]["center_edge"]
+            if "crossing" in G.edges[(cu, cv, EdgeType.CENTER)]:
+                cre = G.edges[(cu, cv, EdgeType.CENTER)]["crossing"]
+                pu, pv = get_port_edge_between_centers(G_, cre[0], cre[1])
+                for s in instance["sets"]:
+                    model.addConstr(
+                        gp.quicksum(
+                            [
+                                x_ew[a, b]
+                                for a, b in product(
+                                    edges_with_set[s],
+                                    [(pu, pv), e, (pv, pu), tuple(reversed(e))],
+                                )
+                            ]
                         )
-                    '''
-                    edges_with_intersecting_sets = [
-                        (e1, e2)
-                        for e1, e2 in combinations(input_edges, r=2)
-                        if C.edges[e1]["sets"].intersection(C.edges[e2]["sets"])
-                    ]
-                    for e1,e2 in edges_with_intersecting_sets:
-                        model.addConstr(
-                           gp.quicksum(
-                               [
-                                   x_ew[a, b]
-                                   for a, b in product(
-                                       [e1, e2],
-                                       [(pu, pv), e,(pv,pu),tuple(reversed(e))]
-                                   )
-                               ]
-                           )
-                           <= 1
+                        <= 1
+                    )
+                """
+                edges_with_intersecting_sets = [
+                    (e1, e2)
+                    for e1, e2 in combinations(input_edges, r=2)
+                    if C.edges[e1]["sets"].intersection(C.edges[e2]["sets"])
+                ]
+                for e1,e2 in edges_with_intersecting_sets:
+                    model.addConstr(
+                        gp.quicksum(
+                            [
+                                x_ew[a, b]
+                                for a, b in product(
+                                    [e1, e2],
+                                    [(pu, pv), e,(pv,pu),tuple(reversed(e))]
+                                )
+                            ]
                         )
-                    '''
+                        <= 1
+                    )
+                """
 
     if False:
         # TODO for bends at nodes it would be nice if C is a directed graph
@@ -901,7 +901,7 @@ def route_brosi_ilp(instance, C, G, esp, layer):
                             ]
                         )
 
-    if True:
+    if False:
         # 15-18) ensure edge order at input/grid nodes <- this one can prevent some crossings
         delta = model.addVars(
             [(e[0], e) for e in input_edges] + [(e[1], e) for e in input_edges],
