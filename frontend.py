@@ -13,8 +13,8 @@ def determine_type(s):
         return "low"
     if "high" in s:
         return "high"
-    if 'kernel' in s:
-        return 'kernel'
+    if "kernel" in s:
+        return "kernel"
     return "mid"
 
 
@@ -38,12 +38,12 @@ def index():
     rows = int(request.args.get("rows", 16))
     cols = int(request.args.get("cols", 16))
     selection = request.args.getlist("selection")
-    optRouter = request.args.get('optRoute', 'off') == 'on'
-    optConnect = request.args.get('optConnect', 'off') == 'on'
-    treesupport = request.args.get('support', 'supporttree') =='supporttree'
-    weight = request.args.get('weight',0)
+    optRouter = request.args.get("optRoute", "off") == "on"
+    optConnect = request.args.get("optConnect", "off") == "on"
+    treesupport = request.args.get("support", "supporttree") == "supporttree"
+    weight = request.args.get("weight", 0)
     if len(selection) == 0:
-        selection = ['kernel: 25']
+        selection = ["kernel: 25"]
 
     subprocess.run(
         [
@@ -53,22 +53,22 @@ def index():
             "data/sbss",
             "--dataset",
             "moss",
-            '--weight',
+            "--weight",
             str(weight),
             "--compute-metrics",
             "0",
-            '--connecter',
-            'opt' if optConnect else 'heuristic',
-            '--router',
-            'opt' if optRouter else 'heuristic',
-            '--support-type',
-            'steiner-tree' if treesupport else 'path',
+            "--connecter",
+            "opt" if optConnect else "heuristic",
+            "--router",
+            "opt" if optRouter else "heuristic",
+            "--support-type",
+            "steiner-tree" if treesupport else "path",
             "-w",
             str(cols),
             "-h",
             str(rows),
             "--sets",
-            ','.join(selection)
+            ",".join(selection),
         ]
     )
     with open("./drawing_0.svg", "r") as f:
@@ -84,5 +84,8 @@ def index():
         sets=sets,
         selection=selection,
         weight=weight,
+        optRouter=optRouter,
+        optConnect=optConnect,
+        treesupport=treesupport,
         set_size_json=json.dumps(set_sizes),
     )
