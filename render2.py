@@ -5,7 +5,6 @@ import math
 import traceback
 import copy
 import click
-from collections import defaultdict
 from itertools import chain, combinations, pairwise, product
 import contextvars
 from functools import partial
@@ -15,7 +14,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 
-from util.metrics import compute_metrics
+from util.metrics import compute_metrics as calc_metrics
 from util.config import config_vars, get_grid
 from util.bundle import bundle_lines_gg, bundle_lines_lg
 from util.collections import (
@@ -23,6 +22,7 @@ from util.collections import (
     group_by_set,
     invert_list,
     list_of_lists_to_set_system_dict,
+    select_sets,
 )
 from util.draw import (
     draw_svg,
@@ -262,7 +262,7 @@ def read_instance(directory, name):
         "sets": sets,
         "set_system": list_of_lists_to_set_system_dict(elements, data["SR"]),
         "D_EA": data["EA"],
-        "D_SR": data["SA"],
+        #"D_SR": data["SA"],
         "set_colors": dict(
             zip(
                 sets,
@@ -273,8 +273,8 @@ def read_instance(directory, name):
     }
     if "glyph_ids" in data:
         inst["glyph_ids"] = data["glyph_ids"]
-    print(list_of_lists_to_set_system_dict(elements, data["SR"]))
-    return inst
+    sets = config_vars["general.sets"].get()
+    return select_sets(inst, None if sets == "all" else sets.split(","))
 
 
 def render():
@@ -409,6 +409,7 @@ def autogridsize(nrow):
 @click.option("--dataset", help="dataset to load")
 @click.option("--read-dir", help="directory to read the datasets from")
 @click.option("--write-dir", help="directory to write the output to")
+@click.option("--sets", type=str, help="selection of sets")
 @click.option(
     "--strategy",
     type=click.Choice(["opt", "heuristic"], case_sensitive=False),
@@ -416,11 +417,11 @@ def autogridsize(nrow):
 @click.option("--grid-width", "-w", type=int, help="grid width as # cols")
 @click.option("--grid-height", "-h", type=int, help="grid height as # rows")
 @click.option(
-    "--num-weights", type=int, help="how many samples between (weight)..1 to use for weights"
+    "--num-weights",
+    type=int,
+    help="how many samples between (weight)..1 to use for weights",
 )
-@click.option(
-    "--weight", type=float, help="start offset for num-weights"
-)
+@click.option("--weight", type=float, help="start offset for num-weights")
 @click.option(
     "--support-type",
     type=click.Choice(["path", "steiner-tree"], case_sensitive=False),
@@ -456,9 +457,13 @@ def autogridsize(nrow):
     type=click.Choice(["joint", "separate"], case_sensitive=False),
     help="whether connections between nodes should be jointly optimized (minimizing total edge count) or separately.",
 )
+@click.option(
+    "--compute-metrics", type=bool, help="whether or not to compute metrics about graph"
+)
 def vis(
     read_dir,
     write_dir,
+    sets,
     dataset,
     strategy,
     num_weights,
@@ -472,6 +477,7 @@ def vis(
     router,
     connecter,
     connect_objective,
+    compute_metrics,
 ):
     if dataset is not None:
         config_vars["general.dataset"].set(dataset)
@@ -503,6 +509,10 @@ def vis(
         config_vars["general.gridheight"].set(grid_height)
     if connect_objective is not None:
         config_vars["connect.objective"].set(connect_objective)
+    if sets is not None:
+        config_vars["general.sets"].set(sets)
+    if compute_metrics is not None:
+        config_vars["general.computemetrics"].set(compute_metrics)
 
     grid_width, grid_height = get_grid(include_pad=False)
     print(f"Grid size is {grid_width} x {grid_height}")
@@ -527,14 +537,17 @@ def vis(
 
         duration = end - start
 
+        metrics = {}
         with open(
             os.path.join(config_vars["general.writedir"].get(), "call.json"), "w"
         ) as f:
+            if config_vars["general.computemetrics"].get():
+                metrics = calc_metrics(G, inst)
             json.dump(
                 {
                     "success": True,
                     "duration_ms": duration * 1000,
-                    "metrics": compute_metrics(G, inst),
+                    "metrics": metrics,
                     "ctx": {key: value.get() for key, value in config_vars.items()},
                 },
                 f,

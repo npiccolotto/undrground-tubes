@@ -1,9 +1,14 @@
 from collections import defaultdict
 from typing import Dict
 from itertools import combinations, chain
+import scipy.spatial.distance as scidist
+import numpy as np
+from util.config import config_vars
+
 
 def flatten(list):
     return [item for sublist in list for item in sublist]
+
 
 def merge_alternating(xs, ys=None):
     if ys is None and len(xs) == 2:
@@ -86,7 +91,7 @@ def list_of_lists_to_set_system_dict(elements, lol):
     return d
 
 
-#def group_by_intersection_group(set_system_dict):
+# def group_by_intersection_group(set_system_dict):
 #    intersection_groups = get_intersection_groups(set_system_dict)
 #    sorted_intersection_groups = sorted(
 #        zip(intersection_groups.keys(), intersection_groups.values()),
@@ -113,6 +118,7 @@ def invert_list(l):
         d[e] = i
     return d
 
+
 def set_contains(a, b):
     """returns true if set b is contained in set a"""
     return a.intersection(b) == b
@@ -132,6 +138,32 @@ def group_by_intersection_group(d: Dict):
             result.append((tuple(sorted(igroup_elements)), tuple(sorted(igroup))))
 
     return result
+
+
+def select_sets(instance, selection=None):
+    if selection is None:
+        return instance
+
+    sets = list(filter(lambda s: s in selection, instance["sets"]))
+    set_system = dict([(s, v) for s, v in instance["set_system"].items() if s in sets])
+    SM = np.zeros((len(instance["elements"]), len(sets)))
+    for s, els in set_system.items():
+        for el in els:
+            SM[instance["elements"].index(el), sets.index(s)] = 1
+
+    D_SR = scidist.squareform(scidist.pdist(SM, "jaccard"))
+    return instance | {
+        "sets": sets,
+        "set_system": set_system,
+        "D_SR": D_SR,
+        "set_ftb_order": sets,
+        "set_colors": dict(
+            zip(
+                sets,
+                instance["SC"] if "SC" in instance else config_vars["draw.setcolors"].get(),
+            )
+        ),
+    }
 
 
 if __name__ == "__main__":
