@@ -59,6 +59,8 @@ components <- results[[1]]$s
 for (j in seq(2,i-1)) {
   components <- cbind(components, results[[j]]$s)
 }
+colnames(components) <- paste('SBSS', 1:120)
+write.csv(components,file = paste(img_path, 'data', 'sbss', 'components.csv', sep='/'), row.names = F)
 colnames(components) <- 1:120
 
 loadings <- results[[1]]$w %*% t(ilrBase)
@@ -69,6 +71,8 @@ for (j in seq(2,i-1)){
 elements <- colnames(moss[,3:ncol(moss)])
 colnames(loadings) <- elements
 rownames(loadings) <- 1:120
+write.csv(loadings,file = paste(img_path, 'data', 'sbss', 'loadings.csv', sep='/'), row.names = paste('SBSS', 1:120))
+
 
 sp::spDists(as.matrix(coords))
 coords
@@ -176,6 +180,8 @@ bbox_ar <- bbox_ar[1]/bbox_ar[2]
 
 comps <- sp::SpatialPointsDataFrame(coords=coords, data=as.data.frame(components), proj4string = WGS84)
 
+
+
 path_rel <- 'data/sbss/img'
 img_path <-  '/Users/npiccolotto/Projects/cvast/bssvis/ensemble-set-rendering/'
 setwd(paste0(img_path, path_rel))
@@ -234,8 +240,12 @@ D.s <- outer(1:120, 1:120, Vectorize(function(i,j) {
 #S <- c('kernel: 25', 'kernel: 100')
 #SC <- c('#005824', '#ef6548')
 
-S <- c('Ni: low', 'Ni: high')
-SC <- c('#2166ac', '#b2182b')
+
+S <- c(
+  as.vector(outer(colnames(moss)[3:length(colnames(moss))], c('low', 'mid', 'high'), Vectorize(function(a,b) {
+    return(paste0(a,': ',b))
+  }))), c('kernel: 25', 'kernel: 50', 'kernel: 75', 'kernel: 100') )
+#SC <- c('#2166ac', '#b2182b', '#d8b365', '#5ab4ac')
 
 cl.feats <- c(comps.feats,loads.feats)
 # make binary matrix of set memberships
@@ -246,11 +256,9 @@ for (j in 1:length(S)) {
   SM[,j] <- as.integer(cl.feats[[category]]$labels == set)
 }
 SA <- as.matrix(dist(SM, method='binary'))
-SR <- list()
-for (j in 1:120) {
-  in_sets_idx <- which(SM[j,] == 1)
-  SR[[j]] <- unlist(purrr::map(in_sets_idx, function(idx) {return(S[idx])}))
-}
+SR <- purrr::map(1:120, function(j) {
+  return(unlist(purrr::map(which(SM[j,] == 1), function(idx) {return(S[idx])})))
+})
 E <- paste('SBSS',1:120)
 EA <- as.matrix(D.s)
 
@@ -259,10 +267,11 @@ as_json <- list(
   'E'=E,
   'S'=S,
   'SR'=SR,
-  'SC'=SC,
-  'EA'=EA,
-  'SA'=SA,
+  #'SC'=SC,
+  'EA'=EA
+  #'SA'=SA
 )
+
 
 jsonlite::write_json(as_json, paste(img_path, 'moss.json', sep='/'), simplifyVector = F)
 

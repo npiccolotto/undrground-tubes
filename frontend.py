@@ -3,6 +3,9 @@ import os
 import json
 from collections import Counter
 import subprocess
+import csv
+import numpy as np
+import pandas as pd
 from util.collections import flatten
 
 app = Flask(__name__)
@@ -31,6 +34,31 @@ set_sizes = [
     }
     for k, v in Counter(flatten(file["SR"])).items()
 ]
+
+with open("data/sbss/kola.csv") as f:
+    base_dataset = pd.read_csv(f)
+with open("data/sbss/components.csv") as f:
+    components = pd.read_csv(f)
+with open("data/sbss/loadings.csv") as f:
+    loadings = pd.read_csv(f)
+
+coords = base_dataset[["longitude", "latitude"]]
+comp_names = [(k) for k in loadings["component"]]
+
+
+@app.route("/variable/<name>")
+def variable(name):
+    map_data = coords.join(base_dataset[[name]]).to_dict()
+    return {
+        "map_data": map_data,
+    }
+
+
+@app.route("/component/<name>")
+def comp(name):
+    map_data = coords.join(components[[name]]).to_dict()
+    comp_loadings = loadings.loc[comp_names.index(name)].to_dict()
+    return {"map_data": map_data, "loadings": comp_loadings}
 
 
 @app.route("/")
@@ -75,7 +103,6 @@ def index():
         svg_inline = f.read()
         svg_inline = svg_inline.replace("data/sbss/img/", "/static/data/sbss/img/")
 
-    print(selection)
     return render_template(
         "index.html",
         svg_inline=svg_inline,
