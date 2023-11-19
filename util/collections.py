@@ -140,10 +140,7 @@ def group_by_intersection_group(d: Dict):
     return result
 
 
-def select_sets(instance, selection=None):
-    if selection is None:
-        return instance
-
+def select_sets(instance, selection):
     sets = list(filter(lambda s: s in selection, instance["sets"]))
     set_system = dict([(s, v) for s, v in instance["set_system"].items() if s in sets])
     SM = np.zeros((len(instance["elements"]), len(sets)))
@@ -160,7 +157,9 @@ def select_sets(instance, selection=None):
         "set_colors": dict(
             zip(
                 sets,
-                instance["SC"] if "SC" in instance else config_vars["draw.setcolors"].get(),
+                instance["SC"]
+                if "SC" in instance
+                else config_vars["draw.setcolors"].get(),
             )
         ),
     }

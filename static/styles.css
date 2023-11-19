@@ -1,0 +1,10 @@
+img {
+  overflow: hidden;
+}
+
+embed,object,svg {
+  overflow:hidden;
+  height: 90vh;
+  width: 50vw;
+  outline: 1px solid black;
+}

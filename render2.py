@@ -273,8 +273,8 @@ def read_instance(directory, name):
     }
     if "glyph_ids" in data:
         inst["glyph_ids"] = data["glyph_ids"]
-    sets = config_vars["general.sets"].get()
-    return select_sets(inst, None if sets == "all" else sets.split(","))
+    selection = config_vars["general.sets"].get()
+    return select_sets(inst, inst['sets'] if selection == "all" else selection.split(","))
 
 
 def render():
@@ -516,6 +516,7 @@ def vis(
 
     grid_width, grid_height = get_grid(include_pad=False)
     print(f"Grid size is {grid_width} x {grid_height}")
+    print(f"Set selection: {sets}")
 
     inst = read_instance(
         config_vars["general.readdir"].get(), config_vars["general.dataset"].get()
