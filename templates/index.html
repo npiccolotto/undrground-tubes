@@ -40,6 +40,7 @@
         <div class="p-1">
           <h2>UnDRground Tubes</h2>
           <form action="/">
+            <input type="text" name="selectedcomp" id="selectedcomp" value="" style="display: none;">
             <ul class="nav nav-tabs" id="myTab" role="tablist">
               <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="cardinalities-tab" data-bs-toggle="tab"
@@ -47,11 +48,11 @@
                   aria-selected="true">Cardinalities</button>
               </li>
               <li class="nav-item" role="presentation">
-                <button class="nav-link" id="component-tab" data-bs-toggle="tab" data-bs-target="#component" type="button"
+                <button class="nav-link" id="componenttab" data-bs-toggle="tab" data-bs-target="#component" type="button"
                   role="tab" aria-controls="component" aria-selected="false">Component Detail</button>
               </li>
               <li class="nav-item" role="presentation">
-                <button class="nav-link" id="advanced-tab" data-bs-toggle="tab" data-bs-target="#advanced" type="button"
+                <button class="nav-link" id="advancedtab" data-bs-toggle="tab" data-bs-target="#advanced" type="button"
                   role="tab" aria-controls="profile" aria-selected="false">Advanced Settings</button>
               </li>
             </ul>
@@ -74,7 +75,7 @@
                 </div>
               </div>
 
-              <div class="tab-pane" id="component" role="tabpanel" aria-labelledby="component-tab">
+              <div class="tab-pane" id="component" role="tabpanel" aria-labelledby="componenttab">
                 <h6>Loadings</h6>
                 <div id="loadingsVis"></div>
                 <h6>Sets</h6>
@@ -83,7 +84,7 @@
                 <div id="compmap"></div>
               </div>
 
-              <div class="tab-pane" id="advanced" role="tabpanel" aria-labelledby="advanced-tab">
+              <div class="tab-pane" id="advanced" role="tabpanel" aria-labelledby="advancedtab">
                 <div class="form-group">
                   <label for="weight">Weighting Element to Set Similarity</label>
                   <input type="range" class="form-control" id="weight" name="weight" min="0" max="1" value="{{weight}}"
@@ -241,6 +242,8 @@
         const spec = {...loadingsSpec, data: {values: loadingsAsNamedValue}}
         vegaEmbed('#loadingsVis', spec)
 
+        document.querySelector('#selectedcomp').setAttribute('value', compName)
+
         // update set icons
         Array.from(document.querySelector('#compsets').childNodes).forEach(n=>n.remove())
         const sortedSets = _.sortBy([...compData.sets], s => s.toLowerCase())
@@ -295,6 +298,30 @@
       Array.from(document.querySelectorAll('svg image')).forEach(node => {
         node.addEventListener('click', svgImageClickHandler.bind(node))
       })
+
+      var triggerTabList = [].slice.call(document.querySelectorAll('#myTab button'))
+      triggerTabList.forEach(function (triggerEl) {
+        var tabTrigger = new bootstrap.Tab(triggerEl)
+
+        triggerEl.addEventListener('click', function (event) {
+          event.preventDefault()
+          tabTrigger.show()
+        })
+      })
+
+
+      let sp = new URLSearchParams(window.location.search);
+      if (sp.has('selectedcomp')) {
+        let compName = sp.get('selectedcomp')
+        fetch(`/components/${compName}`)
+          .then(resp => resp.json())
+          .then(data => {
+            document.querySelector('#selectedcomp').setAttribute('value', compName);
+            updateCompDetailView(compName, data)
+            var triggerEl = document.querySelector('#componenttab')
+            bootstrap.Tab.getInstance(triggerEl).show() // Select tab by name
+          })
+      }
   });
   </script>
 
