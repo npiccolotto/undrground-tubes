@@ -1,4 +1,5 @@
 import math
+import json
 from collections import Counter, defaultdict
 from itertools import pairwise, product, combinations
 
@@ -17,6 +18,7 @@ from util.draw import draw_embedding
 from util.DGrid import DGrid
 from util.config import config_vars
 from util.mip import write_status, write_fake_status
+from util.metrics import compute_trustworthyness_EA
 
 
 def get_bounds(P):
@@ -489,8 +491,8 @@ def pad_layout(layout, pad):
 
 
 def layout(elements, D_EA, D_SR, m=10, n=10, pad=1):
-    num_weights = config_vars['general.numweights'].get()
-    weight = config_vars['general.weight'].get()
+    num_weights = config_vars["general.numweights"].get()
+    weight = config_vars["general.weight"].get()
     layouts = [
         layout_single(elements, D_EA, D_SR, m=m, n=n, weight=w, layer=l)
         for l, w in enumerate(np.linspace(weight, 1, num_weights))
@@ -504,4 +506,22 @@ def layout(elements, D_EA, D_SR, m=10, n=10, pad=1):
     layouts = [pad_layout(layout, pad) for layout in layouts]
 
     layouts = list(map(lambda layout: list(map(tuple, layout)), layouts))
+
+    write_metrics(elements, D_EA, layouts)
+
     return layouts
+
+
+def write_metrics(elements, D_EA, layouts):
+    if config_vars["general.computemetrics"].get():
+        embedding_metrics = [
+            {"M1": compute_trustworthyness_EA(elements, D_EA, l)} for l in layouts
+        ]
+        with open("metrics_embedding.json", "w") as f:
+            json.dump(embedding_metrics, f)
+        with open("embedding.json", "w") as f:
+            # https://stackoverflow.com/a/65151218/490524
+            def np_encoder(object):
+                if isinstance(object, np.generic):
+                    return object.item()
+            json.dump(layouts, f, default=np_encoder)

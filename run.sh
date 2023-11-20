@@ -31,9 +31,10 @@ overlapper="$4"
 connecter="$5"
 router="$6"
 dataset="$7"
+weight="$8"
 
-jobname="esvis-$dataset-$support_type-$layouter-$overlapper-$connecter-$router";
+jobname="esvis-$dataset-$weight-$support_type-$layouter-$overlapper-$connecter-$router";
 
 cd $base
-python render2.py --write-dir $TMPDIR --support-type $support_type --layouter $layouter --overlap-remover $overlapper --connecter $connecter --router $router --read-dir $base/designspace-test --dataset $dataset
+python render2.py --write-dir $TMPDIR --support-type $support_type --layouter $layouter --overlap-remover $overlapper --connecter $connecter --router $router --read-dir $base/designspace-test --dataset $dataset --weight $weight
 cp -r $TMPDIR $1
