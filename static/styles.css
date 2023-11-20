@@ -12,6 +12,10 @@ embed,object,svg {
   height: 40vh;
 }
 
+.cursor-pointer {
+  cursor: pointer;
+}
+
 .bg-rdbu-rd {
   background: #ef8a62;
 }

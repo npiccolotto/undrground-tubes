@@ -66,16 +66,18 @@
                     {% endfor %}
                   </select>
                   <div id="vis"></div>
-                  <div>
-                    <p id="vis-text"></p>
-                  </div>
-                  <div class="mt-3">
-                    <button type="submit">Update</button>
-                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="selection_manual">Manual Toggle</label>
+                  <input type="text" class="form-control" id="selection_manual" name="selection_manual" value="" />
+                  <button id="manualtoggle" type="button" class="btn btn-light">Toggle</button>
+                </div>
+                <div id="vis-text" class=" mt-3">
                 </div>
               </div>
 
               <div class="tab-pane" id="component" role="tabpanel" aria-labelledby="componenttab">
+                <h3>Component Name</h3>
                 <h6>Loadings</h6>
                 <div id="loadingsVis"></div>
                 <h6>Sets</h6>
@@ -122,9 +124,9 @@
                     optRouter %} checked {% endif %}>
                   <label class="form-check-label" for="optRoute">Optimal Drawing</label>
                 </div>
-                <div class="mt-3">
-                  <button type="submit">Update</button>
-                </div>
+              </div>
+              <div class="mt-3">
+                <button class="btn btn-primary" type="submit">Update</button>
               </div>
           </form>
         </div>
@@ -150,8 +152,33 @@
       });
 
       function updateVisText() {
-        document.querySelector('#vis-text').textContent = Array.from(document.querySelectorAll('option[selected="selected"]')).map((option) => option.getAttribute('value')).join(', ')
+        const parent = document.querySelector('#vis-text');
+        Array.from(parent.childNodes).forEach(n => n.remove())
+
+        const toggledSets = _.sortBy(Array.from(document.querySelectorAll('option[selected="selected"]')).map((option) => option.getAttribute('value')), s=>s.toLowerCase())
+        for (const s of toggledSets) {
+        let n = document.createElement('span')
+          let classStr = 'badge me-1 rounded-pill cursor-pointer user-select-none'
+          if (s.includes(': high')) {
+            classStr += ' bg-rdbu-rd text-dark'
+          } else if (s.includes(': low')) {
+            classStr += ' bg-rdbu-bu text-dark'
+          } else if (s.includes('kernel: ')) {
+            classStr += ' bg-dark text-light'
+          } else {
+            classStr += ' bg-rdbu-center text-dark'
+          }
+          n.setAttribute('class', classStr)
+          n.textContent = s;
+          n.addEventListener('click', function() {
+            toggleSelectedSet(this.textContent)
+          })
+          parent.appendChild(n)
+        }
+
       }
+
+
       let cardSpec = {
         "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
         "description": "A simple bar chart with embedded data.",
@@ -175,21 +202,26 @@
         }
       };
       cardSpec.data = { values: {{ set_size_json | safe }} };
+
+      function toggleSelectedSet(name) {
+        let qs = `option[value="${name}"]`;
+        let el = document.querySelector(qs);
+        let selected = el.getAttribute('selected')
+        let isSelected = selected !== null;
+        if (isSelected) {
+          el.removeAttribute('selected')
+        } else {
+          el.setAttribute('selected', 'selected')
+        }
+        updateVisText();
+      }
+
       vegaEmbed('#vis', cardSpec).then(({spec, view}) => {
           view.addEventListener('click', function (event, item) {
             if (!item || !item.datum) {
               return
             }
-            let qs = 'option[value="' + item.datum.name + '"]'
-            let el = document.querySelector(qs);
-            let selected = el.getAttribute('selected')
-            let isSelected = selected !== null;
-            if (isSelected) {
-              el.removeAttribute('selected')
-            } else {
-              el.setAttribute('selected', 'selected')
-            }
-            updateVisText();
+            toggleSelectedSet(item.datum.name);
           })
       })
       updateVisText()
@@ -243,13 +275,14 @@
         vegaEmbed('#loadingsVis', spec)
 
         document.querySelector('#selectedcomp').setAttribute('value', compName)
+        document.querySelector('#component h3').textContent = compName
 
-        // update set icons
+        // update set pills
         Array.from(document.querySelector('#compsets').childNodes).forEach(n=>n.remove())
         const sortedSets = _.sortBy([...compData.sets], s => s.toLowerCase())
         for (const s of sortedSets) {
           let n = document.createElement('span')
-          let classStr = 'badge me-1 rounded-pill'
+          let classStr = 'badge me-1 rounded-pill cursor-pointer user-select-none'
           if (s.includes(': high')) {
             classStr += ' bg-rdbu-rd text-dark'
           } else if (s.includes(': low')) {
@@ -261,6 +294,9 @@
           }
           n.setAttribute('class', classStr)
           n.textContent = s;
+          n.addEventListener('click', function() {
+            toggleSelectedSet(this.textContent)
+          })
           document.querySelector('#compsets').appendChild(n)
         }
 
@@ -299,6 +335,12 @@
         node.addEventListener('click', svgImageClickHandler.bind(node))
       })
 
+      document.querySelector('#manualtoggle').addEventListener('click', () => {
+        let s = (document.querySelector('#selection_manual').value || '').trim()
+        console.log(s)
+        toggleSelectedSet(s)
+      })
+
       var triggerTabList = [].slice.call(document.querySelectorAll('#myTab button'))
       triggerTabList.forEach(function (triggerEl) {
         var tabTrigger = new bootstrap.Tab(triggerEl)
@@ -308,7 +350,6 @@
           tabTrigger.show()
         })
       })
-
 
       let sp = new URLSearchParams(window.location.search);
       if (sp.has('selectedcomp')) {
