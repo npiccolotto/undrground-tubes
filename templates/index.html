@@ -75,7 +75,11 @@
               </div>
 
               <div class="tab-pane" id="component" role="tabpanel" aria-labelledby="component-tab">
+                <h6>Loadings</h6>
                 <div id="loadingsVis"></div>
+                <h6>Sets</h6>
+                <div id="compsets"></div>
+                <h6 class="mt-3">Map</h6>
                 <div id="compmap"></div>
               </div>
 
@@ -230,11 +234,34 @@
         'pos': L.icon({ iconUrl: '/static/icon-pos.png', iconSize: [8, 8], iconAnchor: [4,4], popupAnchor: [8, 0] }),
         'bigpos': L.icon({ iconUrl: '/static/icon-pos.png', iconSize: [12, 12], iconAnchor: [6,6], popupAnchor: [6, 0] })
       }
+
       function updateCompDetailView(compName, compData) {
+        // update loadings vis
         const loadingsAsNamedValue = Object.keys(compData.loadings).map((k) => [k,compData.loadings[k]]).reduce((a, kv) => ([...a, {'element': kv[0], 'value': kv[1] }]), [])
         const spec = {...loadingsSpec, data: {values: loadingsAsNamedValue}}
         vegaEmbed('#loadingsVis', spec)
 
+        // update set icons
+        document.querySelector('#compsets').childNodes.forEach(n=>n.remove())
+        const sortedSets = _.sortBy(compData.sets, s => s.toLowerCase())
+        for (const s of sortedSets) {
+          let n = document.createElement('span')
+          let classStr = 'badge me-1 rounded-pill'
+          if (s.includes(': high')) {
+            classStr += ' bg-rdbu-rd text-dark'
+          } else if (s.includes(': low')) {
+            classStr += ' bg-rdbu-bu text-dark'
+          } else if (s.includes('kernel: ')) {
+            classStr += ' bg-dark text-light'
+          } else {
+            classStr += ' bg-rdbu-center text-dark'
+          }
+          n.setAttribute('class', classStr)
+          n.textContent = s;
+          document.querySelector('#compsets').appendChild(n)
+        }
+
+        // update map icons
         mapCircleGroup.clearLayers()
         for (const row of compData.map_data) {
           let rowIcon = 'mid';

@@ -12,6 +12,16 @@ embed,object,svg {
   height: 80vh;
 }
 
+.bg-rdbu-rd {
+  background: #ef8a62;
+}
+.bg-rdbu-bu {
+  background: #67a9cf;
+}
+.bg-rdbu-center {
+  background: #f7f7f7;
+}
+
 .legend-item-1::before {
   display: inline-block;
   content: '';
