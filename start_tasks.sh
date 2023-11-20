@@ -15,7 +15,7 @@ base='/home1/npiccolotto/ensemble-sets/results'
 mem=32G
 
 # set hard limit run time (seconds)
-hlr=46800 # 13 hours. 12h are all the ILPs if we're unlucky + 1h for the rest of the code.
+hlr=18000 # 4 calls to gurobi, 1h for each plus one hour for the rest = 5h
 
 
 for i in $(seq 1 10); do
@@ -27,9 +27,11 @@ for i in $(seq 1 10); do
       for connecter in "opt" "heuristic"; do
         for router in "opt" "heuristic"; do
           for support_type in "steiner-tree" "path"; do
-            jobname="esvis-$dataset-$support_type-$layouter-$overlapper-$connecter-$router";
-            echo "submitting $jobname";
-            qsub -N $jobname -l bc3 -l longrun=1 -l mem_free=$mem -l h_vmem=$mem -l h_rt=$hlr -e $base/logs/ -o $base/logs/ -r y run.sh $base/$jobname $support_type $layouter $overlapper $connecter $router $dataset
+            for weight in "0" "0.5" "1"; do
+              jobname="esvis-$dataset-$weight-$support_type-$layouter-$overlapper-$connecter-$router";
+              echo "submitting $jobname";
+              qsub -N $jobname -l bc3 -l mem_free=$mem -l h_vmem=$mem -l h_rt=$hlr -e $base/logs/ -o $base/logs/ -r y run.sh $base/$jobname $support_type $layouter $overlapper $connecter $router $dataset $weight
+            done
           done
         done
       done

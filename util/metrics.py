@@ -42,19 +42,7 @@ def rank(i, j):
     return 0
 
 
-def compute_trustworthyness_EA(instance, G, k=5):
-    layer_pos = defaultdict(dict)
-
-    for n, data in G.nodes(data=True):
-        if "layers" in data:
-            for i, layer in enumerate(data["layers"]):
-                if layer["occupied"]:
-                    layer_pos[layer["label"]][i] = data["pos"]
-
-    elements = instance["elements"]
-    EA = instance["D_EA"]
-
-    n_layers = len(layer_pos[elements[0]])
+def compute_trustworthyness_EA(elements, EA, layout, k=8):
     N = len(elements)
 
     if k > N:
@@ -62,7 +50,6 @@ def compute_trustworthyness_EA(instance, G, k=5):
 
     A_of_k = 2 / (N * k * (2 * N - 3 * k - 1))
 
-    M_1_layer = []
     ranking_ea = defaultdict(dict)
 
     for i, element in enumerate(elements):
@@ -77,30 +64,28 @@ def compute_trustworthyness_EA(instance, G, k=5):
         for j, (e2, _) in enumerate(rank):
             ranking_ea[element][e2] = j + 1
 
-    for i in range(n_layers):
-        M_1 = 0
-        for e1 in elements:
-            rank = []
-            for e2 in elements:
-                if e1 == e2:
-                    continue
+    M_1 = 0
+    for e1 in elements:
+        rank = []
+        for e2 in elements:
+            if e1 == e2:
+                continue
 
-                p1 = layer_pos[e1][i]
-                p2 = layer_pos[e2][i]
+            p1 = layout[elements.index(e1)]
+            p2 = layout[elements.index(e2)]
 
-                dist = (p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2
+            dist = (p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2
 
-                rank.append((e2, dist))
-            rank = sorted(rank, key=lambda x: x[1])
-            rank = rank[:k]
+            rank.append((e2, dist))
+        rank = sorted(rank, key=lambda x: x[1])
+        rank = rank[:k]
 
-            for j, (e2, _) in enumerate(rank):
-                M_1 += ranking_ea[e1][e2] - k
+        for j, (e2, _) in enumerate(rank):
+            M_1 += ranking_ea[e1][e2] - k
 
-        M_1 = 1 - A_of_k * M_1
-        M_1_layer.append(M_1)
+    M_1 = 1 - A_of_k * M_1
 
-    return M_1_layer
+    return M_1
 
 
 def get_node_positions(G, layer=0):
@@ -353,7 +338,6 @@ def compute_metrics(G, instance):
                 + compute_crossings_outside(G_, what="lines", size=figure_out_size(G)),
                 "total_edge_crossings": compute_crossings_inside(G_, what="edges")
                 + compute_crossings_outside(G_, what="edges", size=figure_out_size(G)),
-                "M1": compute_trustworthyness_EA(instance, G),
             }
         )
     return result
