@@ -8,6 +8,10 @@ embed,object,svg {
   width: 50vw;
 }
 
+#compmap{
+  height: 80vh;
+}
+
 .legend-item-1::before {
   display: inline-block;
   content: '';

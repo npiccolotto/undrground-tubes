@@ -42,11 +42,12 @@ with open("data/sbss/components.csv") as f:
 with open("data/sbss/loadings.csv") as f:
     loadings = pd.read_csv(f)
 
-coords = base_dataset[["longitude", "latitude"]]
+coords = base_dataset[["latitude", "longitude"]]
 comp_names = [(k) for k in loadings["component"]]
+map_center = [coords.mean().latitude, coords.mean().longitude]
 
 
-@app.route("/variable/<name>")
+@app.route("/variables/<name>")
 def variable(name):
     map_data = coords.join(base_dataset[[name]]).to_dict()
     return {
@@ -54,11 +55,25 @@ def variable(name):
     }
 
 
-@app.route("/component/<name>")
+@app.route("/components/<name>")
 def comp(name):
-    map_data = coords.join(components[[name]]).to_dict()
+    map_data = coords.join(components[[name]]).to_dict("records")
     comp_loadings = loadings.loc[comp_names.index(name)].to_dict()
-    return {"map_data": map_data, "loadings": comp_loadings}
+    sets_for_comp = file["SR"][file["E"].index(name)]
+    p5 = np.percentile(components[[name]], 5)
+    p25 = np.percentile(components[[name]], 25)
+    p75 = np.percentile(components[[name]], 75)
+    p95 = np.percentile(components[[name]], 95)
+
+    return {
+        "p5": p5,
+        "p25": p25,
+        "p75": p75,
+        "p95": p95,
+        "map_data": map_data,
+        "loadings": comp_loadings,
+        "sets": sets_for_comp,
+    }
 
 
 @app.route("/")
@@ -102,6 +117,7 @@ def index():
     with open("./drawing_0.svg", "r") as f:
         svg_inline = f.read()
         svg_inline = svg_inline.replace("data/sbss/img/", "/static/data/sbss/img/")
+        svg_inline = svg_inline.replace("<svg ", '<svg class="undrground" ')
 
     return render_template(
         "index.html",
@@ -113,6 +129,7 @@ def index():
         weight=weight,
         optRouter=optRouter,
         optConnect=optConnect,
+        map_center=map_center,
         treesupport=treesupport,
         set_size_json=json.dumps(set_sizes),
     )

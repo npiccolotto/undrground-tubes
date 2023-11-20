@@ -2,8 +2,15 @@
 
 <HEAD>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin=""/>
   <link rel="stylesheet" href="/static/styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+     crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.js" crossorigin="anonymous"
     referrerpolicy="no-referrer"></script>
   <script src="https://cdn.jsdelivr.net/npm/vega@5.25.0"></script>
@@ -36,8 +43,12 @@
             <ul class="nav nav-tabs" id="myTab" role="tablist">
               <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="cardinalities-tab" data-bs-toggle="tab"
-                  data-bs-target="#cardinalities" type="button" role="tab" aria-controls="home"
+                  data-bs-target="#cardinalities" type="button" role="tab" aria-controls="cardinalities"
                   aria-selected="true">Cardinalities</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="component-tab" data-bs-toggle="tab" data-bs-target="#component" type="button"
+                  role="tab" aria-controls="component" aria-selected="false">Component Detail</button>
               </li>
               <li class="nav-item" role="presentation">
                 <button class="nav-link" id="advanced-tab" data-bs-toggle="tab" data-bs-target="#advanced" type="button"
@@ -45,7 +56,7 @@
               </li>
             </ul>
             <div class="tab-content" id="myTabContent">
-              <div class="tab-pane fade show active" id="cardinalities" role="tabpanel" aria-labelledby="cardinalities-tab">
+              <div class="tab-pane show active" id="cardinalities" role="tabpanel" aria-labelledby="cardinalities-tab">
                 <div class="form-group">
                   <select multiple class="form-select" id="set_selection" style="display:none;" id="selection"
                     name="selection">
@@ -57,10 +68,18 @@
                   <div>
                     <p id="vis-text"></p>
                   </div>
+                  <div class="mt-3">
+                    <button type="submit">Update</button>
+                  </div>
                 </div>
               </div>
 
-              <div class="tab-pane fade" id="advanced" role="tabpanel" aria-labelledby="advanced-tab">
+              <div class="tab-pane" id="component" role="tabpanel" aria-labelledby="component-tab">
+                <div id="loadingsVis"></div>
+                <div id="compmap"></div>
+              </div>
+
+              <div class="tab-pane" id="advanced" role="tabpanel" aria-labelledby="advanced-tab">
                 <div class="form-group">
                   <label for="weight">Weighting Element to Set Similarity</label>
                   <input type="range" class="form-control" id="weight" name="weight" min="0" max="1" value="{{weight}}"
@@ -98,10 +117,9 @@
                     optRouter %} checked {% endif %}>
                   <label class="form-check-label" for="optRoute">Optimal Drawing</label>
                 </div>
-              </div>
-
-              <div class="mt-3">
-                <button type="submit">Update</button>
+                <div class="mt-3">
+                  <button type="submit">Update</button>
+                </div>
               </div>
           </form>
         </div>
@@ -119,7 +137,7 @@
       document.addEventListener('DOMContentLoaded', fn);
     }
     ready(function () {
-      var panZoomTiger = svgPanZoom('svg', {
+      var panZoomTiger = svgPanZoom('svg.undrground', {
         zoomEnabled: true,
         controlIconsEnabled: true,
         fit: true,
@@ -129,10 +147,10 @@
       function updateVisText() {
         document.querySelector('#vis-text').textContent = Array.from(document.querySelectorAll('option[selected="selected"]')).map((option) => option.getAttribute('value')).join(', ')
       }
-      let spec = {
+      let cardSpec = {
         "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
         "description": "A simple bar chart with embedded data.",
-        "width": 800,
+        "width": 700,
         "mark": { "type": "bar", "orient": "vertical" , "tooltip": true},
         "encoding": {
           "color": {
@@ -151,10 +169,10 @@
           "y": { "field": "count", "type": "quantitative" }
         }
       };
-      spec.data = { values: {{ set_size_json | safe }} };
-      vegaEmbed('#vis', spec).then(({spec, view}) => {
+      cardSpec.data = { values: {{ set_size_json | safe }} };
+      vegaEmbed('#vis', cardSpec).then(({spec, view}) => {
           view.addEventListener('click', function (event, item) {
-            if (!item.datum) {
+            if (!item || !item.datum) {
               return
             }
             let qs = 'option[value="' + item.datum.name + '"]'
@@ -170,6 +188,86 @@
           })
       })
       updateVisText()
+
+      // init map
+      var center = {{ map_center }};
+      var map = L.map('compmap').setView(center, 6);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      }).addTo(map);
+
+      var mapEl = document.querySelector('#component')
+      var observer1 = new MutationObserver(function(){
+        if(mapEl.style.display != 'none'){
+          map.invalidateSize();
+        }
+      });
+      observer1.observe(mapEl, {attributes: true});
+
+      const loadingsSpec = {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "description": "A simple bar chart with embedded data.",
+        "width": 700,
+        "height": 100,
+        "mark": { "type": "bar", "tooltip": true},
+        "encoding": {
+          "y": {"field": "value", "type": "quantitative"},
+          "x": {"field": "element", "type": "ordinal"},
+          "color": {"field": "value", "scale": { "type": "linear", "range": "diverging", "reverse": true} }
+        },
+        "config": {
+          "axis": {"grid": true, "tickBand": "extent"}
+        }
+      }
+
+      var mapCircleGroup = L.featureGroup();
+      mapCircleGroup.addTo(map);
+      var icons = {
+        'bigneg': L.icon({ iconUrl: '/static/icon-neg.png', iconSize: [12, 12], iconAnchor: [6,6], popupAnchor: [6, 0] }),
+        'neg': L.icon({ iconUrl: '/static/icon-neg.png', iconSize: [8, 8], iconAnchor: [4,4], popupAnchor: [8, 0] }),
+        'mid': L.icon({ iconUrl: '/static/icon-location.png', iconSize: [4,4], iconAnchor: [2,2], popupAnchor: [4, 0] }),
+        'pos': L.icon({ iconUrl: '/static/icon-pos.png', iconSize: [8, 8], iconAnchor: [4,4], popupAnchor: [8, 0] }),
+        'bigpos': L.icon({ iconUrl: '/static/icon-pos.png', iconSize: [12, 12], iconAnchor: [6,6], popupAnchor: [6, 0] })
+      }
+      function updateCompDetailView(compName, compData) {
+        const loadingsAsNamedValue = Object.keys(compData.loadings).map((k) => [k,compData.loadings[k]]).reduce((a, kv) => ([...a, {'element': kv[0], 'value': kv[1] }]), [])
+        const spec = {...loadingsSpec, data: {values: loadingsAsNamedValue}}
+        vegaEmbed('#loadingsVis', spec)
+
+        mapCircleGroup.clearLayers()
+        for (const row of compData.map_data) {
+          let rowIcon = 'mid';
+          if (row[compName] < compData.p5) {
+            rowIcon = 'bigneg'
+          }
+          else if (row[compName] < compData.p25) {
+            rowIcon = 'neg'
+          }
+          else if (row[compName] > compData.p95) {
+            rowIcon = 'bigpos'
+          }
+          else if (row[compName] > compData.p75) {
+            rowIcon = 'pos'
+          }
+
+          let marker = L.marker([row.latitude, row.longitude], { icon: icons[rowIcon] });
+          marker.bindPopup(`${compName}: ${row[compName]}`)
+          marker.addTo(mapCircleGroup)
+        }
+        map.invalidateSize()
+      }
+
+      function svgImageClickHandler() {
+        let compName = this.querySelector('title').textContent;
+        fetch(`/components/${compName}`)
+          .then(resp => resp.json())
+          .then(data => updateCompDetailView(compName, data))
+      }
+
+      Array.from(document.querySelectorAll('svg image')).forEach(node => {
+        node.addEventListener('click', svgImageClickHandler.bind(node))
+      })
   });
   </script>
 
