@@ -242,8 +242,8 @@
         vegaEmbed('#loadingsVis', spec)
 
         // update set icons
-        document.querySelector('#compsets').childNodes.forEach(n=>n.remove())
-        const sortedSets = _.sortBy(compData.sets, s => s.toLowerCase())
+        Array.from(document.querySelector('#compsets').childNodes).forEach(n=>n.remove())
+        const sortedSets = _.sortBy([...compData.sets], s => s.toLowerCase())
         for (const s of sortedSets) {
           let n = document.createElement('span')
           let classStr = 'badge me-1 rounded-pill'
