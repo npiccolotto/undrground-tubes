@@ -517,11 +517,13 @@ def write_metrics(elements, D_EA, layouts):
         embedding_metrics = [
             {"M1": compute_trustworthyness_EA(elements, D_EA, l)} for l in layouts
         ]
-        with open("metrics_embedding.json", "w") as f:
+        writedir = config_vars["general.writedir"].get()
+        with open(f"{writedir}/metrics_embedding.json", "w") as f:
             json.dump(embedding_metrics, f)
-        with open("embedding.json", "w") as f:
+        with open(f"{writedir}/embedding.json", "w") as f:
             # https://stackoverflow.com/a/65151218/490524
             def np_encoder(object):
                 if isinstance(object, np.generic):
                     return object.item()
+
             json.dump(layouts, f, default=np_encoder)
