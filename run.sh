@@ -26,15 +26,14 @@ export GRB_LICENSE_FILE="/home1/share/gurobi/gurobi.lic"
 export GUROBI_HOME="/home1/share/gurobi/gurobi/linux64"
 
 support_type="$2"
-layouter="$3"
-overlapper="$4"
-connecter="$5"
-router="$6"
-dataset="$7"
-weight="$8"
+overlapper="$3"
+connecter="$4"
+router="$5"
+dataset="$6"
+weight="$7"
 
 jobname="esvis-$dataset-$weight-$support_type-$layouter-$overlapper-$connecter-$router";
 
 cd $base
-python render2.py --write-dir $TMPDIR --support-type $support_type --layouter $layouter --overlap-remover $overlapper --connecter $connecter --router $router --read-dir $base/designspace-test --dataset $dataset --weight $weight
+python render2.py --write-dir $TMPDIR --support-type $support_type --overlap-remover $overlapper --connecter $connecter --router $router --read-dir $base/designspace-test --dataset $dataset --weight $weight
 cp -r $TMPDIR $1

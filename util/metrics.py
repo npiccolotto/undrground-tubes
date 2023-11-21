@@ -42,7 +42,7 @@ def rank(i, j):
     return 0
 
 
-def compute_trustworthyness_EA(elements, EA, layout, k=8):
+def compute_trustworthyness_EA(elements, EA, layout, k=5):
     N = len(elements)
 
     if k > N:
