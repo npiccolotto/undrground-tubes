@@ -41,52 +41,240 @@ def figure_out_size(G):
 def rank(i, j):
     return 0
 
+def average_local_error(elements, EA, layout):
+    N = len(elements)
 
-def compute_trustworthyness_EA(elements, EA, layout, k=5):
+    N_EA = np.array(EA)
+    N_L = np.zeros_like(EA)
+
+    for i, element in enumerate(elements):
+
+        for j in range(i + 1, N):
+            p1 = layout[i]
+            p2 = layout[j]
+
+            dist_L = np.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2)
+
+            N_L[i][j] = dist_L
+            N_L[j][i] = dist_L
+
+    errors = []
+
+    N_EA = N_EA / np.amax(N_EA)
+    N_L = N_L / np.amax(N_L)
+
+    for i, element in enumerate(elements):
+        error = 0
+        for j in range(i+1, N):
+            if i == j:
+                continue
+
+            error += np.abs(N_EA[i][j] - N_L[i][j])
+
+        error = error / (N - 1)
+        errors.append(error)
+
+    return errors
+
+def compute_stress(elements, EA, layout):
+    N = len(elements)
+
+    N_EA = np.array(EA)
+    N_L = np.zeros_like(EA)
+
+    for i, element in enumerate(elements):
+
+        for j in range(i + 1, N):
+            p1 = layout[i]
+            p2 = layout[j]
+
+            dist_L = np.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2)
+
+            N_L[i][j] = dist_L
+            N_L[j][i] = dist_L
+
+    N_EA = N_EA / np.amax(N_EA)
+    N_L = N_L / np.amax(N_L)
+
+    stress = np.sum((N_EA - N_L) ** 2) / np.sum(N_EA)
+
+    return stress
+
+def compute_stress(elements, EA, layout):
+    N = len(elements)
+
+    N_EA = np.array(EA)
+    N_L = np.zeros_like(EA)
+
+    for i, element in enumerate(elements):
+
+        for j in range(i + 1, N):
+            p1 = layout[i]
+            p2 = layout[j]
+
+            dist_L = np.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2)
+
+            N_L[i][j] = dist_L
+            N_L[j][i] = dist_L
+
+    N_EA = N_EA / np.amax(N_EA)
+    N_L = N_L / np.amax(N_L)
+
+    stress = np.sum((N_EA - N_L) ** 2) / np.sum(N_EA)
+
+    return stress
+
+def compute_trustworthyness_EA(elements, EA, layout, k=7):
+    '''
+        Returns M1 (trustworthyness), M2 (continuity)
+    '''
     N = len(elements)
 
     if k > N:
         k = N
 
-    A_of_k = 2 / (N * k * (2 * N - 3 * k - 1))
+    if k < N / 2:
+        A_of_k = 2 / (N * k * (2 * N - 3 * k - 1))
+    else:
+        A_of_k = 2 / (N * (N - k) * (N - k - 1))
 
-    ranking_ea = defaultdict(dict)
+    lookup_rank_high_ea = defaultdict(dict)
+    lookup_rank_low_ea = defaultdict(dict)
+
+    rank_high_ea = dict()
+    rank_low_ea = dict()
+
+    best_rank_low = defaultdict(set)
+    best_rank_high = defaultdict(set)
 
     for i, element in enumerate(elements):
-        rank = []
+        rank_high = []
+        rank_low = []
         for j in range(N):
             if i == j:
                 continue
-            rank.append((elements[j], EA[i][j]))
+            rank_high.append((elements[j], EA[i][j]))
 
-        rank = sorted(rank, key=lambda x: x[1])
+            p1 = layout[i]
+            p2 = layout[j]
 
-        for j, (e2, _) in enumerate(rank):
-            ranking_ea[element][e2] = j + 1
+            dist = (p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2
+            rank_low.append((elements[j], dist))
+
+        rank_high = sorted(rank_high, key=lambda x: x[1])
+        rank_low = sorted(rank_low, key=lambda x: x[1])
+
+        rank_high_ea[element] = rank_high
+        rank_low_ea[element] = rank_low
+
+        for j, (e2, _) in enumerate(rank_high):
+            lookup_rank_high_ea[element][e2] = j
+            if j < k:
+                best_rank_high[element].add(e2)
+
+        for j, (e2, _) in enumerate(rank_low):
+            lookup_rank_low_ea[element][e2] = j
+            if j < k:
+                best_rank_low[element].add(e2)
 
     M_1 = 0
     for e1 in elements:
-        rank = []
-        for e2 in elements:
-            if e1 == e2:
+        for e2, _ in rank_low_ea[e1][:k]:
+
+            if e2 in best_rank_high[e1]:
                 continue
 
-            p1 = layout[elements.index(e1)]
-            p2 = layout[elements.index(e2)]
+            M_1 += lookup_rank_high_ea[e1][e2] - k
 
-            dist = (p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2
+    M_2 = 0
+    for e1 in elements:
+        for e2, _ in rank_high_ea[e1][:k]:
 
-            rank.append((e2, dist))
-        rank = sorted(rank, key=lambda x: x[1])
-        rank = rank[:k]
+            if e2 in best_rank_low[e1]:
+                continue
 
-        for j, (e2, _) in enumerate(rank):
-            M_1 += ranking_ea[e1][e2] - k
+            M_2 += lookup_rank_low_ea[e1][e2] - k
 
     M_1 = 1 - A_of_k * M_1
+    M_2 = 1 - A_of_k * M_2
 
-    return M_1
+    return M_1, M_2
 
+def compute_trustworthyness_SA(elements, SA, layout, k=7):
+    '''
+        Returns M1 (trustworthyness), M2 (continuity)
+    '''
+    N = len(elements)
+
+    if k > N:
+        k = N
+
+    if k < N / 2:
+        A_of_k = 2 / (N * k * (2 * N - 3 * k - 1))
+    else:
+        A_of_k = 2 / (N * (N - k) * (N - k - 1))
+
+    lookup_rank_high_ea = defaultdict(dict)
+    lookup_rank_low_ea = defaultdict(dict)
+
+    rank_high_ea = dict()
+    rank_low_ea = dict()
+
+    best_rank_low = defaultdict(set)
+    best_rank_high = defaultdict(set)
+
+    for i, element in enumerate(elements):
+        rank_high = []
+        rank_low = []
+        for j in range(N):
+            if i == j:
+                continue
+            rank_high.append((elements[j], SA[i][j]))
+
+            p1 = layout[i]
+            p2 = layout[j]
+
+            dist = (p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2
+            rank_low.append((elements[j], dist))
+
+        rank_high = sorted(rank_high, key=lambda x: x[1])
+        rank_low = sorted(rank_low, key=lambda x: x[1])
+
+        rank_high_ea[element] = rank_high
+        rank_low_ea[element] = rank_low
+
+        for j, (e2, _) in enumerate(rank_high):
+            lookup_rank_high_ea[element][e2] = j
+            if j < k:
+                best_rank_high[element].add(e2)
+
+        for j, (e2, _) in enumerate(rank_low):
+            lookup_rank_low_ea[element][e2] = j
+            if j < k:
+                best_rank_low[element].add(e2)
+
+    M_1 = 0
+    for e1 in elements:
+        for e2, _ in rank_low_ea[e1][:k]:
+
+            if e2 in best_rank_high[e1]:
+                continue
+
+            M_1 += lookup_rank_high_ea[e1][e2] - k
+
+    M_2 = 0
+    for e1 in elements:
+        for e2, _ in rank_high_ea[e1][:k]:
+
+            if e2 in best_rank_low[e1]:
+                continue
+
+            M_2 += lookup_rank_low_ea[e1][e2] - k
+
+    M_1 = 1 - A_of_k * M_1
+    M_2 = 1 - A_of_k * M_2
+
+    return M_1, M_2
 
 def get_node_positions(G, layer=0):
     result = []

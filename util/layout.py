@@ -18,7 +18,7 @@ from util.draw import draw_embedding
 from util.DGrid import DGrid
 from util.config import config_vars
 from util.mip import write_status, write_fake_status
-from util.metrics import compute_trustworthyness_EA
+from util.metrics import compute_trustworthyness_EA, compute_trustworthyness_SA, compute_stress, average_local_error
 
 
 def get_bounds(P):
@@ -507,16 +507,52 @@ def layout(elements, D_EA, D_SR, m=10, n=10, pad=1):
 
     layouts = list(map(lambda layout: list(map(tuple, layout)), layouts))
 
-    write_metrics(elements, D_EA, layouts)
+    write_metrics(elements, D_EA, D_SR, layouts)
 
     return layouts
 
 
-def write_metrics(elements, D_EA, layouts):
+def write_metrics(elements, D_EA, D_SR, layouts):
     if config_vars["general.computemetrics"].get():
-        embedding_metrics = [
-            {"M1": compute_trustworthyness_EA(elements, D_EA, l)} for l in layouts
-        ]
+        embedding_metrics = []
+
+        for i, l in enumerate(layouts):
+            embedding_metrics.append({f"EA {i}: local": average_local_error(elements, D_EA, l)})
+
+        for i, l in enumerate(layouts):
+            embedding_metrics.append({f"SR {i}: local": average_local_error(elements, D_SR, l)})
+
+        for i, l in enumerate(layouts):
+            embedding_metrics.append({f"EA {i}: stress": compute_stress(elements, D_EA, l)})
+
+        for i, l in enumerate(layouts):
+            embedding_metrics.append({f"SR {i}: stress": compute_stress(elements, D_SR, l)})
+
+        for i, l in enumerate(layouts):
+            embedding_metrics.append({f"EA {i}: (M1, M2) [k=3]": compute_trustworthyness_EA(elements, D_EA, l)})
+
+        for i, l in enumerate(layouts):
+            embedding_metrics.append({f"EA {i}: (M1, M2) [k=5]": compute_trustworthyness_EA(elements, D_EA, l, k=5)})
+
+        for i, l in enumerate(layouts):
+            embedding_metrics.append({f"EA {i}: (M1, M2) [k=5]": compute_trustworthyness_EA(elements, D_EA, l, k=7)})
+
+        for i, l in enumerate(layouts):
+            embedding_metrics.append({f"EA {i}: (M1, M2) [k=10%]": compute_trustworthyness_EA(elements, D_EA, l, k=(int)(np.ceil(len(elements)/10)))})
+
+        for i, l in enumerate(layouts):
+            embedding_metrics.append({f"SR {i}: (M1, M2) [k=3]": compute_trustworthyness_SA(elements, D_SR, l, k=3)})
+
+        for i, l in enumerate(layouts):
+            embedding_metrics.append({f"SR {i}: (M1, M2) [k=5]": compute_trustworthyness_SA(elements, D_SR, l, k=5)})
+
+        for i, l in enumerate(layouts):
+            embedding_metrics.append({f"SR {i}: (M1, M2) [k=5]": compute_trustworthyness_SA(elements, D_SR, l, k=7)})
+
+        for i, l in enumerate(layouts):
+            embedding_metrics.append({f"SR {i}: (M1, M2) [k=10%]": compute_trustworthyness_SA(elements, D_SR, l, k=(int)(np.ceil(len(elements)/10)))})
+
+
         writedir = config_vars["general.writedir"].get()
         with open(f"{writedir}/metrics_embedding.json", "w") as f:
             json.dump(embedding_metrics, f)
