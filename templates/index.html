@@ -82,7 +82,7 @@
                 <div id="loadingsVis"></div>
                 <h6>Sets</h6>
                 <div id="compsets"></div>
-                <h6 class="mt-3">Map</h6>
+                <h6 class="mt-3">Map <small>(Percentiles 0, 5, 25, 75, 100.)</small></h6>
                 <div id="compmap"></div>
               </div>
 
@@ -93,11 +93,11 @@
                     step=".1" />
                 </div>
                 <div class="form-group mt-3">
-                  <label for="cols">Grid Columns</label>
+                  <label for="cols">Grid Columns (Width)</label>
                   <input type="number" class="form-control" id="cols" name="cols" min="4" max="100" value="{{cols}}" />
                 </div>
                 <div class="form-group">
-                  <label for="rows">Grid Rows</label>
+                  <label for="rows">Grid Rows (Height)</label>
                   <input type="number" class="form-control" id="rows" name="rows" min="4" max="100" value="{{rows}}" />
                 </div>
                 <div class="form-check">
@@ -251,10 +251,10 @@
         "encoding": {
           "y": {"field": "value", "type": "quantitative"},
           "x": {"field": "element", "type": "ordinal"},
-          "color": {"field": "value", "scale": { "type": "linear", "range": "diverging", "reverse": true} }
+          "color": {"field": "value", "scale": { "type": "linear", "range":["#ef8a62", "#f7f7f7", "#67a9cf"], "interpolate": "lab", "reverse": true} }
         },
         "config": {
-          "axis": {"grid": true, "tickBand": "extent"}
+          "axis": {"grid": true, "tickBand": "extent", "labelAngle": -45 , "labelFontSize": 10}
         }
       }
 
@@ -269,6 +269,10 @@
       }
 
       function updateCompDetailView(compName, compData) {
+        // select tab
+        var triggerEl = document.querySelector('#componenttab')
+        bootstrap.Tab.getInstance(triggerEl).show() // Select tab by name
+
         // update loadings vis
         const loadingsAsNamedValue = Object.keys(compData.loadings).map((k) => [k,compData.loadings[k]]).reduce((a, kv) => ([...a, {'element': kv[0], 'value': kv[1] }]), [])
         const spec = {...loadingsSpec, data: {values: loadingsAsNamedValue}}
@@ -359,8 +363,6 @@
           .then(data => {
             document.querySelector('#selectedcomp').setAttribute('value', compName);
             updateCompDetailView(compName, data)
-            var triggerEl = document.querySelector('#componenttab')
-            bootstrap.Tab.getInstance(triggerEl).show() // Select tab by name
           })
       }
   });
