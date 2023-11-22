@@ -82,7 +82,7 @@
                 <div id="loadingsVis"></div>
                 <h6>Sets</h6>
                 <div id="compsets"></div>
-                <h6 class="mt-3">Map <small>(Percentiles 0, 5, 25, 75, 100.)</small></h6>
+                <h6 class="mt-3">Map <small>(Percentiles 0, 5, 25, 75, 95, 100.)</small></h6>
                 <div id="compmap"></div>
               </div>
 
@@ -261,11 +261,11 @@
       var mapCircleGroup = L.featureGroup();
       mapCircleGroup.addTo(map);
       var icons = {
-        'bigneg': L.icon({ iconUrl: '/static/icon-neg.png', iconSize: [12, 12], iconAnchor: [6,6], popupAnchor: [6, 0] }),
-        'neg': L.icon({ iconUrl: '/static/icon-neg.png', iconSize: [8, 8], iconAnchor: [4,4], popupAnchor: [8, 0] }),
+        'bigneg': L.icon({ iconUrl: '/static/icon-neg.png', iconSize: [8,8], iconAnchor: [4,4], popupAnchor: [4, 0] }),
+        'neg': L.icon({ iconUrl: '/static/icon-neg.png', iconSize: [5,5], iconAnchor: [3,3], popupAnchor: [3, 0] }),
         'mid': L.icon({ iconUrl: '/static/icon-location.png', iconSize: [4,4], iconAnchor: [2,2], popupAnchor: [4, 0] }),
-        'pos': L.icon({ iconUrl: '/static/icon-pos.png', iconSize: [8, 8], iconAnchor: [4,4], popupAnchor: [8, 0] }),
-        'bigpos': L.icon({ iconUrl: '/static/icon-pos.png', iconSize: [12, 12], iconAnchor: [6,6], popupAnchor: [6, 0] })
+        'pos': L.icon({ iconUrl: '/static/icon-pos.png', iconSize: [5,5], iconAnchor: [3,3], popupAnchor: [3, 0] }),
+        'bigpos': L.icon({ iconUrl: '/static/icon-pos.png', iconSize: [8,8], iconAnchor: [4,4], popupAnchor: [4, 0] })
       }
 
       function updateCompDetailView(compName, compData) {

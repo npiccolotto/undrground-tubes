@@ -572,40 +572,20 @@ def write_metrics(elements, D_EA, D_SR, layouts):
         embedding_metrics = []
 
         for i, l in enumerate(layouts):
-            embedding_metrics.append({f"EA {i}: local": average_local_error(elements, D_EA, l)})
-
-        for i, l in enumerate(layouts):
-            embedding_metrics.append({f"SR {i}: local": average_local_error(elements, D_SR, l)})
-
-        for i, l in enumerate(layouts):
-            embedding_metrics.append({f"EA {i}: stress": compute_stress(elements, D_EA, l)})
-
-        for i, l in enumerate(layouts):
-            embedding_metrics.append({f"SR {i}: stress": compute_stress(elements, D_SR, l)})
-
-        for i, l in enumerate(layouts):
-            embedding_metrics.append({f"EA {i}: (M1, M2) [k=3]": compute_trustworthyness_EA(elements, D_EA, l)})
-
-        for i, l in enumerate(layouts):
-            embedding_metrics.append({f"EA {i}: (M1, M2) [k=5]": compute_trustworthyness_EA(elements, D_EA, l, k=5)})
-
-        for i, l in enumerate(layouts):
-            embedding_metrics.append({f"EA {i}: (M1, M2) [k=5]": compute_trustworthyness_EA(elements, D_EA, l, k=7)})
-
-        for i, l in enumerate(layouts):
-            embedding_metrics.append({f"EA {i}: (M1, M2) [k=10%]": compute_trustworthyness_EA(elements, D_EA, l, k=(int)(np.ceil(len(elements)/10)))})
-
-        for i, l in enumerate(layouts):
-            embedding_metrics.append({f"SR {i}: (M1, M2) [k=3]": compute_trustworthyness_SA(elements, D_SR, l, k=3)})
-
-        for i, l in enumerate(layouts):
-            embedding_metrics.append({f"SR {i}: (M1, M2) [k=5]": compute_trustworthyness_SA(elements, D_SR, l, k=5)})
-
-        for i, l in enumerate(layouts):
-            embedding_metrics.append({f"SR {i}: (M1, M2) [k=5]": compute_trustworthyness_SA(elements, D_SR, l, k=7)})
-
-        for i, l in enumerate(layouts):
-            embedding_metrics.append({f"SR {i}: (M1, M2) [k=10%]": compute_trustworthyness_SA(elements, D_SR, l, k=(int)(np.ceil(len(elements)/10)))})
+            embedding_metrics.append({
+                "EA: local": average_local_error(elements, D_EA, l),
+                "SR: local": average_local_error(elements, D_SR, l),
+                "EA: stress": compute_stress(elements, D_EA, l),
+                "SR: stress": compute_stress(elements, D_SR, l),
+                "EA: (M1, M2) [k=3]": compute_trustworthyness_EA(elements, D_EA, l),
+                "EA: (M1, M2) [k=5]": compute_trustworthyness_EA(elements, D_EA, l, k=5),
+                "EA: (M1, M2) [k=7]": compute_trustworthyness_EA(elements, D_EA, l, k=7),
+                "EA: (M1, M2) [k=10%]": compute_trustworthyness_EA(elements, D_EA, l, k=(int)(np.ceil(len(elements)/10))),
+                "SR: (M1, M2) [k=3]": compute_trustworthyness_SA(elements, D_SR, l, k=3),
+                "SR: (M1, M2) [k=5]": compute_trustworthyness_SA(elements, D_SR, l, k=5),
+                "SR: (M1, M2) [k=7]": compute_trustworthyness_SA(elements, D_SR, l, k=7),
+                "SR: (M1, M2) [k=10%]": compute_trustworthyness_SA(elements, D_SR, l, k=(int)(np.ceil(len(elements)/10)))
+            })
 
 
         writedir = config_vars["general.writedir"].get()
