@@ -117,6 +117,61 @@ def gridify_square(P, level="auto", layer=0):
 
     return result
 
+def qsap_simple(elements, D, m, n, norm=2, weight=0.5, layer=0):
+    
+    model = gp.Model("qsap")
+
+    X = []
+
+    for e in elements:
+        constr = []
+        row = []
+        for i in range(m):
+            column = []
+            for j in range(n):
+                x = model.addVar(name=f"{e} X[{i}][{j}]", vtype=GRB.BINARY)
+                column.append(x)
+                constr.append(x)
+
+            row.append(column)
+
+        X.append(row)
+
+        model.addConstr(gp.quicksum(constr) == 1)
+
+    for x in range(m):
+        for y in range(n):
+            constr = []
+            for i in range(len(elements)):
+                constr.append(X[i][x][y])
+
+            model.addConstr(gp.quicksum(constr) <= 1)
+
+    cost = []
+    for i in range(len(elements)):
+        for j in range(i + 1, len(elements)):
+            for x1 in range(m):
+                for y1 in range(n):
+                    for x2 in range(m):
+                        for y2 in range(n):
+                            cost.append(X[i][x1][y1] * X[j][x2][y2] * D[i][j])
+
+    model.setObjective(gp.quicksum(cost))
+    model.optimize()
+    if model.status == GRB.OPTIMAL:
+        print('Total Cost of MIP: ', model.objVal)
+        result = []
+        for i in range(len(elements)):
+            for x in range(m):
+                for y in range(n):
+                    if X[i][x][y].x >= 0.99:
+                        result.append((x,y))
+                        break
+
+        return result
+
+
+    return []
 
 def solve_qsap(elements, D, m, n, norm=2, weight=0.5, layer=0):
     """compact formulation of QSAP compared to the linearized version.
@@ -253,8 +308,8 @@ def solve_qsap_linearized(a, A, b, B):
 
 def layout_qsap(elements, D, m=10, n=10, weight=0.5, layer=0):
     """Quadratic assignment onto grid, for now assuming constant space between cells."""
-
     return solve_qsap(elements, D, m, n, norm=2, weight=weight, layer=layer)
+    #return qsap_simple(elements, D, m, n, norm=2, weight=weight, layer=layer)
     # 2) make host distances H
 
     # add dummy elements - qap does a bijective mapping
