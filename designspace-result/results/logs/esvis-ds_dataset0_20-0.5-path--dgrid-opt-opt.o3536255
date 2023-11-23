@@ -1,0 +1,109 @@
+Grid size is 0 x 0
+Set selection: None
+Automatically changed grid size to 16 x 16
+layout...
+--- Add dummy points executed in 1.3985569477081299 seconds ---
+--- Grid assignment executed in 0.0025839805603027344 seconds ---
+layout took 1524.6837139129639ms
+routing...
+Set parameter TokenServer to value "clustermaster.ac.tuwien.ac.at"
+Set parameter TimeLimit to value 3600
+Set parameter MIPGap to value 0
+Set parameter LazyConstraints to value 1
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+
+CPU model: Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 20 physical cores, 20 logical processors, using up to 20 threads
+
+Optimize a model with 38258 rows, 16990 columns and 108380 nonzeros
+Model fingerprint: 0xd1615f34
+Variable types: 0 continuous, 16990 integer (16990 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [1e+03, 2e+04]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 6e+00]
+Presolve removed 33839 rows and 14540 columns
+Presolve time: 0.81s
+Presolved: 4419 rows, 2450 columns, 13676 nonzeros
+Variable types: 0 continuous, 2450 integer (2450 binary)
+
+Root relaxation: objective 1.016808e+05, 1676 iterations, 0.14 seconds (0.04 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+*    0     0               0    101680.79942 101680.799  0.00%     -    1s
+
+Cutting planes:
+  Lazy constraints: 22
+
+Explored 1 nodes (1676 simplex iterations) in 1.31 seconds (0.33 work units)
+Thread count was 20 (of 20 available processors)
+
+Solution count 1: 101681 
+
+Optimal solution found (tolerance 0.00e+00)
+Best objective 1.016807994176e+05, best bound 1.016807994176e+05, gap 0.0000%
+
+User-callback calls 435, time in user-callback 0.21 sec
+Set parameter TimeLimit to value 3600
+Set parameter MIPGap to value 0
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+
+CPU model: Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 20 physical cores, 20 logical processors, using up to 20 threads
+
+Optimize a model with 1115142 rows, 655554 columns and 4371480 nonzeros
+Model fingerprint: 0xf29b5f9e
+Variable types: 0 continuous, 655554 integer (655554 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [1e+00, 3e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+Presolve removed 794618 rows and 279254 columns (presolve time = 5s) ...
+Presolve removed 991361 rows and 279254 columns (presolve time = 10s) ...
+Presolve removed 991361 rows and 279254 columns (presolve time = 16s) ...
+Presolve removed 1006976 rows and 324488 columns
+Presolve time: 16.75s
+Presolved: 108166 rows, 331066 columns, 1392886 nonzeros
+Variable types: 0 continuous, 331066 integer (331066 binary)
+Deterministic concurrent LP optimizer: primal simplex, dual simplex, and barrier
+Showing barrier log only...
+
+Root barrier log...
+
+Ordering time: 1.01s
+
+Barrier performed 0 iterations in 21.20 seconds (10.45 work units)
+Barrier solve interrupted - model solved by another algorithm
+
+Concurrent spin time: 0.43s (can be avoided by choosing Method=3)
+
+Solved with dual simplex
+
+Root relaxation: objective 3.153584e+02, 1229 iterations, 2.41 seconds (0.75 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+H    0     0                     315.3583874  193.47792  38.6%     -   21s
+     0     0          -    0       315.35839  315.35839  0.00%     -   21s
+
+Explored 1 nodes (1827 simplex iterations) in 21.76 seconds (10.57 work units)
+Thread count was 20 (of 20 available processors)
+
+Solution count 1: 315.358 
+
+Optimal solution found (tolerance 0.00e+00)
+Best objective 3.153583873865e+02, best bound 3.153583873865e+02, gap 0.0000%
+routing took 108469.45905685425ms
+bundle lines...
+bundle lines took 55.585384368896484ms
+serialize graph...
+serialize graph took 305.07373809814453ms
+draw+write svg...
+draw+write svg took 871.3481426239014ms
+compute metrics for layer 0
+SUCCESS

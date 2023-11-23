@@ -1,0 +1,70 @@
+Grid size is 0 x 0
+Set selection: None
+Automatically changed grid size to 32 x 32
+layout...
+layout took 285.2940559387207ms
+routing...
+Set parameter TokenServer to value "clustermaster.ac.tuwien.ac.at"
+Set parameter TimeLimit to value 3600
+Set parameter MIPGap to value 0
+Set parameter LazyConstraints to value 1
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+
+CPU model: Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 20 physical cores, 20 logical processors, using up to 20 threads
+
+Optimize a model with 264670 rows, 112780 columns and 746104 nonzeros
+Model fingerprint: 0x2d1ae21a
+Variable types: 0 continuous, 112780 integer (112780 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [1e+03, 3e+04]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 6e+00]
+Presolve removed 217991 rows and 88344 columns
+Presolve time: 3.11s
+Presolved: 46679 rows, 24436 columns, 142103 nonzeros
+Variable types: 0 continuous, 24436 integer (24436 binary)
+
+Deterministic concurrent LP optimizer: primal and dual simplex (primal and dual model)
+Showing first log only...
+
+Root relaxation presolved: 46750 rows, 24436 columns, 142387 nonzeros
+
+
+Root simplex log...
+
+Iteration    Objective       Primal Inf.    Dual Inf.      Time
+    1674    6.0193714e+05   5.091405e+01   3.499963e+09      5s
+Concurrent spin time: 0.05s
+
+Solved with dual simplex (primal model)
+
+Root relaxation: objective 3.064481e+05, 12814 iterations, 3.60 seconds (1.52 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+*    0     0               0    306448.08263 306448.083  0.00%     -    8s
+
+Cutting planes:
+  Lazy constraints: 71
+
+Explored 1 nodes (12814 simplex iterations) in 8.77 seconds (3.20 work units)
+Thread count was 20 (of 20 available processors)
+
+Solution count 1: 306448 
+
+Optimal solution found (tolerance 0.00e+00)
+Best objective 3.064480826339e+05, best bound 3.064480826339e+05, gap 0.0000%
+
+User-callback calls 2657, time in user-callback 0.97 sec
+routing took 39421.57244682312ms
+bundle lines...
+bundle lines took 188.39478492736816ms
+serialize graph...
+serialize graph took 1083.2633972167969ms
+draw+write svg...
+draw+write svg took 2553.537130355835ms
+compute metrics for layer 0
+SUCCESS

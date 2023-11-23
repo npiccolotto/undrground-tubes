@@ -1,0 +1,34 @@
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home1/npiccolotto/ensemble-sets/code/render2.py", line 536, in vis
+    G = ctx.run(render)
+  File "/home1/npiccolotto/ensemble-sets/code/render2.py", line 309, in render
+    L = route(instance, G, element_set_partition)
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1360, in route
+    route_brosi_ilp(
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 740, in route_brosi_ilp
+    model.addConstr(x[(u, v)] >= x_ew[(e, (u, v))])
+  File "src/gurobipy/model.pxi", line 3629, in gurobipy.Model.addConstr
+  File "src/gurobipy/model.pxi", line 3364, in gurobipy.Model.__addConstr
+  File "src/gurobipy/constr.pxi", line 27, in gurobipy.Constr.__init__
+MemoryError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home1/npiccolotto/ensemble-sets/code/render2.py", line 578, in <module>
+    vis()
+  File "/home1/npiccolotto/.pyenv/versions/3.10.13/lib/python3.10/site-packages/click/core.py", line 1128, in __call__
+    return self.main(*args, **kwargs)
+  File "/home1/npiccolotto/.pyenv/versions/3.10.13/lib/python3.10/site-packages/click/core.py", line 1053, in main
+    rv = self.invoke(ctx)
+  File "/home1/npiccolotto/.pyenv/versions/3.10.13/lib/python3.10/site-packages/click/core.py", line 1395, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+  File "/home1/npiccolotto/.pyenv/versions/3.10.13/lib/python3.10/site-packages/click/core.py", line 754, in invoke
+    return __callback(*args, **kwargs)
+  File "/home1/npiccolotto/ensemble-sets/code/render2.py", line 561, in vis
+    with open(
+MemoryError

@@ -1,0 +1,73 @@
+Grid size is 0 x 0
+Set selection: None
+Automatically changed grid size to 32 x 32
+layout...
+--- Add dummy points executed in 1.3879339694976807 seconds ---
+--- Grid assignment executed in 0.01631021499633789 seconds ---
+layout took 1643.4245109558105ms
+routing...
+Set parameter TokenServer to value "clustermaster.ac.tuwien.ac.at"
+Set parameter TimeLimit to value 3600
+Set parameter MIPGap to value 0
+Set parameter LazyConstraints to value 1
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+
+CPU model: Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 20 physical cores, 20 logical processors, using up to 20 threads
+
+Optimize a model with 264670 rows, 112780 columns and 746104 nonzeros
+Model fingerprint: 0x77e4fbe7
+Variable types: 0 continuous, 112780 integer (112780 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [1e+03, 3e+04]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 6e+00]
+Presolve removed 217991 rows and 88344 columns
+Presolve time: 4.06s
+Presolved: 46679 rows, 24436 columns, 142103 nonzeros
+Variable types: 0 continuous, 24436 integer (24436 binary)
+
+Deterministic concurrent LP optimizer: primal and dual simplex (primal and dual model)
+Showing first log only...
+
+Root relaxation presolved: 46744 rows, 24436 columns, 142363 nonzeros
+
+
+Root simplex log...
+
+Iteration    Objective       Primal Inf.    Dual Inf.      Time
+       0    7.9166770e+04   9.300000e+01   1.773184e+09      6s
+   11819    2.6989718e+05   9.863850e-01   2.378817e+09     10s
+Concurrent spin time: 0.56s
+
+Solved with dual simplex (primal model)
+
+Root relaxation: objective 1.994338e+05, 18591 iterations, 8.95 seconds (3.77 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+*    0     0               0    199433.77226 199433.772  0.00%     -   14s
+
+Cutting planes:
+  Lazy constraints: 65
+
+Explored 1 nodes (18591 simplex iterations) in 14.67 seconds (5.53 work units)
+Thread count was 20 (of 20 available processors)
+
+Solution count 1: 199434 
+
+Optimal solution found (tolerance 0.00e+00)
+Best objective 1.994337722624e+05, best bound 1.994337722624e+05, gap 0.0000%
+
+User-callback calls 5493, time in user-callback 0.81 sec
+routing took 42184.41581726074ms
+bundle lines...
+bundle lines took 225.70490837097168ms
+serialize graph...
+serialize graph took 1062.770128250122ms
+draw+write svg...
+draw+write svg took 2072.010278701782ms
+compute metrics for layer 0
+SUCCESS

@@ -1,0 +1,55 @@
+Grid size is 0 x 0
+Set selection: None
+Automatically changed grid size to 16 x 16
+layout...
+--- Add dummy points executed in 1.2851827144622803 seconds ---
+--- Grid assignment executed in 0.0017924308776855469 seconds ---
+layout took 1377.5615692138672ms
+routing...
+Set parameter TokenServer to value "clustermaster.ac.tuwien.ac.at"
+Set parameter TimeLimit to value 3600
+Set parameter MIPGap to value 0
+Set parameter LazyConstraints to value 1
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+
+CPU model: Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 20 physical cores, 20 logical processors, using up to 20 threads
+
+Optimize a model with 38222 rows, 16990 columns and 107696 nonzeros
+Model fingerprint: 0x14476e99
+Variable types: 0 continuous, 16990 integer (16990 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [1e+03, 2e+04]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 6e+00]
+Presolve removed 33840 rows and 14543 columns
+Presolve time: 0.61s
+Presolved: 4382 rows, 2447 columns, 13424 nonzeros
+Variable types: 0 continuous, 2447 integer (2447 binary)
+
+Root relaxation: objective 8.061634e+04, 1379 iterations, 0.08 seconds (0.03 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+*    0     0               0    80616.344745 80616.3447  0.00%     -    0s
+
+Explored 1 nodes (1379 simplex iterations) in 0.96 seconds (0.23 work units)
+Thread count was 20 (of 20 available processors)
+
+Solution count 1: 80616.3 
+
+Optimal solution found (tolerance 0.00e+00)
+Best objective 8.061634474535e+04, best bound 8.061634474535e+04, gap 0.0000%
+
+User-callback calls 417, time in user-callback 0.19 sec
+routing took 4615.960359573364ms
+bundle lines...
+bundle lines took 53.9703369140625ms
+serialize graph...
+serialize graph took 292.57750511169434ms
+draw+write svg...
+draw+write svg took 573.7595558166504ms
+compute metrics for layer 0
+SUCCESS
