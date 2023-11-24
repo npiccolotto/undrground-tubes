@@ -1,0 +1,17 @@
+Grid size is 0 x 0
+Set selection: None
+Automatically changed grid size to 64 x 64
+layout...
+--- Add dummy points executed in 1.5058023929595947 seconds ---
+--- Grid assignment executed in 0.08119750022888184 seconds ---
+layout took 4356.802463531494ms
+routing...
+routing took 169944.49734687805ms
+bundle lines...
+bundle lines took 1776.761770248413ms
+serialize graph...
+serialize graph took 4315.436363220215ms
+draw+write svg...
+draw+write svg took 8892.094850540161ms
+compute metrics for layer 0
+SUCCESS

@@ -1,0 +1,27 @@
+/home1/npiccolotto/ensemble-sets/code/util/geometry.py:282: RuntimeWarning: overflow encountered in long_scalars
+  disc = b**2 - 4 * a * c
+Traceback (most recent call last):
+  File "/home1/npiccolotto/ensemble-sets/code/render2.py", line 578, in <module>
+    vis()
+  File "/home1/npiccolotto/.pyenv/versions/3.10.13/lib/python3.10/site-packages/click/core.py", line 1128, in __call__
+    return self.main(*args, **kwargs)
+  File "/home1/npiccolotto/.pyenv/versions/3.10.13/lib/python3.10/site-packages/click/core.py", line 1053, in main
+    rv = self.invoke(ctx)
+  File "/home1/npiccolotto/.pyenv/versions/3.10.13/lib/python3.10/site-packages/click/core.py", line 1395, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+  File "/home1/npiccolotto/.pyenv/versions/3.10.13/lib/python3.10/site-packages/click/core.py", line 754, in invoke
+    return __callback(*args, **kwargs)
+  File "/home1/npiccolotto/ensemble-sets/code/render2.py", line 574, in vis
+    raise e
+  File "/home1/npiccolotto/ensemble-sets/code/render2.py", line 536, in vis
+    G = ctx.run(render)
+  File "/home1/npiccolotto/ensemble-sets/code/render2.py", line 309, in render
+    L = route(instance, G, element_set_partition)
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1357, in route
+    C = connect(instance, grid_graph, element_set_partition, layer=layer)
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1323, in connect
+    C = get_optimal_connectivity(
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1288, in get_optimal_connectivity
+    model.optimize(callback)
+  File "src/gurobipy/model.pxi", line 875, in gurobipy.Model.optimize
+gurobipy.GurobiError: Out of memory

@@ -1,0 +1,56 @@
+Grid size is 0 x 0
+Set selection: None
+Automatically changed grid size to 16 x 16
+layout...
+layout took 129.79984283447266ms
+routing...
+Set parameter TokenServer to value "clustermaster.ac.tuwien.ac.at"
+Set parameter TimeLimit to value 3600
+Set parameter MIPGap to value 0
+Set parameter LazyConstraints to value 1
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+
+CPU model: Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 20 physical cores, 20 logical processors, using up to 20 threads
+
+Optimize a model with 38222 rows, 16990 columns and 107696 nonzeros
+Model fingerprint: 0x9f7ce6a4
+Variable types: 0 continuous, 16990 integer (16990 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [1e+03, 2e+04]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 6e+00]
+Presolve removed 33840 rows and 14543 columns
+Presolve time: 0.62s
+Presolved: 4382 rows, 2447 columns, 13424 nonzeros
+Variable types: 0 continuous, 2447 integer (2447 binary)
+
+Root relaxation: objective 1.068017e+05, 1066 iterations, 0.06 seconds (0.02 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+*    0     0               0    106801.65702 106801.657  0.00%     -    1s
+
+Cutting planes:
+  Lazy constraints: 34
+
+Explored 1 nodes (1066 simplex iterations) in 1.21 seconds (0.24 work units)
+Thread count was 20 (of 20 available processors)
+
+Solution count 1: 106802 
+
+Optimal solution found (tolerance 0.00e+00)
+Best objective 1.068016570151e+05, best bound 1.068016570151e+05, gap 0.0000%
+
+User-callback calls 437, time in user-callback 0.39 sec
+routing took 6329.184532165527ms
+bundle lines...
+bundle lines took 158.42342376708984ms
+serialize graph...
+serialize graph took 249.66001510620117ms
+draw+write svg...
+draw+write svg took 846.6672897338867ms
+compute metrics for layer 0
+SUCCESS

@@ -1,0 +1,72 @@
+Grid size is 0 x 0
+Set selection: None
+Automatically changed grid size to 32 x 32
+layout...
+--- Add dummy points executed in 0.7022347450256348 seconds ---
+--- Grid assignment executed in 0.00623321533203125 seconds ---
+layout took 789.0481948852539ms
+routing...
+Set parameter TokenServer to value "clustermaster.ac.tuwien.ac.at"
+Set parameter TimeLimit to value 3600
+Set parameter MIPGap to value 0
+Set parameter LazyConstraints to value 1
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+
+CPU model: Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 20 physical cores, 20 logical processors, using up to 20 threads
+
+Optimize a model with 264734 rows, 112780 columns and 748600 nonzeros
+Model fingerprint: 0x85484a49
+Variable types: 0 continuous, 112780 integer (112780 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [1e+03, 3e+04]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 6e+00]
+Presolve removed 217992 rows and 88342 columns
+Presolve time: 2.30s
+Presolved: 46742 rows, 24438 columns, 143155 nonzeros
+Variable types: 0 continuous, 24438 integer (24438 binary)
+
+Deterministic concurrent LP optimizer: primal and dual simplex (primal and dual model)
+Showing first log only...
+
+Root relaxation presolved: 46820 rows, 24438 columns, 143467 nonzeros
+
+
+Root simplex log...
+
+Iteration    Objective       Primal Inf.    Dual Inf.      Time
+   11132    4.3127485e+05   3.354841e+01   1.431406e+10      5s
+Concurrent spin time: 0.38s
+
+Solved with dual simplex (primal model)
+
+Root relaxation: objective 2.024420e+05, 22633 iterations, 5.58 seconds (4.28 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+*    0     0               0    202442.02354 202442.024  0.00%     -    8s
+
+Cutting planes:
+  Lazy constraints: 78
+
+Explored 1 nodes (22633 simplex iterations) in 8.93 seconds (6.19 work units)
+Thread count was 20 (of 20 available processors)
+
+Solution count 1: 202442 
+
+Optimal solution found (tolerance 0.00e+00)
+Best objective 2.024420235399e+05, best bound 2.024420235399e+05, gap 0.0000%
+
+User-callback calls 4199, time in user-callback 0.41 sec
+routing took 21488.38520050049ms
+bundle lines...
+bundle lines took 88.36627006530762ms
+serialize graph...
+serialize graph took 525.8669853210449ms
+draw+write svg...
+draw+write svg took 1118.5142993927002ms
+compute metrics for layer 0
+SUCCESS
