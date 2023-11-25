@@ -328,34 +328,35 @@ def render():
 
     L = cosmetic_post_processing(instance, L)
 
-    with timing("serialize graph"):
-        # avoid referencing issues
-        L_ = copy.deepcopy(L)
-        L_.remove_edges_from(
-            [
-                (u, v, k)
-                for u, v, k in L_.edges(keys=True)
-                if not (isinstance(k, tuple) and k[1] == EdgeType.SUPPORT)
-            ]
-        )
-        for u, v, d in L_.edges(data=True):
-            # convert stuff that json doesn't like
-            # sets
-            if "sets" in d:
-                d["sets"] = list(d["sets"])
-            if "partitions" in d:
-                d["partitions"] = list(d["partitions"])
-            # tuple keys
-            if "oeb_order" in d:
-                keys = list(d["oeb_order"])
-                for key in keys:
-                    d["oeb_order"][str(key)] = [*d["oeb_order"][key]]
-                    del d["oeb_order"][key]
+    if config_vars['general.serializegraph'].get():
+        with timing("serialize graph"):
+            # avoid referencing issues
+            L_ = copy.deepcopy(L)
+            L_.remove_edges_from(
+                [
+                    (u, v, k)
+                    for u, v, k in L_.edges(keys=True)
+                    if not (isinstance(k, tuple) and k[1] == EdgeType.SUPPORT)
+                ]
+            )
+            for u, v, d in L_.edges(data=True):
+                # convert stuff that json doesn't like
+                # sets
+                if "sets" in d:
+                    d["sets"] = list(d["sets"])
+                if "partitions" in d:
+                    d["partitions"] = list(d["partitions"])
+                # tuple keys
+                if "oeb_order" in d:
+                    keys = list(d["oeb_order"])
+                    for key in keys:
+                        d["oeb_order"][str(key)] = [*d["oeb_order"][key]]
+                        del d["oeb_order"][key]
 
-        with open(
-            os.path.join(config_vars["general.writedir"].get(), "serialized.json"), "w"
-        ) as f:
-            json.dump(nx.node_link_data(L_), f)
+            with open(
+                os.path.join(config_vars["general.writedir"].get(), "serialized.json"), "w"
+            ) as f:
+                json.dump(nx.node_link_data(L_), f)
     R = copy.deepcopy(L)
     with timing("draw+write svg"):
         L.add_edges_from(
@@ -439,7 +440,7 @@ def autogridsize(nrow):
 )
 @click.option(
     "--layouter",
-    type=click.Choice(["auto", "mds", "qsap"], case_sensitive=False),
+    type=click.Choice(["auto", "mds", "qsap", 'umap'], case_sensitive=False),
     help="the layout algorithm",
 )
 @click.option(
@@ -460,6 +461,9 @@ def autogridsize(nrow):
 @click.option(
     "--compute-metrics", type=bool, help="whether or not to compute metrics about graph"
 )
+@click.option(
+    "--serialize-graph", type=bool, help="whether or not to write graph to a file readable by networkx"
+)
 def vis(
     read_dir,
     write_dir,
@@ -478,6 +482,7 @@ def vis(
     connecter,
     connect_objective,
     compute_metrics,
+    serialize_graph,
 ):
     if dataset is not None:
         config_vars["general.dataset"].set(dataset)
@@ -513,6 +518,8 @@ def vis(
         config_vars["general.sets"].set(sets)
     if compute_metrics is not None:
         config_vars["general.computemetrics"].set(compute_metrics)
+    if serialize_graph is not None:
+        config_vars['general.serialize_graph'].set(serialize_graph)
 
     grid_width, grid_height = get_grid(include_pad=False)
     print(f"Grid size is {grid_width} x {grid_height}")

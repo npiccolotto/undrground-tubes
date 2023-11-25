@@ -100,6 +100,8 @@ def index():
             str(weight),
             "--compute-metrics",
             "0",
+            "--serialize-graph",
+            "0",
             "--connecter",
             "opt" if optConnect else "heuristic",
             "--router",
