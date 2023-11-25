@@ -519,7 +519,7 @@ def vis(
     if compute_metrics is not None:
         config_vars["general.computemetrics"].set(compute_metrics)
     if serialize_graph is not None:
-        config_vars['general.serialize_graph'].set(serialize_graph)
+        config_vars['general.serializegraph'].set(serialize_graph)
 
     grid_width, grid_height = get_grid(include_pad=False)
     print(f"Grid size is {grid_width} x {grid_height}")
