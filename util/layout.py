@@ -118,7 +118,7 @@ def gridify_square(P, level="auto", layer=0):
     return result
 
 def qsap_simple(elements, D, m, n, norm=2, weight=0.5, layer=0):
-    
+
     model = gp.Model("qsap")
 
     X = []
@@ -363,6 +363,10 @@ def solve_hagrid_optimal(max_domain, pos, layer=0):
         model.addConstr(abs_diff[i] == gp.abs_(diff[i]))
 
     model.Params.LazyConstraints = 1
+    if config_vars["layout.ilptimeoutsecs"].get() > 0:
+        model.params.timeLimit = config_vars["layout.ilptimeoutsecs"].get()
+
+    model.params.MIPGap = config_vars["layout.ilpmipgap"].get()
 
     def addViolatedConstraints(m, pValues):
         d = defaultdict(list)
