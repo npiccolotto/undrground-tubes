@@ -81,6 +81,7 @@ def index():
     rows = int(request.args.get("rows", 16))
     cols = int(request.args.get("cols", 16))
     selection = request.args.getlist("selection")
+    connectJointly = request.args.get("connectJointly", "off") == "on"
     optRouter = request.args.get("optRoute", "off") == "on"
     optConnect = request.args.get("optConnect", "off") == "on"
     treesupport = request.args.get("support", "supporttree") == "supporttree"
@@ -106,6 +107,8 @@ def index():
             "opt" if optConnect else "heuristic",
             "--router",
             "opt" if optRouter else "heuristic",
+            "--connect-objective",
+            "joint" if connectJointly else "separate",
             "--support-type",
             "steiner-tree" if treesupport else "path",
             "-w",
