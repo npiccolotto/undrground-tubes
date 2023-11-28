@@ -23,7 +23,7 @@ drawing*.svg
 embedding_gridded*
 embedding_raw.svg
 support*.svg
-**/serialized.json
+serialized.json
 call.json
 
 ilp_status_*.json
@@ -31,4 +31,7 @@ ilp_status_*.json
 .DS_Store
 
 .vscode/settings.json
+
+!designspace-result/**/*.json
+!designspace-result/**/*.svg
 
