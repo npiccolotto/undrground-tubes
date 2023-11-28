@@ -1,0 +1,152 @@
+Grid size is 0 x 0
+Set selection: None
+Automatically changed grid size to 32 x 32
+layout...
+--- Add dummy points executed in 1.5892479419708252 seconds ---
+--- Grid assignment executed in 0.01684856414794922 seconds ---
+layout took 1907.759428024292ms
+routing...
+Set parameter TokenServer to value "clustermaster.ac.tuwien.ac.at"
+Set parameter TimeLimit to value 3600
+Set parameter MIPGap to value 0
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+
+CPU model: Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 20 physical cores, 20 logical processors, using up to 20 threads
+
+Optimize a model with 8760474 rows, 5110218 columns and 34006504 nonzeros
+Model fingerprint: 0xe0bc0682
+Variable types: 0 continuous, 5110218 integer (5110218 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [1e+00, 3e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+Presolve removed 0 rows and 0 columns (presolve time = 6s) ...
+Presolve removed 5064180 rows and 46038 columns (presolve time = 10s) ...
+Presolve removed 5791881 rows and 1196198 columns (presolve time = 15s) ...
+Presolve removed 5808499 rows and 1212816 columns (presolve time = 23s) ...
+Presolve removed 5808499 rows and 1212816 columns (presolve time = 29s) ...
+Presolve removed 5815184 rows and 1212816 columns (presolve time = 31s) ...
+Presolve removed 5815184 rows and 1212816 columns (presolve time = 35s) ...
+Presolve removed 5815184 rows and 1212816 columns (presolve time = 40s) ...
+Presolve removed 5815184 rows and 1212816 columns (presolve time = 45s) ...
+Presolve removed 5815184 rows and 1702560 columns (presolve time = 51s) ...
+Presolve removed 7400282 rows and 1702560 columns (presolve time = 55s) ...
+Presolve removed 7400282 rows and 1702560 columns (presolve time = 60s) ...
+Presolve removed 7400282 rows and 1702560 columns (presolve time = 65s) ...
+Presolve removed 7400282 rows and 1702560 columns (presolve time = 70s) ...
+Presolve removed 7722822 rows and 1702560 columns (presolve time = 76s) ...
+Presolve removed 7722822 rows and 1702560 columns (presolve time = 82s) ...
+Presolve removed 7722822 rows and 1702560 columns (presolve time = 85s) ...
+Presolve removed 7722822 rows and 1702560 columns (presolve time = 90s) ...
+Presolve removed 7722822 rows and 1702560 columns (presolve time = 95s) ...
+Presolve removed 7722822 rows and 1702560 columns (presolve time = 100s) ...
+Presolve removed 7722822 rows and 1702560 columns (presolve time = 106s) ...
+Presolve removed 7722822 rows and 1702560 columns (presolve time = 110s) ...
+Presolve removed 7722822 rows and 1702560 columns (presolve time = 115s) ...
+Presolve removed 7722822 rows and 1702560 columns (presolve time = 120s) ...
+Presolve removed 7722822 rows and 1702560 columns (presolve time = 125s) ...
+Presolve removed 7722822 rows and 1702560 columns (presolve time = 131s) ...
+Presolve removed 7722822 rows and 1702560 columns (presolve time = 135s) ...
+Presolve removed 7722822 rows and 1702560 columns (presolve time = 140s) ...
+Presolve removed 7722822 rows and 1702560 columns (presolve time = 145s) ...
+Presolve removed 7722822 rows and 1702560 columns (presolve time = 150s) ...
+Presolve removed 7722822 rows and 1702560 columns (presolve time = 155s) ...
+Presolve removed 7722822 rows and 1702560 columns (presolve time = 160s) ...
+Presolve removed 7722822 rows and 1702560 columns (presolve time = 165s) ...
+Presolve removed 7783110 rows and 1888424 columns (presolve time = 173s) ...
+Presolve removed 7783110 rows and 1888424 columns (presolve time = 177s) ...
+Presolve removed 7783110 rows and 1888424 columns
+Presolve time: 176.70s
+Presolved: 977364 rows, 3221794 columns, 13058864 nonzeros
+Variable types: 0 continuous, 3221794 integer (3221794 binary)
+Deterministic concurrent LP optimizer: primal simplex, dual simplex, and barrier
+Showing barrier log only...
+
+Root barrier log...
+
+Elapsed ordering time = 30s
+Elapsed ordering time = 30s
+Elapsed ordering time = 35s
+Ordering time: 36.60s
+
+Barrier statistics:
+ AA' NZ     : 7.065e+06
+ Factor NZ  : 1.647e+08 (roughly 3.0 GB of memory)
+ Factor Ops : 1.769e+11 (roughly 2 seconds per iteration)
+ Threads    : 17
+
+                  Objective                Residual
+Iter       Primal          Dual         Primal    Dual     Compl     Time
+   0   1.00474530e+07  3.83667262e+02  2.63e+03 0.00e+00  1.93e+00   276s
+
+Barrier performed 0 iterations in 275.66 seconds (134.11 work units)
+Barrier solve interrupted - model solved by another algorithm
+
+Concurrent spin time: 25.86s (can be avoided by choosing Method=3)
+
+Solved with dual simplex
+
+Root relaxation: objective 9.658334e+02, 17353 iterations, 74.28 seconds (12.82 work units)
+Total elapsed time = 283.52s
+Total elapsed time = 288.43s
+Total elapsed time = 292.15s
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0  965.83341    0  116          -  965.83341      -     -  296s
+     0     0  965.95787    0  258          -  965.95787      -     -  322s
+     0     0  966.19708    0  255          -  966.19708      -     -  380s
+     0     0  966.19708    0  213          -  966.19708      -     -  400s
+     0     0  966.33341    0  226          -  966.33341      -     -  419s
+     0     0  966.33341    0  279          -  966.33341      -     -  453s
+     0     0  966.33341    0  225          -  966.33341      -     -  469s
+     0     0  966.37588    0  265          -  966.37588      -     -  493s
+     0     0  966.64407    0  169          -  966.64407      -     -  513s
+     0     0  966.64407    0  159          -  966.64407      -     -  530s
+     0     0  966.64407    0  162          -  966.64407      -     -  546s
+     0     0  966.79182    0  331          -  966.79182      -     -  560s
+     0     0  966.80262    0  335          -  966.80262      -     -  584s
+     0     0  966.86006    0  209          -  966.86006      -     -  601s
+     0     0  966.86006    0  212          -  966.86006      -     -  618s
+     0     0  967.06907    0  285          -  967.06907      -     -  630s
+     0     0  967.06907    0  288          -  967.06907      -     -  649s
+     0     0  967.07545    0  324          -  967.07545      -     -  662s
+     0     0  967.07545    0  325          -  967.07545      -     -  675s
+     0     0  967.07545    0  328          -  967.07545      -     -  683s
+     0     0  967.07545    0  330          -  967.07545      -     -  700s
+     0     0  967.09916    0  343          -  967.09916      -     -  721s
+     0     0  967.09916    0  345          -  967.09916      -     -  743s
+     0     0  967.09916    0  344          -  967.09916      -     -  754s
+     0     0  967.09916    0  347          -  967.09916      -     -  789s
+     0     0  967.10367    0  343          -  967.10367      -     -  822s
+     0     0  967.10367    0  343          -  967.10367      -     -  842s
+     0     0  967.11869    0  337          -  967.11869      -     -  858s
+     0     0  967.11869    0  339          -  967.11869      -     -  876s
+     0     0  967.11869    0  339          -  967.11869      -     -  892s
+     0     0  967.13168    0  340          -  967.13168      -     -  929s
+     0     0  967.13168    0  343          -  967.13168      -     -  947s
+     0     0  967.13168    0  342          -  967.13168      -     -  965s
+     0     0  967.13168    0  342          -  967.13168      -     - 1015s
+     0     2  967.13463    0  341          -  967.13463      -     - 1301s
+     1     4  967.37073    1  306          -  967.37073      -  4452 1323s
+
+Cutting planes:
+  Gomory: 4
+  Lift-and-project: 2
+  Clique: 150
+  MIR: 4
+  Zero half: 78
+  RLT: 21
+
+Explored 3 nodes (56354 simplex iterations) in 1328.02 seconds (468.24 work units)
+Thread count was 20 (of 20 available processors)
+
+Solution count 0
+
+Solve interrupted (error code 10001)
+Best objective -, best bound 9.675963715559e+02, gap -
+routing took 1913343.4510231018ms
+ERROR

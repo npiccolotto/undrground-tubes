@@ -1,0 +1,2662 @@
+{
+  "type": "FeatureCollection",
+  "properties": {
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.3250000000, 48.0250000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ad98250",
+        "station_id": "(1, 9)",
+        "station_label": "(1, 9)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.3500000000, 47.8750000000]
+      },
+      "properties": {
+        "deg": "1",
+        "deg_in": "1",
+        "deg_out": "1",
+        "id": "0x56050ae0dbd0",
+        "station_id": "(2, 15)",
+        "station_label": "(2, 15)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.3750000000, 48.2000000000]
+      },
+      "properties": {
+        "deg": "1",
+        "deg_in": "1",
+        "deg_out": "1",
+        "id": "0x56050ae0ddc0",
+        "station_id": "(3, 2)",
+        "station_label": "(3, 2)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.4000000000, 48.0500000000]
+      },
+      "properties": {
+        "deg": "3",
+        "deg_in": "3",
+        "deg_out": "3",
+        "id": "0x56050ae0dfb0",
+        "station_id": "(4, 8)",
+        "station_label": "(4, 8)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.4250000000, 48.1500000000]
+      },
+      "properties": {
+        "deg": "3",
+        "deg_in": "3",
+        "deg_out": "3",
+        "id": "0x56050ae0e1a0",
+        "station_id": "(5, 4)",
+        "station_label": "(5, 4)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.4500000000, 48.2250000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae0e390",
+        "station_id": "(6, 1)",
+        "station_label": "(6, 1)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.4500000000, 47.9500000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae0e580",
+        "station_id": "(6, 12)",
+        "station_label": "(6, 12)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.4750000000, 48.0250000000]
+      },
+      "properties": {
+        "deg": "3",
+        "deg_in": "3",
+        "deg_out": "3",
+        "id": "0x56050ae0e770",
+        "station_id": "(7, 9)",
+        "station_label": "(7, 9)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.4750000000, 47.9250000000]
+      },
+      "properties": {
+        "deg": "3",
+        "deg_in": "3",
+        "deg_out": "3",
+        "id": "0x56050ae0e960",
+        "station_id": "(7, 13)",
+        "station_label": "(7, 13)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.5250000000, 48.1500000000]
+      },
+      "properties": {
+        "deg": "3",
+        "deg_in": "3",
+        "deg_out": "3",
+        "id": "0x56050ae0eb50",
+        "station_id": "(9, 4)",
+        "station_label": "(9, 4)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.5250000000, 47.9250000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae0ed40",
+        "station_id": "(9, 13)",
+        "station_label": "(9, 13)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.5500000000, 47.9250000000]
+      },
+      "properties": {
+        "deg": "3",
+        "deg_in": "3",
+        "deg_out": "3",
+        "id": "0x56050ae0ef30",
+        "station_id": "(10, 13)",
+        "station_label": "(10, 13)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.5750000000, 48.0500000000]
+      },
+      "properties": {
+        "deg": "4",
+        "deg_in": "4",
+        "deg_out": "4",
+        "id": "0x56050ae0f120",
+        "station_id": "(11, 8)",
+        "station_label": "(11, 8)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.6000000000, 48.0000000000]
+      },
+      "properties": {
+        "deg": "4",
+        "deg_in": "4",
+        "deg_out": "4",
+        "id": "0x56050ae0f310",
+        "station_id": "(12, 10)",
+        "station_label": "(12, 10)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.6250000000, 47.9250000000]
+      },
+      "properties": {
+        "deg": "3",
+        "deg_in": "3",
+        "deg_out": "3",
+        "id": "0x56050ae0f500",
+        "station_id": "(13, 13)",
+        "station_label": "(13, 13)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.6250000000, 47.8500000000]
+      },
+      "properties": {
+        "deg": "1",
+        "deg_in": "1",
+        "deg_out": "1",
+        "id": "0x56050ae0f6f0",
+        "station_id": "(13, 16)",
+        "station_label": "(13, 16)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.6500000000, 48.2000000000]
+      },
+      "properties": {
+        "deg": "1",
+        "deg_in": "1",
+        "deg_out": "1",
+        "id": "0x56050ae0f8e0",
+        "station_id": "(14, 2)",
+        "station_label": "(14, 2)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.6500000000, 48.0250000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae0fad0",
+        "station_id": "(14, 9)",
+        "station_label": "(14, 9)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.6750000000, 48.2000000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae0fcc0",
+        "station_id": "(15, 2)",
+        "station_label": "(15, 2)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.6750000000, 48.1250000000]
+      },
+      "properties": {
+        "deg": "3",
+        "deg_in": "3",
+        "deg_out": "3",
+        "id": "0x56050ae0feb0",
+        "station_id": "(15, 5)",
+        "station_label": "(15, 5)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.3500000000, 48.0500000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae100a0",
+        "station_id": "(2, 8)",
+        "station_label": "(2, 8)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.3500000000, 48.0250000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae10290",
+        "station_id": "(2, 9)",
+        "station_label": "(2, 9)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.3750000000, 48.0500000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae10480",
+        "station_id": "(3, 8)",
+        "station_label": "(3, 8)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.3750000000, 48.0250000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae10670",
+        "station_id": "(3, 9)",
+        "station_label": "(3, 9)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.3750000000, 47.9000000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae10860",
+        "station_id": "(3, 14)",
+        "station_label": "(3, 14)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.4000000000, 48.1750000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae10a50",
+        "station_id": "(4, 3)",
+        "station_label": "(4, 3)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.4000000000, 48.0250000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae10c40",
+        "station_id": "(4, 9)",
+        "station_label": "(4, 9)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.4000000000, 47.9250000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae10e30",
+        "station_id": "(4, 13)",
+        "station_label": "(4, 13)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.4250000000, 48.0750000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae11020",
+        "station_id": "(5, 7)",
+        "station_label": "(5, 7)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.4250000000, 48.0250000000]
+      },
+      "properties": {
+        "deg": "3",
+        "deg_in": "3",
+        "deg_out": "3",
+        "id": "0x56050ae11210",
+        "station_id": "(5, 9)",
+        "station_label": "(5, 9)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.4250000000, 47.9500000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae11400",
+        "station_id": "(5, 12)",
+        "station_label": "(5, 12)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.4500000000, 48.1750000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae115f0",
+        "station_id": "(6, 3)",
+        "station_label": "(6, 3)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.4250000000, 48.1250000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae117e0",
+        "station_id": "(5, 5)",
+        "station_label": "(5, 5)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.4250000000, 48.1000000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae119d0",
+        "station_id": "(5, 6)",
+        "station_label": "(5, 6)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.4500000000, 48.0250000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae11bc0",
+        "station_id": "(6, 9)",
+        "station_label": "(6, 9)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.4500000000, 47.9750000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae11db0",
+        "station_id": "(6, 11)",
+        "station_label": "(6, 11)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.4750000000, 48.2000000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae11fa0",
+        "station_id": "(7, 2)",
+        "station_label": "(7, 2)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.4500000000, 48.2000000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae12190",
+        "station_id": "(6, 2)",
+        "station_label": "(6, 2)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.4750000000, 48.0000000000]
+      },
+      "properties": {
+        "deg": "4",
+        "deg_in": "4",
+        "deg_out": "4",
+        "id": "0x56050ae12380",
+        "station_id": "(7, 10)",
+        "station_label": "(7, 10)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.4750000000, 47.9750000000]
+      },
+      "properties": {
+        "deg": "3",
+        "deg_in": "3",
+        "deg_out": "3",
+        "id": "0x56050ae12570",
+        "station_id": "(7, 11)",
+        "station_label": "(7, 11)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.5000000000, 48.1750000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae12760",
+        "station_id": "(8, 3)",
+        "station_label": "(8, 3)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.5000000000, 48.0500000000]
+      },
+      "properties": {
+        "deg": "3",
+        "deg_in": "3",
+        "deg_out": "3",
+        "id": "0x56050ae12950",
+        "station_id": "(8, 8)",
+        "station_label": "(8, 8)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.5000000000, 48.0250000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae12b40",
+        "station_id": "(8, 9)",
+        "station_label": "(8, 9)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.4750000000, 47.9500000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae12d30",
+        "station_id": "(7, 12)",
+        "station_label": "(7, 12)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.5000000000, 47.9250000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae12f20",
+        "station_id": "(8, 13)",
+        "station_label": "(8, 13)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.5250000000, 48.0750000000]
+      },
+      "properties": {
+        "deg": "3",
+        "deg_in": "3",
+        "deg_out": "3",
+        "id": "0x56050ae13110",
+        "station_id": "(9, 7)",
+        "station_label": "(9, 7)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.5250000000, 48.0500000000]
+      },
+      "properties": {
+        "deg": "4",
+        "deg_in": "4",
+        "deg_out": "4",
+        "id": "0x56050ae13300",
+        "station_id": "(9, 8)",
+        "station_label": "(9, 8)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.5500000000, 48.1250000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae134f0",
+        "station_id": "(10, 5)",
+        "station_label": "(10, 5)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.5250000000, 48.1250000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae136e0",
+        "station_id": "(9, 5)",
+        "station_label": "(9, 5)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.5250000000, 48.1000000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae138d0",
+        "station_id": "(9, 6)",
+        "station_label": "(9, 6)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.5500000000, 48.0500000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae13ac0",
+        "station_id": "(10, 8)",
+        "station_label": "(10, 8)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.5750000000, 48.1000000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae13cb0",
+        "station_id": "(11, 6)",
+        "station_label": "(11, 6)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.5500000000, 47.9500000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae13ea0",
+        "station_id": "(10, 12)",
+        "station_label": "(10, 12)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.5750000000, 47.9750000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae14090",
+        "station_id": "(11, 11)",
+        "station_label": "(11, 11)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.5750000000, 47.9250000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae14280",
+        "station_id": "(11, 13)",
+        "station_label": "(11, 13)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.5750000000, 48.0750000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae14470",
+        "station_id": "(11, 7)",
+        "station_label": "(11, 7)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.6000000000, 48.0500000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae14660",
+        "station_id": "(12, 8)",
+        "station_label": "(12, 8)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.6000000000, 48.0250000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae14850",
+        "station_id": "(12, 9)",
+        "station_label": "(12, 9)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.6000000000, 47.9250000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae14a40",
+        "station_id": "(12, 13)",
+        "station_label": "(12, 13)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.6250000000, 48.0750000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae14c30",
+        "station_id": "(13, 7)",
+        "station_label": "(13, 7)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.6250000000, 48.0000000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae14e20",
+        "station_id": "(13, 10)",
+        "station_label": "(13, 10)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.6250000000, 47.9750000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae15010",
+        "station_id": "(13, 11)",
+        "station_label": "(13, 11)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.6500000000, 48.1000000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae15200",
+        "station_id": "(14, 6)",
+        "station_label": "(14, 6)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.6250000000, 47.9500000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae153f0",
+        "station_id": "(13, 12)",
+        "station_label": "(13, 12)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.6250000000, 47.9000000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae155e0",
+        "station_id": "(13, 14)",
+        "station_label": "(13, 14)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.6250000000, 47.8750000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae157d0",
+        "station_id": "(13, 15)",
+        "station_label": "(13, 15)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.6750000000, 48.0500000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae159c0",
+        "station_id": "(15, 8)",
+        "station_label": "(15, 8)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.6750000000, 48.1750000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae15bb0",
+        "station_id": "(15, 3)",
+        "station_label": "(15, 3)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.6750000000, 48.1500000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae15da0",
+        "station_id": "(15, 4)",
+        "station_label": "(15, 4)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.6750000000, 48.1000000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae15f90",
+        "station_id": "(15, 6)",
+        "station_label": "(15, 6)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [16.6750000000, 48.0750000000]
+      },
+      "properties": {
+        "deg": "2",
+        "deg_in": "2",
+        "deg_out": "2",
+        "id": "0x56050ae16180",
+        "station_id": "(15, 7)",
+        "station_label": "(15, 7)"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.3250000000, 48.0250000000], [16.3500000000, 48.0500000000]]
+      },
+      "properties": {
+        "dbg_lines": "S3",
+        "from": "0x56050ad98250",
+        "id": "0x56050ad96dc0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }],
+        "to": "0x56050ae100a0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.3250000000, 48.0250000000], [16.3500000000, 48.0250000000]]
+      },
+      "properties": {
+        "dbg_lines": "S2",
+        "from": "0x56050ad98250",
+        "id": "0x56050ae17030",
+        "lines": [
+          {
+            "color": "",
+            "id": "S2",
+            "label": "S2"
+          }],
+        "to": "0x56050ae10290"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.3500000000, 47.8750000000], [16.3750000000, 47.9000000000]]
+      },
+      "properties": {
+        "dbg_lines": "S5",
+        "from": "0x56050ae0dbd0",
+        "id": "0x56050ae172c0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S5",
+            "label": "S5"
+          }],
+        "to": "0x56050ae10860"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.3750000000, 48.2000000000], [16.4000000000, 48.1750000000]]
+      },
+      "properties": {
+        "dbg_lines": "S3",
+        "from": "0x56050ae0ddc0",
+        "id": "0x56050ae17570",
+        "lines": [
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }],
+        "to": "0x56050ae10a50"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4000000000, 48.0500000000], [16.3750000000, 48.0500000000]]
+      },
+      "properties": {
+        "dbg_lines": "S3",
+        "from": "0x56050ae0dfb0",
+        "id": "0x56050ae17760",
+        "lines": [
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }],
+        "to": "0x56050ae10480"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4000000000, 48.0500000000], [16.4250000000, 48.0750000000]]
+      },
+      "properties": {
+        "dbg_lines": "S3",
+        "from": "0x56050ae0dfb0",
+        "id": "0x56050ae17950",
+        "lines": [
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }],
+        "to": "0x56050ae11020"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4000000000, 48.0500000000], [16.4250000000, 48.0250000000]]
+      },
+      "properties": {
+        "dbg_lines": "S3",
+        "from": "0x56050ae0dfb0",
+        "id": "0x56050ae17b20",
+        "lines": [
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }],
+        "to": "0x56050ae11210"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4250000000, 48.1500000000], [16.4000000000, 48.1750000000]]
+      },
+      "properties": {
+        "dbg_lines": "S3",
+        "from": "0x56050ae0e1a0",
+        "id": "0x56050ae17cf0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }],
+        "to": "0x56050ae10a50"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4250000000, 48.1500000000], [16.4500000000, 48.1750000000]]
+      },
+      "properties": {
+        "dbg_lines": "S3",
+        "from": "0x56050ae0e1a0",
+        "id": "0x56050ae17ec0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }],
+        "to": "0x56050ae115f0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4250000000, 48.1500000000], [16.4250000000, 48.1250000000]]
+      },
+      "properties": {
+        "dbg_lines": "S3",
+        "from": "0x56050ae0e1a0",
+        "id": "0x56050ae18090",
+        "lines": [
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }],
+        "to": "0x56050ae117e0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4500000000, 48.2250000000], [16.4750000000, 48.2000000000]]
+      },
+      "properties": {
+        "dbg_lines": "S1",
+        "from": "0x56050ae0e390",
+        "id": "0x56050ae18260",
+        "lines": [
+          {
+            "color": "",
+            "id": "S1",
+            "label": "S1"
+          }],
+        "to": "0x56050ae11fa0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4500000000, 48.2250000000], [16.4500000000, 48.2000000000]]
+      },
+      "properties": {
+        "dbg_lines": "S3",
+        "from": "0x56050ae0e390",
+        "id": "0x56050ae18510",
+        "lines": [
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }],
+        "to": "0x56050ae12190"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4500000000, 47.9500000000], [16.4750000000, 47.9750000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4,S3",
+        "from": "0x56050ae0e580",
+        "id": "0x56050ae186e0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }, 
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }],
+        "to": "0x56050ae12570"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4500000000, 47.9500000000], [16.4750000000, 47.9250000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4",
+        "from": "0x56050ae0e580",
+        "id": "0x56050ae18ef0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae0e960"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4750000000, 48.0250000000], [16.4500000000, 48.0250000000]]
+      },
+      "properties": {
+        "dbg_lines": "S3,S2",
+        "from": "0x56050ae0e770",
+        "id": "0x56050ae19050",
+        "lines": [
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }, 
+          {
+            "color": "",
+            "id": "S2",
+            "label": "S2"
+          }],
+        "to": "0x56050ae11bc0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4750000000, 48.0250000000], [16.5000000000, 48.0500000000]]
+      },
+      "properties": {
+        "dbg_lines": "S3,S1",
+        "from": "0x56050ae0e770",
+        "id": "0x56050ae192f0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }, 
+          {
+            "color": "",
+            "id": "S1",
+            "label": "S1"
+          }],
+        "to": "0x56050ae12950"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4750000000, 48.0250000000], [16.4750000000, 48.0000000000]]
+      },
+      "properties": {
+        "dbg_lines": "S2,S3,S4",
+        "from": "0x56050ae0e770",
+        "id": "0x56050ae19580",
+        "lines": [
+          {
+            "color": "",
+            "id": "S2",
+            "label": "S2"
+          }, 
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }, 
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae12380"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4750000000, 47.9250000000], [16.4750000000, 47.9500000000]]
+      },
+      "properties": {
+        "dbg_lines": "S2",
+        "from": "0x56050ae0e960",
+        "id": "0x56050ae19db0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S2",
+            "label": "S2"
+          }],
+        "to": "0x56050ae12d30"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4750000000, 47.9250000000], [16.5000000000, 47.9250000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4,S2",
+        "from": "0x56050ae0e960",
+        "id": "0x56050ae19f10",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }, 
+          {
+            "color": "",
+            "id": "S2",
+            "label": "S2"
+          }],
+        "to": "0x56050ae12f20"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.5250000000, 48.1500000000], [16.5000000000, 48.1750000000]]
+      },
+      "properties": {
+        "dbg_lines": "S1",
+        "from": "0x56050ae0eb50",
+        "id": "0x56050ae1a050",
+        "lines": [
+          {
+            "color": "",
+            "id": "S1",
+            "label": "S1"
+          }],
+        "to": "0x56050ae12760"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.5250000000, 48.1500000000], [16.5500000000, 48.1250000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4",
+        "from": "0x56050ae0eb50",
+        "id": "0x56050ae1a1d0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae134f0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.5250000000, 48.1500000000], [16.5250000000, 48.1250000000]]
+      },
+      "properties": {
+        "dbg_lines": "S1,S5",
+        "from": "0x56050ae0eb50",
+        "id": "0x56050ae1a310",
+        "lines": [
+          {
+            "color": "",
+            "id": "S1",
+            "label": "S1"
+          }, 
+          {
+            "color": "",
+            "id": "S5",
+            "label": "S5"
+          }],
+        "to": "0x56050ae136e0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.5250000000, 47.9250000000], [16.5000000000, 47.9250000000]]
+      },
+      "properties": {
+        "dbg_lines": "S2,S4",
+        "from": "0x56050ae0ed40",
+        "id": "0x56050ae1a530",
+        "lines": [
+          {
+            "color": "",
+            "id": "S2",
+            "label": "S2"
+          }, 
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae12f20"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.5250000000, 47.9250000000], [16.5500000000, 47.9250000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4,S2",
+        "from": "0x56050ae0ed40",
+        "id": "0x56050ae1a780",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }, 
+          {
+            "color": "",
+            "id": "S2",
+            "label": "S2"
+          }],
+        "to": "0x56050ae0ef30"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.5500000000, 47.9250000000], [16.5500000000, 47.9500000000]]
+      },
+      "properties": {
+        "dbg_lines": "S2",
+        "from": "0x56050ae0ef30",
+        "id": "0x56050ae1aa10",
+        "lines": [
+          {
+            "color": "",
+            "id": "S2",
+            "label": "S2"
+          }],
+        "to": "0x56050ae13ea0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.5500000000, 47.9250000000], [16.5750000000, 47.9250000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4",
+        "from": "0x56050ae0ef30",
+        "id": "0x56050ae1ab70",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae14280"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.5750000000, 48.0500000000], [16.5500000000, 48.0500000000]]
+      },
+      "properties": {
+        "dbg_lines": "S3",
+        "from": "0x56050ae0f120",
+        "id": "0x56050ae1acb0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }],
+        "to": "0x56050ae13ac0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.5750000000, 48.0500000000], [16.5750000000, 48.0750000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4",
+        "from": "0x56050ae0f120",
+        "id": "0x56050ae1ae10",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae14470"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.5750000000, 48.0500000000], [16.6000000000, 48.0500000000]]
+      },
+      "properties": {
+        "dbg_lines": "S0,S3",
+        "from": "0x56050ae0f120",
+        "id": "0x56050ae1af50",
+        "lines": [
+          {
+            "color": "",
+            "id": "S0",
+            "label": "S0"
+          }, 
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }],
+        "to": "0x56050ae14660"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.5750000000, 48.0500000000], [16.6000000000, 48.0250000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4",
+        "from": "0x56050ae0f120",
+        "id": "0x56050ae1b360",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae14850"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.6000000000, 48.0000000000], [16.5750000000, 47.9750000000]]
+      },
+      "properties": {
+        "dbg_lines": "S2",
+        "from": "0x56050ae0f310",
+        "id": "0x56050ae1b4a0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S2",
+            "label": "S2"
+          }],
+        "to": "0x56050ae14090"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.6000000000, 48.0000000000], [16.6000000000, 48.0250000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4",
+        "from": "0x56050ae0f310",
+        "id": "0x56050ae1b600",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae14850"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.6000000000, 48.0000000000], [16.6250000000, 48.0000000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4",
+        "from": "0x56050ae0f310",
+        "id": "0x56050ae1b720",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae14e20"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.6000000000, 48.0000000000], [16.6250000000, 47.9750000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4",
+        "from": "0x56050ae0f310",
+        "id": "0x56050ae1b860",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae15010"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.6250000000, 47.9250000000], [16.6000000000, 47.9250000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4",
+        "from": "0x56050ae0f500",
+        "id": "0x56050ae1b980",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae14a40"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.6250000000, 47.9250000000], [16.6250000000, 47.9500000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4",
+        "from": "0x56050ae0f500",
+        "id": "0x56050ae1bae0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae153f0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.6250000000, 47.9250000000], [16.6250000000, 47.9000000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4",
+        "from": "0x56050ae0f500",
+        "id": "0x56050ae1bc20",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae155e0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.6250000000, 47.8500000000], [16.6250000000, 47.8750000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4",
+        "from": "0x56050ae0f6f0",
+        "id": "0x56050ae1bdf0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae157d0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.6500000000, 48.2000000000], [16.6750000000, 48.2000000000]]
+      },
+      "properties": {
+        "dbg_lines": "S0",
+        "from": "0x56050ae0f8e0",
+        "id": "0x56050ae1bfe0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S0",
+            "label": "S0"
+          }],
+        "to": "0x56050ae0fcc0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.6500000000, 48.0250000000], [16.6250000000, 48.0000000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4",
+        "from": "0x56050ae0fad0",
+        "id": "0x56050ae1c140",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae14e20"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.6500000000, 48.0250000000], [16.6750000000, 48.0500000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4",
+        "from": "0x56050ae0fad0",
+        "id": "0x56050ae1c360",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae159c0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.6750000000, 48.2000000000], [16.6750000000, 48.1750000000]]
+      },
+      "properties": {
+        "dbg_lines": "S0",
+        "from": "0x56050ae0fcc0",
+        "id": "0x56050ae1c530",
+        "lines": [
+          {
+            "color": "",
+            "id": "S0",
+            "label": "S0"
+          }],
+        "to": "0x56050ae15bb0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.6750000000, 48.1250000000], [16.6500000000, 48.1000000000]]
+      },
+      "properties": {
+        "dbg_lines": "S3,S0",
+        "from": "0x56050ae0feb0",
+        "id": "0x56050ae1c700",
+        "lines": [
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }, 
+          {
+            "color": "",
+            "id": "S0",
+            "label": "S0"
+          }],
+        "to": "0x56050ae15200"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.6750000000, 48.1250000000], [16.6750000000, 48.1500000000]]
+      },
+      "properties": {
+        "dbg_lines": "S0",
+        "from": "0x56050ae0feb0",
+        "id": "0x56050ae1cda0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S0",
+            "label": "S0"
+          }],
+        "to": "0x56050ae15da0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.6750000000, 48.1250000000], [16.6750000000, 48.1000000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4",
+        "from": "0x56050ae0feb0",
+        "id": "0x56050ae1cf00",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae15f90"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.3500000000, 48.0500000000], [16.3750000000, 48.0500000000]]
+      },
+      "properties": {
+        "dbg_lines": "S3",
+        "from": "0x56050ae100a0",
+        "id": "0x56050ae1d040",
+        "lines": [
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }],
+        "to": "0x56050ae10480"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.3500000000, 48.0250000000], [16.3750000000, 48.0250000000]]
+      },
+      "properties": {
+        "dbg_lines": "S2",
+        "from": "0x56050ae10290",
+        "id": "0x56050ae1d160",
+        "lines": [
+          {
+            "color": "",
+            "id": "S2",
+            "label": "S2"
+          }],
+        "to": "0x56050ae10670"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.3750000000, 48.0250000000], [16.4000000000, 48.0250000000]]
+      },
+      "properties": {
+        "dbg_lines": "S2",
+        "from": "0x56050ae10670",
+        "id": "0x56050ae1d2a0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S2",
+            "label": "S2"
+          }],
+        "to": "0x56050ae10c40"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.3750000000, 47.9000000000], [16.4000000000, 47.9250000000]]
+      },
+      "properties": {
+        "dbg_lines": "S5",
+        "from": "0x56050ae10860",
+        "id": "0x56050ae1d3e0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S5",
+            "label": "S5"
+          }],
+        "to": "0x56050ae10e30"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4000000000, 48.0250000000], [16.4250000000, 48.0250000000]]
+      },
+      "properties": {
+        "dbg_lines": "S2",
+        "from": "0x56050ae10c40",
+        "id": "0x56050ae1d520",
+        "lines": [
+          {
+            "color": "",
+            "id": "S2",
+            "label": "S2"
+          }],
+        "to": "0x56050ae11210"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4000000000, 47.9250000000], [16.4250000000, 47.9500000000]]
+      },
+      "properties": {
+        "dbg_lines": "S5",
+        "from": "0x56050ae10e30",
+        "id": "0x56050ae1d640",
+        "lines": [
+          {
+            "color": "",
+            "id": "S5",
+            "label": "S5"
+          }],
+        "to": "0x56050ae11400"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4250000000, 48.0750000000], [16.4250000000, 48.1000000000]]
+      },
+      "properties": {
+        "dbg_lines": "S3",
+        "from": "0x56050ae11020",
+        "id": "0x56050ae1d7e0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }],
+        "to": "0x56050ae119d0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4250000000, 48.0250000000], [16.4500000000, 48.0250000000]]
+      },
+      "properties": {
+        "dbg_lines": "S2,S3",
+        "from": "0x56050ae11210",
+        "id": "0x56050ae1d980",
+        "lines": [
+          {
+            "color": "",
+            "id": "S2",
+            "label": "S2"
+          }, 
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }],
+        "to": "0x56050ae11bc0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4250000000, 47.9500000000], [16.4500000000, 47.9750000000]]
+      },
+      "properties": {
+        "dbg_lines": "S5",
+        "from": "0x56050ae11400",
+        "id": "0x56050ae1dfe0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S5",
+            "label": "S5"
+          }],
+        "to": "0x56050ae11db0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4500000000, 48.1750000000], [16.4500000000, 48.2000000000]]
+      },
+      "properties": {
+        "dbg_lines": "S3",
+        "from": "0x56050ae115f0",
+        "id": "0x56050ae1e140",
+        "lines": [
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }],
+        "to": "0x56050ae12190"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4250000000, 48.1250000000], [16.4250000000, 48.1000000000]]
+      },
+      "properties": {
+        "dbg_lines": "S3",
+        "from": "0x56050ae117e0",
+        "id": "0x56050ae1e260",
+        "lines": [
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }],
+        "to": "0x56050ae119d0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4500000000, 47.9750000000], [16.4750000000, 48.0000000000]]
+      },
+      "properties": {
+        "dbg_lines": "S5",
+        "from": "0x56050ae11db0",
+        "id": "0x56050ae1e380",
+        "lines": [
+          {
+            "color": "",
+            "id": "S5",
+            "label": "S5"
+          }],
+        "to": "0x56050ae12380"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4750000000, 48.2000000000], [16.5000000000, 48.1750000000]]
+      },
+      "properties": {
+        "dbg_lines": "S1",
+        "from": "0x56050ae11fa0",
+        "id": "0x56050ae1e4a0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S1",
+            "label": "S1"
+          }],
+        "to": "0x56050ae12760"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4750000000, 48.0000000000], [16.5000000000, 48.0250000000]]
+      },
+      "properties": {
+        "dbg_lines": "S5",
+        "from": "0x56050ae12380",
+        "id": "0x56050ae1e5c0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S5",
+            "label": "S5"
+          }],
+        "to": "0x56050ae12b40"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4750000000, 48.0000000000], [16.4750000000, 47.9750000000]]
+      },
+      "properties": {
+        "dbg_lines": "S2,S3,S4",
+        "from": "0x56050ae12380",
+        "id": "0x56050ae1e700",
+        "lines": [
+          {
+            "color": "",
+            "id": "S2",
+            "label": "S2"
+          }, 
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }, 
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae12570"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.4750000000, 47.9750000000], [16.4750000000, 47.9500000000]]
+      },
+      "properties": {
+        "dbg_lines": "S2",
+        "from": "0x56050ae12570",
+        "id": "0x56050ae1f120",
+        "lines": [
+          {
+            "color": "",
+            "id": "S2",
+            "label": "S2"
+          }],
+        "to": "0x56050ae12d30"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.5000000000, 48.0500000000], [16.5250000000, 48.0750000000]]
+      },
+      "properties": {
+        "dbg_lines": "S1",
+        "from": "0x56050ae12950",
+        "id": "0x56050ae1f260",
+        "lines": [
+          {
+            "color": "",
+            "id": "S1",
+            "label": "S1"
+          }],
+        "to": "0x56050ae13110"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.5000000000, 48.0500000000], [16.5250000000, 48.0500000000]]
+      },
+      "properties": {
+        "dbg_lines": "S3",
+        "from": "0x56050ae12950",
+        "id": "0x56050ae1f3a0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }],
+        "to": "0x56050ae13300"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.5000000000, 48.0250000000], [16.5250000000, 48.0500000000]]
+      },
+      "properties": {
+        "dbg_lines": "S5",
+        "from": "0x56050ae12b40",
+        "id": "0x56050ae1f4e0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S5",
+            "label": "S5"
+          }],
+        "to": "0x56050ae13300"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.5250000000, 48.0750000000], [16.5250000000, 48.1000000000]]
+      },
+      "properties": {
+        "dbg_lines": "S5,S1",
+        "from": "0x56050ae13110",
+        "id": "0x56050ae1f600",
+        "lines": [
+          {
+            "color": "",
+            "id": "S5",
+            "label": "S5"
+          }, 
+          {
+            "color": "",
+            "id": "S1",
+            "label": "S1"
+          }],
+        "to": "0x56050ae138d0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.5250000000, 48.0750000000], [16.5250000000, 48.0500000000]]
+      },
+      "properties": {
+        "dbg_lines": "S5",
+        "from": "0x56050ae13110",
+        "id": "0x56050ae1f7a0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S5",
+            "label": "S5"
+          }],
+        "to": "0x56050ae13300"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.5250000000, 48.0500000000], [16.5500000000, 48.0500000000]]
+      },
+      "properties": {
+        "dbg_lines": "S3",
+        "from": "0x56050ae13300",
+        "id": "0x56050ae1f8e0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }],
+        "to": "0x56050ae13ac0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.5500000000, 48.1250000000], [16.5750000000, 48.1000000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4",
+        "from": "0x56050ae134f0",
+        "id": "0x56050ae1f9e0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae13cb0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.5250000000, 48.1250000000], [16.5250000000, 48.1000000000]]
+      },
+      "properties": {
+        "dbg_lines": "S1,S5",
+        "from": "0x56050ae136e0",
+        "id": "0x56050ae1fb20",
+        "lines": [
+          {
+            "color": "",
+            "id": "S1",
+            "label": "S1"
+          }, 
+          {
+            "color": "",
+            "id": "S5",
+            "label": "S5"
+          }],
+        "to": "0x56050ae138d0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.5750000000, 48.1000000000], [16.5750000000, 48.0750000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4",
+        "from": "0x56050ae13cb0",
+        "id": "0x56050ae1fe50",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae14470"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.5500000000, 47.9500000000], [16.5750000000, 47.9750000000]]
+      },
+      "properties": {
+        "dbg_lines": "S2",
+        "from": "0x56050ae13ea0",
+        "id": "0x56050ae1ff90",
+        "lines": [
+          {
+            "color": "",
+            "id": "S2",
+            "label": "S2"
+          }],
+        "to": "0x56050ae14090"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.5750000000, 47.9250000000], [16.6000000000, 47.9250000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4",
+        "from": "0x56050ae14280",
+        "id": "0x56050ae200b0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae14a40"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.6000000000, 48.0500000000], [16.6250000000, 48.0750000000]]
+      },
+      "properties": {
+        "dbg_lines": "S0,S3",
+        "from": "0x56050ae14660",
+        "id": "0x56050ae201d0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S0",
+            "label": "S0"
+          }, 
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }],
+        "to": "0x56050ae14c30"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.6250000000, 48.0750000000], [16.6500000000, 48.1000000000]]
+      },
+      "properties": {
+        "dbg_lines": "S0,S3",
+        "from": "0x56050ae14c30",
+        "id": "0x56050ae20570",
+        "lines": [
+          {
+            "color": "",
+            "id": "S0",
+            "label": "S0"
+          }, 
+          {
+            "color": "",
+            "id": "S3",
+            "label": "S3"
+          }],
+        "to": "0x56050ae15200"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.6250000000, 47.9750000000], [16.6250000000, 47.9500000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4",
+        "from": "0x56050ae15010",
+        "id": "0x56050ae207e0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae153f0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.6250000000, 47.9000000000], [16.6250000000, 47.8750000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4",
+        "from": "0x56050ae155e0",
+        "id": "0x56050ae20920",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae157d0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.6750000000, 48.0500000000], [16.6750000000, 48.0750000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4",
+        "from": "0x56050ae159c0",
+        "id": "0x56050ae20a40",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae16180"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.6750000000, 48.1750000000], [16.6750000000, 48.1500000000]]
+      },
+      "properties": {
+        "dbg_lines": "S0",
+        "from": "0x56050ae15bb0",
+        "id": "0x56050ae20b80",
+        "lines": [
+          {
+            "color": "",
+            "id": "S0",
+            "label": "S0"
+          }],
+        "to": "0x56050ae15da0"
+      }
+    }, 
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[16.6750000000, 48.1000000000], [16.6750000000, 48.0750000000]]
+      },
+      "properties": {
+        "dbg_lines": "S4",
+        "from": "0x56050ae15f90",
+        "id": "0x56050ae20ca0",
+        "lines": [
+          {
+            "color": "",
+            "id": "S4",
+            "label": "S4"
+          }],
+        "to": "0x56050ae16180"
+      }
+    }]
+}

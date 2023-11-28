@@ -1,0 +1,90 @@
+Grid size is 0 x 0
+Set selection: None
+Automatically changed grid size to 64 x 64
+layout...
+Set parameter TokenServer to value "clustermaster.ac.tuwien.ac.at"
+Set parameter LazyConstraints to value 1
+Set parameter TimeLimit to value 3600
+Set parameter MIPGap to value 0
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+
+CPU model: Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 20 physical cores, 20 logical processors, using up to 20 threads
+
+Optimize a model with 12880 rows, 25920 columns and 38480 nonzeros
+Model fingerprint: 0xe48aa8a6
+Model has 12880 general constraints
+Variable types: 320 continuous, 25600 integer (0 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [4e+03, 4e+04]
+  RHS range        [8e+01, 4e+03]
+Presolve added 64400 rows and 51520 columns
+Presolve time: 1.80s
+Presolved: 77280 rows, 77440 columns, 205760 nonzeros
+Variable types: 480 continuous, 76960 integer (38640 binary)
+Root relaxation presolved: 77280 rows, 77440 columns, 205760 nonzeros
+
+Deterministic concurrent LP optimizer: primal and dual simplex
+Showing first log only...
+
+
+Root simplex log...
+
+Iteration    Objective       Primal Inf.    Dual Inf.      Time
+   41093    2.9655362e+05   0.000000e+00   2.864000e+03      5s
+   44361    1.3212983e+05   0.000000e+00   8.576000e+03     10s
+   46131    1.3196294e+05   0.000000e+00   4.181000e+04     15s
+Concurrent spin time: 0.00s
+
+Solved with dual simplex
+
+Root simplex log...
+
+Iteration    Objective       Primal Inf.    Dual Inf.      Time
+   37579    0.0000000e+00   0.000000e+00   0.000000e+00     17s
+
+Root relaxation: objective 0.000000e+00, 37579 iterations, 13.88 seconds (4.29 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    6          -    0.00000      -     -   17s
+H    0     0                       2.0000000    0.00000   100%     -   19s
+     0     0    0.00000    0   12    2.00000    0.00000   100%     -   23s
+     0     0    0.00000    0    2    2.00000    0.00000   100%     -   23s
+     0     0    0.00000    0    5    2.00000    0.00000   100%     -   23s
+     0     0    0.00000    0    5    2.00000    0.00000   100%     -   23s
+     0     0    0.00000    0    5    2.00000    0.00000   100%     -   23s
+     0     0    0.00000    0    5    2.00000    0.00000   100%     -   23s
+     0     0    0.11111    0    5    2.00000    0.11111  94.4%     -   23s
+     0     0    0.18182    0    6    2.00000    0.18182  90.9%     -   23s
+     0     0    0.31250    0    5    2.00000    0.31250  84.4%     -   23s
+     0     0    0.31250    0    5    2.00000    0.31250  84.4%     -   24s
+     0     2    1.00000    0    5    2.00000    1.00000  50.0%     -   24s
+
+Cutting planes:
+  MIR: 4
+  Flow cover: 1
+
+Explored 7 nodes (37897 simplex iterations) in 24.16 seconds (6.80 work units)
+Thread count was 20 (of 20 available processors)
+
+Solution count 1: 2 
+
+Optimal solution found (tolerance 0.00e+00)
+Best objective 2.000000000006e+00, best bound 2.000000000006e+00, gap 0.0000%
+
+User-callback calls 7794, time in user-callback 0.72 sec
+layout took 28213.460206985474ms
+routing...
+routing took 165092.5908088684ms
+bundle lines...
+bundle lines took 1912.4979972839355ms
+serialize graph...
+serialize graph took 3611.4022731781006ms
+draw+write svg...
+draw+write svg took 7870.763301849365ms
+compute metrics for layer 0
+SUCCESS

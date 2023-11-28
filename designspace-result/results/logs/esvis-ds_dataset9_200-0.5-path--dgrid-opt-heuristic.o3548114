@@ -1,0 +1,48 @@
+Grid size is 0 x 0
+Set selection: None
+Automatically changed grid size to 64 x 64
+layout...
+--- Add dummy points executed in 0.900972843170166 seconds ---
+--- Grid assignment executed in 0.04084062576293945 seconds ---
+layout took 2875.765800476074ms
+routing...
+Set parameter TokenServer to value "clustermaster.ac.tuwien.ac.at"
+Set parameter TimeLimit to value 3600
+Set parameter MIPGap to value 0
+Set parameter LazyConstraints to value 1
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+
+CPU model: Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 20 physical cores, 20 logical processors, using up to 20 threads
+
+Optimize a model with 30911320 rows, 12539900 columns and 86773200 nonzeros
+Model fingerprint: 0x4b785831
+Variable types: 0 continuous, 12539900 integer (12539900 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [1e+03, 6e+04]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 6e+00]
+Presolve removed 0 rows and 0 columns (presolve time = 9s) ...
+Presolve removed 0 rows and 0 columns (presolve time = 11s) ...
+Presolve removed 0 rows and 0 columns (presolve time = 16s) ...
+Presolve removed 0 rows and 0 columns (presolve time = 21s) ...
+Presolve removed 398762 rows and 275376 columns (presolve time = 25s) ...
+Presolve removed 398762 rows and 275376 columns (presolve time = 33s) ...
+Presolve removed 23903859 rows and 275376 columns (presolve time = 38s) ...
+Presolve removed 23903859 rows and 9691688 columns (presolve time = 41s) ...
+Presolve removed 23903859 rows and 9691688 columns (presolve time = 47s) ...
+Presolve removed 25292298 rows and 9691688 columns (presolve time = 53s) ...
+Presolve removed 25292298 rows and 9691688 columns
+Presolve time: 60.89s
+
+Explored 0 nodes (0 simplex iterations) in 78.91 seconds (45.31 work units)
+Thread count was 1 (of 20 available processors)
+
+Solution count 0
+
+Best objective -, best bound -, gap -
+
+User-callback calls 8207, time in user-callback 0.02 sec
+routing took 877415.530204773ms
+ERROR

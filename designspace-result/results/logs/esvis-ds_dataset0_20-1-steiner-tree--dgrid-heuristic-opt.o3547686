@@ -1,0 +1,74 @@
+Grid size is 0 x 0
+Set selection: None
+Automatically changed grid size to 16 x 16
+layout...
+--- Add dummy points executed in 1.548546314239502 seconds ---
+--- Grid assignment executed in 0.00363922119140625 seconds ---
+layout took 1655.8289527893066ms
+routing...
+Set parameter TokenServer to value "clustermaster.ac.tuwien.ac.at"
+Set parameter TimeLimit to value 3600
+Set parameter MIPGap to value 0
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+
+CPU model: Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 20 physical cores, 20 logical processors, using up to 20 threads
+
+Optimize a model with 937566 rows, 552722 columns and 3764856 nonzeros
+Model fingerprint: 0x814e3c76
+Variable types: 0 continuous, 552722 integer (552722 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [1e+00, 3e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+Presolve removed 777455 rows and 230232 columns (presolve time = 5s) ...
+Presolve removed 832352 rows and 230232 columns (presolve time = 10s) ...
+Presolve removed 848063 rows and 276490 columns (presolve time = 15s) ...
+Presolve removed 848063 rows and 276490 columns
+Presolve time: 15.46s
+Presolved: 89503 rows, 276232 columns, 1234728 nonzeros
+Variable types: 0 continuous, 276232 integer (276232 binary)
+Deterministic concurrent LP optimizer: primal simplex, dual simplex, and barrier
+Showing barrier log only...
+
+Root barrier log...
+
+Ordering time: 0.19s
+
+Barrier performed 0 iterations in 20.48 seconds (9.57 work units)
+Barrier solve interrupted - model solved by another algorithm
+
+Concurrent spin time: 0.02s
+
+Solved with dual simplex
+
+Root simplex log...
+
+Iteration    Objective       Primal Inf.    Dual Inf.      Time
+     697    2.3914518e+02   0.000000e+00   0.000000e+00     21s
+
+Root relaxation: objective 2.391452e+02, 697 iterations, 2.99 seconds (0.91 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+H    0     0                     239.1451840  164.55330  31.2%     -   20s
+     0     0          -    0       239.14518  239.14518  0.00%     -   21s
+
+Explored 1 nodes (1031 simplex iterations) in 21.23 seconds (9.72 work units)
+Thread count was 20 (of 20 available processors)
+
+Solution count 1: 239.145 
+
+Optimal solution found (tolerance 0.00e+00)
+Best objective 2.391451839509e+02, best bound 2.391451839509e+02, gap 0.0000%
+routing took 91678.85947227478ms
+bundle lines...
+bundle lines took 147.0327377319336ms
+serialize graph...
+serialize graph took 295.4397201538086ms
+draw+write svg...
+draw+write svg took 562.7691745758057ms
+compute metrics for layer 0
+SUCCESS

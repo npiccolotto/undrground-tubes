@@ -1,0 +1,13 @@
+Grid size is 0 x 0
+Set selection: None
+Automatically changed grid size to 64 x 64
+layout...
+--- Add dummy points executed in 0.875361442565918 seconds ---
+--- Grid assignment executed in 0.039501190185546875 seconds ---
+layout took 1886.1353397369385ms
+routing...
+Set parameter TokenServer to value "clustermaster.ac.tuwien.ac.at"
+Set parameter TimeLimit to value 3600
+Set parameter MIPGap to value 0
+routing took 762186.8243217468ms
+ERROR

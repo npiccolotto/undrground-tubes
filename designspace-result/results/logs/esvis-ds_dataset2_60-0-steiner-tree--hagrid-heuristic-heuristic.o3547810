@@ -1,0 +1,82 @@
+Grid size is 0 x 0
+Set selection: None
+Automatically changed grid size to 32 x 32
+layout...
+Set parameter TokenServer to value "clustermaster.ac.tuwien.ac.at"
+Set parameter LazyConstraints to value 1
+Set parameter TimeLimit to value 3600
+Set parameter MIPGap to value 0
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+
+CPU model: Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 20 physical cores, 20 logical processors, using up to 20 threads
+
+Optimize a model with 1830 rows, 3720 columns and 5430 nonzeros
+Model fingerprint: 0xda73fef4
+Model has 1830 general constraints
+Variable types: 120 continuous, 3600 integer (0 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+03, 1e+04]
+  RHS range        [5e+01, 1e+03]
+Presolve added 9150 rows and 7320 columns
+Presolve time: 0.19s
+Presolved: 10980 rows, 11040 columns, 29160 nonzeros
+Variable types: 180 continuous, 10860 integer (5490 binary)
+
+Root relaxation: objective 0.000000e+00, 5329 iterations, 0.63 seconds (0.22 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    6          -    0.00000      -     -    1s
+H    0     0                       2.0000000    0.00000   100%     -    1s
+     0     0    0.00000    0   12    2.00000    0.00000   100%     -    1s
+     0     0    0.00000    0    6    2.00000    0.00000   100%     -    1s
+     0     0    0.00000    0    2    2.00000    0.00000   100%     -    1s
+     0     0    0.00000    0    2    2.00000    0.00000   100%     -    1s
+     0     0    0.00000    0    2    2.00000    0.00000   100%     -    1s
+     0     0    0.00000    0    8    2.00000    0.00000   100%     -    1s
+     0     0    0.00000    0    8    2.00000    0.00000   100%     -    1s
+     0     0    0.13333    0   15    2.00000    0.13333  93.3%     -    1s
+     0     0    0.22876    0   22    2.00000    0.22876  88.6%     -    1s
+     0     0    0.83333    0   21    2.00000    0.83333  58.3%     -    1s
+     0     0    0.83333    0   20    2.00000    0.83333  58.3%     -    1s
+     0     0    0.83333    0   20    2.00000    0.83333  58.3%     -    1s
+     0     0    0.83333    0   20    2.00000    0.83333  58.3%     -    1s
+     0     0    0.83333    0   12    2.00000    0.83333  58.3%     -    1s
+     0     0    0.83333    0   18    2.00000    0.83333  58.3%     -    1s
+     0     0    0.83333    0   16    2.00000    0.83333  58.3%     -    1s
+     0     0    0.83333    0   16    2.00000    0.83333  58.3%     -    1s
+     0     0    0.83333    0   16    2.00000    0.83333  58.3%     -    1s
+     0     2    1.50000    0   16    2.00000    1.50000  25.0%     -    1s
+
+Cutting planes:
+  Gomory: 4
+  Cover: 8
+  Implied bound: 16
+  Clique: 1
+  MIR: 6
+  Relax-and-lift: 1
+
+Explored 7 nodes (5563 simplex iterations) in 1.57 seconds (0.51 work units)
+Thread count was 20 (of 20 available processors)
+
+Solution count 1: 2 
+
+Optimal solution found (tolerance 0.00e+00)
+Best objective 2.000000000002e+00, best bound 2.000000000002e+00, gap 0.0000%
+
+User-callback calls 680, time in user-callback 0.10 sec
+layout took 2445.4970359802246ms
+routing...
+routing took 20017.091989517212ms
+bundle lines...
+bundle lines took 537.3570919036865ms
+serialize graph...
+serialize graph took 608.4194183349609ms
+draw+write svg...
+draw+write svg took 2506.5135955810547ms
+compute metrics for layer 0
+SUCCESS

@@ -1,0 +1,83 @@
+Grid size is 0 x 0
+Set selection: None
+Automatically changed grid size to 32 x 32
+layout...
+--- Add dummy points executed in 1.578674077987671 seconds ---
+--- Grid assignment executed in 0.017308950424194336 seconds ---
+layout took 2059.5526695251465ms
+routing...
+Set parameter TokenServer to value "clustermaster.ac.tuwien.ac.at"
+Set parameter TimeLimit to value 3600
+Set parameter MIPGap to value 0
+Set parameter LazyConstraints to value 1
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+
+CPU model: Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 20 physical cores, 20 logical processors, using up to 20 threads
+
+Optimize a model with 811474 rows, 340170 columns and 2285788 nonzeros
+Model fingerprint: 0x5fa241f7
+Variable types: 0 continuous, 340170 integer (340170 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [1e+03, 3e+04]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 6e+00]
+Presolve removed 674559 rows and 268408 columns (presolve time = 5s) ...
+Presolve removed 680882 rows and 272525 columns (presolve time = 10s) ...
+Presolve removed 680884 rows and 272525 columns
+Presolve time: 12.42s
+Presolved: 130590 rows, 67645 columns, 396600 nonzeros
+Variable types: 0 continuous, 67645 integer (67645 binary)
+
+Deterministic concurrent LP optimizer: primal and dual simplex (primal and dual model)
+Showing first log only...
+
+Root relaxation presolved: 130590 rows, 67645 columns, 396600 nonzeros
+
+
+Root simplex log...
+
+Iteration    Objective       Primal Inf.    Dual Inf.      Time
+       0    1.2572611e+05   1.410000e+02   3.784104e+09     15s
+   11921    3.2348084e+05   1.987444e+00   5.778905e+09     20s
+   16263    3.1203455e+05   9.935496e-01   6.879756e+09     25s
+   19393    3.1169345e+05   9.907966e-01   1.563497e+10     30s
+   22753    3.0613880e+05   9.873763e-01   6.267879e+09     35s
+   25553    3.0367289e+05   9.837652e-01   3.463560e+10     40s
+   28233    3.0106738e+05   9.802679e-01   8.504038e+09     45s
+   31413    2.9738709e+05   9.767720e-01   1.037330e+10     50s
+   34613    2.9319993e+05   9.715719e-01   6.186707e+09     55s
+   37333    2.9186481e+05   9.631499e-01   2.032859e+10     60s
+   39763    2.8952713e+05   9.544464e-01   7.935343e+09     65s
+   42183    2.8955557e+05   9.442431e-01   3.354020e+10     70s
+   44573    2.8934538e+05   9.254740e-01   2.491941e+10     75s
+Concurrent spin time: 0.19s
+
+Solved with dual simplex (primal model)
+
+Root relaxation: objective 2.577832e+05, 67107 iterations, 61.60 seconds (29.77 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+*    0     0               0    257783.17374 257783.174  0.00%     -   76s
+
+Explored 1 nodes (67107 simplex iterations) in 76.98 seconds (34.47 work units)
+Thread count was 20 (of 20 available processors)
+
+Solution count 1: 257783 
+
+Optimal solution found (tolerance 0.00e+00)
+Best objective 2.577831737413e+05, best bound 2.577831737413e+05, gap 0.0000%
+
+User-callback calls 27458, time in user-callback 1.10 sec
+routing took 136268.89300346375ms
+bundle lines...
+bundle lines took 173.02751541137695ms
+serialize graph...
+serialize graph took 1085.998296737671ms
+draw+write svg...
+draw+write svg took 2514.1758918762207ms
+compute metrics for layer 0
+SUCCESS
