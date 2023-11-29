@@ -35,5 +35,5 @@ weight="$7"
 jobname="esvis-$dataset-$weight-$support_type-$layouter-$overlapper-$connecter-$router";
 
 cd $base
-python render2.py --write-dir $TMPDIR --support-type $support_type --overlap-remover $overlapper --connecter $connecter --router $router --read-dir $base/designspace-test --dataset $dataset --weight $weight
+python render2.py --write-dir $TMPDIR --support-type $support_type --overlap-remover $overlapper --connecter $connecter --router $router --read-dir $base/designspace-test --dataset $dataset --weight $weight --connect-objective joint
 cp -r $TMPDIR $1
