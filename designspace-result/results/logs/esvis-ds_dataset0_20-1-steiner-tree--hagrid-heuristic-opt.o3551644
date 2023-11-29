@@ -1,0 +1,171 @@
+Grid size is 0 x 0
+Set selection: None
+Automatically changed grid size to 16 x 16
+layout...
+Set parameter TokenServer to value "clustermaster.ac.tuwien.ac.at"
+Set parameter LazyConstraints to value 1
+Set parameter TimeLimit to value 3600
+Set parameter MIPGap to value 0
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+
+CPU model: Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 20 physical cores, 20 logical processors, using up to 20 threads
+
+Optimize a model with 210 rows, 440 columns and 610 nonzeros
+Model fingerprint: 0x7b8587d8
+Model has 210 general constraints
+Variable types: 40 continuous, 400 integer (0 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [3e+02, 3e+03]
+  RHS range        [2e+01, 2e+02]
+Presolve added 1050 rows and 840 columns
+Presolve time: 0.02s
+Presolved: 1260 rows, 1280 columns, 3320 nonzeros
+Variable types: 60 continuous, 1220 integer (630 binary)
+
+Root relaxation: objective 0.000000e+00, 501 iterations, 0.01 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0   30          -    0.00000      -     -    0s
+     0     0    0.00000    0   69          -    0.00000      -     -    0s
+     0     0    0.00588    0  251          -    0.00588      -     -    0s
+     0     0    0.01172    0  262          -    0.01172      -     -    0s
+     0     0    1.01973    0  296          -    1.01973      -     -    0s
+H    0     0                      18.0000000    1.01973  94.3%     -    0s
+     0     0    1.02167    0  249   18.00000    1.02167  94.3%     -    0s
+     0     0    1.02167    0  302   18.00000    1.02167  94.3%     -    0s
+     0     0    2.94017    0  334   18.00000    2.94017  83.7%     -    0s
+     0     0    2.94017    0   14   18.00000    2.94017  83.7%     -    0s
+H    0     0                      10.0000000    2.94017  70.6%     -    0s
+     0     0    2.97397    0  103   10.00000    2.97397  70.3%     -    0s
+     0     0    2.97397    0  102   10.00000    2.97397  70.3%     -    0s
+     0     0    2.98261    0  105   10.00000    2.98261  70.2%     -    0s
+     0     0    2.98970    0  117   10.00000    2.98970  70.1%     -    0s
+     0     0    2.98970    0  117   10.00000    2.98970  70.1%     -    0s
+     0     0    3.65362    0  131   10.00000    3.65362  63.5%     -    0s
+     0     0    3.74710    0  123   10.00000    3.74710  62.5%     -    0s
+     0     0    3.75271    0  122   10.00000    3.75271  62.5%     -    0s
+     0     0    3.75271    0  123   10.00000    3.75271  62.5%     -    0s
+     0     0    3.82237    0  125   10.00000    3.82237  61.8%     -    0s
+     0     0    3.90591    0  127   10.00000    3.90591  60.9%     -    0s
+     0     0    3.90645    0  130   10.00000    3.90645  60.9%     -    0s
+     0     0    3.90645    0  122   10.00000    3.90645  60.9%     -    0s
+     0     0    3.90645    0  120   10.00000    3.90645  60.9%     -    0s
+     0     0    3.90645    0  130   10.00000    3.90645  60.9%     -    0s
+     0     0    3.97093    0  110   10.00000    3.97093  60.3%     -    0s
+     0     0    3.97093    0  122   10.00000    3.97093  60.3%     -    0s
+     0     0    3.97093    0  124   10.00000    3.97093  60.3%     -    0s
+     0     0    3.97093    0  124   10.00000    3.97093  60.3%     -    0s
+     0     0    3.97093    0   89   10.00000    3.97093  60.3%     -    0s
+     0     0    3.97093    0  113   10.00000    3.97093  60.3%     -    0s
+     0     0    3.97250    0   92   10.00000    3.97250  60.3%     -    0s
+     0     0    3.97250    0  105   10.00000    3.97250  60.3%     -    0s
+     0     0    3.97250    0   14   10.00000    3.97250  60.3%     -    0s
+     0     0    3.97250    0   79   10.00000    3.97250  60.3%     -    0s
+     0     0    3.98441    0   83   10.00000    3.98441  60.2%     -    0s
+     0     0    3.98441    0   79   10.00000    3.98441  60.2%     -    0s
+     0     0    3.98441    0   82   10.00000    3.98441  60.2%     -    0s
+     0     0    4.31775    0   74   10.00000    4.31775  56.8%     -    0s
+     0     0    4.31775    0   73   10.00000    4.31775  56.8%     -    0s
+     0     0    4.31775    0   82   10.00000    4.31775  56.8%     -    0s
+     0     0    4.31775    0   82   10.00000    4.31775  56.8%     -    0s
+     0     0    4.31775    0   67   10.00000    4.31775  56.8%     -    0s
+     0     0    4.31775    0   66   10.00000    4.31775  56.8%     -    0s
+     0     0    4.31775    0   67   10.00000    4.31775  56.8%     -    0s
+     0     0    4.31775    0   65   10.00000    4.31775  56.8%     -    0s
+     0     2    5.26542    0   65   10.00000    5.26542  47.3%     -    0s
+H   95   103                      10.0000000    6.02336  39.8%   9.6    0s
+H  189   173                       9.9999995    6.02336  39.8%   7.4    0s
+
+Cutting planes:
+  Gomory: 14
+  Cover: 22
+  Implied bound: 35
+  MIR: 66
+  StrongCG: 10
+  Flow cover: 8
+  Inf proof: 1
+  Zero half: 7
+  RLT: 1
+  Relax-and-lift: 4
+
+Explored 5009 nodes (32630 simplex iterations) in 2.31 seconds (0.28 work units)
+Thread count was 20 (of 20 available processors)
+
+Solution count 4: 10 10 10 18 
+
+Optimal solution found (tolerance 0.00e+00)
+Warning: max constraint violation (1.9967e-06) exceeds tolerance
+Warning: max general constraint violation (1.9967e-06) exceeds tolerance
+Best objective 9.999999499996e+00, best bound 9.999999499996e+00, gap 0.0000%
+
+User-callback calls 10794, time in user-callback 0.67 sec
+layout took 2438.7686252593994ms
+routing...
+[WARN]: No heuristic for joint objective available, use `opt` setting for connecter. Continuing anyways...
+Set parameter TimeLimit to value 3600
+Set parameter MIPGap to value 0
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+
+CPU model: Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 20 physical cores, 20 logical processors, using up to 20 threads
+
+Optimize a model with 981966 rows, 578430 columns and 3918192 nonzeros
+Model fingerprint: 0xa62e2a0a
+Variable types: 0 continuous, 578430 integer (578430 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [1e+00, 3e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+Presolve removed 871510 rows and 240258 columns (presolve time = 5s) ...
+Presolve removed 871510 rows and 240258 columns (presolve time = 10s) ...
+Presolve removed 887282 rows and 286530 columns
+Presolve time: 12.96s
+Presolved: 94684 rows, 291900 columns, 1280290 nonzeros
+Variable types: 0 continuous, 291900 integer (291900 binary)
+Deterministic concurrent LP optimizer: primal simplex, dual simplex, and barrier
+Showing barrier log only...
+
+Root barrier log...
+
+Ordering time: 2.15s
+
+Barrier statistics:
+ AA' NZ     : 6.964e+05
+ Factor NZ  : 1.000e+07 (roughly 240 MB of memory)
+ Factor Ops : 4.989e+09 (less than 1 second per iteration)
+ Threads    : 17
+
+                  Objective                Residual
+Iter       Primal          Dual         Primal    Dual     Compl     Time
+   0   7.28065784e+05  1.91174621e+02  8.37e+02 0.00e+00  1.54e+00    19s
+   1   9.29940289e+04 -3.37942820e+13  1.32e+02 2.51e-01  2.49e-01    19s
+
+Barrier performed 1 iterations in 19.35 seconds (10.11 work units)
+Barrier solve interrupted - model solved by another algorithm
+
+Concurrent spin time: 1.72s (can be avoided by choosing Method=3)
+
+Solved with dual simplex
+
+Root relaxation: infeasible, 2323 iterations, 4.67 seconds (1.08 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0 infeasible    0               - infeasible      -     -   19s
+
+Explored 1 nodes (2323 simplex iterations) in 19.41 seconds (10.14 work units)
+Thread count was 20 (of 20 available processors)
+
+Solution count 0
+
+Model is infeasible
+Best objective -, best bound -, gap -
+routing took 80260.84613800049ms
+ERROR

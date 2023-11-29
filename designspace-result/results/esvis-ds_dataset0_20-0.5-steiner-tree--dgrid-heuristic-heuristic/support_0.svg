@@ -79,15 +79,15 @@
 <path d="M328.125,253.125 L328.125,328.125" data-sets="{'S3'}" stroke-width="6" stroke="white" />
 <path d="M328.125,328.125 L328.125,403.125" data-sets="{'S3'}" stroke-width="6" stroke="white" />
 <path d="M328.125,403.125 L328.125,478.125" data-sets="{'S3'}" stroke-width="6" stroke="white" />
-<path d="M328.125,478.125 L403.125,553.125" data-sets="{'S3', 'S1'}" stroke-width="6" stroke="white" />
+<path d="M328.125,478.125 L403.125,553.125" data-sets="{'S1', 'S3'}" stroke-width="6" stroke="white" />
 <path d="M328.125,778.125 L403.125,778.125" data-sets="{'S2'}" stroke-width="6" stroke="white" />
 <path d="M328.125,1153.125 L403.125,1078.125" data-sets="{'S5'}" stroke-width="6" stroke="white" />
-<path d="M403.125,553.125 L478.125,628.125" data-sets="{'S3', 'S1'}" stroke-width="6" stroke="white" />
+<path d="M403.125,553.125 L478.125,628.125" data-sets="{'S1', 'S3'}" stroke-width="6" stroke="white" />
 <path d="M403.125,778.125 L478.125,778.125" data-sets="{'S2'}" stroke-width="6" stroke="white" />
 <path d="M403.125,1078.125 L478.125,1003.125" data-sets="{'S5'}" stroke-width="6" stroke="white" />
-<path d="M478.125,628.125 L553.125,703.125" data-sets="{'S3', 'S1'}" stroke-width="6" stroke="white" />
-<path d="M478.125,778.125 L553.125,703.125" data-sets="{'S4', 'S2', 'S3'}" stroke-width="6" stroke="white" />
-<path d="M478.125,778.125 L478.125,853.125" data-sets="{'S4', 'S3'}" stroke-width="6" stroke="white" />
+<path d="M478.125,628.125 L553.125,703.125" data-sets="{'S1', 'S3'}" stroke-width="6" stroke="white" />
+<path d="M478.125,778.125 L553.125,703.125" data-sets="{'S3', 'S4', 'S2'}" stroke-width="6" stroke="white" />
+<path d="M478.125,778.125 L478.125,853.125" data-sets="{'S3', 'S4'}" stroke-width="6" stroke="white" />
 <path d="M478.125,853.125 L553.125,928.125" data-sets="{'S4'}" stroke-width="6" stroke="white" />
 <path d="M478.125,1003.125 L553.125,928.125" data-sets="{'S5'}" stroke-width="6" stroke="white" />
 <path d="M553.125,703.125 L628.125,628.125" data-sets="{'S3'}" stroke-width="6" stroke="white" />
@@ -107,7 +107,7 @@
 <path d="M703.125,928.125 L778.125,1003.125" data-sets="{'S2'}" stroke-width="6" stroke="white" />
 <path d="M703.125,1003.125 L778.125,1003.125" data-sets="{'S4'}" stroke-width="6" stroke="white" />
 <path d="M703.125,1153.125 L778.125,1078.125" data-sets="{'S4', 'S2'}" stroke-width="6" stroke="white" />
-<path d="M778.125,328.125 L853.125,403.125" data-sets="{'S4', 'S0', 'S3'}" stroke-width="6" stroke="white" />
+<path d="M778.125,328.125 L853.125,403.125" data-sets="{'S3', 'S0', 'S4'}" stroke-width="6" stroke="white" />
 <path d="M778.125,478.125 L853.125,403.125" data-sets="{'S3'}" stroke-width="6" stroke="white" />
 <path d="M778.125,703.125 L853.125,628.125" data-sets="{'S5'}" stroke-width="6" stroke="white" />
 <path d="M778.125,703.125 L853.125,703.125" data-sets="{'S1'}" stroke-width="6" stroke="white" />

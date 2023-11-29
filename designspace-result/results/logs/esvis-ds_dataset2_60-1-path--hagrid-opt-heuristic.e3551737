@@ -1,0 +1,211 @@
+/home1/npiccolotto/ensemble-sets/code/util/geometry.py:287: RuntimeWarning: invalid value encountered in double_scalars
+  t1 = (-b + sqrt_disc) / (2 * a)
+/home1/npiccolotto/ensemble-sets/code/util/geometry.py:288: RuntimeWarning: invalid value encountered in double_scalars
+  t2 = (-b - sqrt_disc) / (2 * a)
+Traceback (most recent call last):
+  File "src/gurobipy/callback.pxi", line 209, in gurobipy.CallbackClass.callback
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1272, in callback
+    addDynamicConstraints(model, xValues, xlValues)
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1255, in addDynamicConstraints
+    if len(common_labels) > 0 and do_lines_intersect2(pu, pv, pw, pz):
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 128, in do_lines_intersect2
+    o1 = orientation(p1, q1, p2)
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 104, in orientation
+    rx, ry = r
+TypeError: cannot unpack non-iterable NoneType object
+Exception ignored in: 'gurobipy.callbackstub'
+Traceback (most recent call last):
+  File "src/gurobipy/callback.pxi", line 209, in gurobipy.CallbackClass.callback
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1272, in callback
+    addDynamicConstraints(model, xValues, xlValues)
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1255, in addDynamicConstraints
+    if len(common_labels) > 0 and do_lines_intersect2(pu, pv, pw, pz):
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 128, in do_lines_intersect2
+    o1 = orientation(p1, q1, p2)
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 104, in orientation
+    rx, ry = r
+TypeError: cannot unpack non-iterable NoneType object
+Traceback (most recent call last):
+  File "src/gurobipy/callback.pxi", line 209, in gurobipy.CallbackClass.callback
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1272, in callback
+    addDynamicConstraints(model, xValues, xlValues)
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1255, in addDynamicConstraints
+    if len(common_labels) > 0 and do_lines_intersect2(pu, pv, pw, pz):
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 128, in do_lines_intersect2
+    o1 = orientation(p1, q1, p2)
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 104, in orientation
+    rx, ry = r
+TypeError: cannot unpack non-iterable NoneType object
+Exception ignored in: 'gurobipy.callbackstub'
+Traceback (most recent call last):
+  File "src/gurobipy/callback.pxi", line 209, in gurobipy.CallbackClass.callback
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1272, in callback
+    addDynamicConstraints(model, xValues, xlValues)
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1255, in addDynamicConstraints
+    if len(common_labels) > 0 and do_lines_intersect2(pu, pv, pw, pz):
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 128, in do_lines_intersect2
+    o1 = orientation(p1, q1, p2)
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 104, in orientation
+    rx, ry = r
+TypeError: cannot unpack non-iterable NoneType object
+Traceback (most recent call last):
+  File "src/gurobipy/callback.pxi", line 209, in gurobipy.CallbackClass.callback
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1272, in callback
+    addDynamicConstraints(model, xValues, xlValues)
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1255, in addDynamicConstraints
+    if len(common_labels) > 0 and do_lines_intersect2(pu, pv, pw, pz):
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 128, in do_lines_intersect2
+    o1 = orientation(p1, q1, p2)
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 104, in orientation
+    rx, ry = r
+TypeError: cannot unpack non-iterable NoneType object
+Exception ignored in: 'gurobipy.callbackstub'
+Traceback (most recent call last):
+  File "src/gurobipy/callback.pxi", line 209, in gurobipy.CallbackClass.callback
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1272, in callback
+    addDynamicConstraints(model, xValues, xlValues)
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1255, in addDynamicConstraints
+    if len(common_labels) > 0 and do_lines_intersect2(pu, pv, pw, pz):
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 128, in do_lines_intersect2
+    o1 = orientation(p1, q1, p2)
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 104, in orientation
+    rx, ry = r
+TypeError: cannot unpack non-iterable NoneType object
+Traceback (most recent call last):
+  File "src/gurobipy/callback.pxi", line 209, in gurobipy.CallbackClass.callback
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1272, in callback
+    addDynamicConstraints(model, xValues, xlValues)
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1255, in addDynamicConstraints
+    if len(common_labels) > 0 and do_lines_intersect2(pu, pv, pw, pz):
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 128, in do_lines_intersect2
+    o1 = orientation(p1, q1, p2)
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 104, in orientation
+    rx, ry = r
+TypeError: cannot unpack non-iterable NoneType object
+Exception ignored in: 'gurobipy.callbackstub'
+Traceback (most recent call last):
+  File "src/gurobipy/callback.pxi", line 209, in gurobipy.CallbackClass.callback
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1272, in callback
+    addDynamicConstraints(model, xValues, xlValues)
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1255, in addDynamicConstraints
+    if len(common_labels) > 0 and do_lines_intersect2(pu, pv, pw, pz):
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 128, in do_lines_intersect2
+    o1 = orientation(p1, q1, p2)
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 104, in orientation
+    rx, ry = r
+TypeError: cannot unpack non-iterable NoneType object
+Traceback (most recent call last):
+  File "src/gurobipy/callback.pxi", line 209, in gurobipy.CallbackClass.callback
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1280, in callback
+    addDynamicConstraints(model, xValues, xlValues)
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1255, in addDynamicConstraints
+    if len(common_labels) > 0 and do_lines_intersect2(pu, pv, pw, pz):
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 128, in do_lines_intersect2
+    o1 = orientation(p1, q1, p2)
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 104, in orientation
+    rx, ry = r
+TypeError: cannot unpack non-iterable NoneType object
+Exception ignored in: 'gurobipy.callbackstub'
+Traceback (most recent call last):
+  File "src/gurobipy/callback.pxi", line 209, in gurobipy.CallbackClass.callback
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1280, in callback
+    addDynamicConstraints(model, xValues, xlValues)
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1255, in addDynamicConstraints
+    if len(common_labels) > 0 and do_lines_intersect2(pu, pv, pw, pz):
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 128, in do_lines_intersect2
+    o1 = orientation(p1, q1, p2)
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 104, in orientation
+    rx, ry = r
+TypeError: cannot unpack non-iterable NoneType object
+Traceback (most recent call last):
+  File "src/gurobipy/callback.pxi", line 209, in gurobipy.CallbackClass.callback
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1272, in callback
+    addDynamicConstraints(model, xValues, xlValues)
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1255, in addDynamicConstraints
+    if len(common_labels) > 0 and do_lines_intersect2(pu, pv, pw, pz):
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 128, in do_lines_intersect2
+    o1 = orientation(p1, q1, p2)
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 104, in orientation
+    rx, ry = r
+TypeError: cannot unpack non-iterable NoneType object
+Exception ignored in: 'gurobipy.callbackstub'
+Traceback (most recent call last):
+  File "src/gurobipy/callback.pxi", line 209, in gurobipy.CallbackClass.callback
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1272, in callback
+    addDynamicConstraints(model, xValues, xlValues)
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1255, in addDynamicConstraints
+    if len(common_labels) > 0 and do_lines_intersect2(pu, pv, pw, pz):
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 128, in do_lines_intersect2
+    o1 = orientation(p1, q1, p2)
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 104, in orientation
+    rx, ry = r
+TypeError: cannot unpack non-iterable NoneType object
+Traceback (most recent call last):
+  File "src/gurobipy/callback.pxi", line 209, in gurobipy.CallbackClass.callback
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1280, in callback
+    addDynamicConstraints(model, xValues, xlValues)
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1255, in addDynamicConstraints
+    if len(common_labels) > 0 and do_lines_intersect2(pu, pv, pw, pz):
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 128, in do_lines_intersect2
+    o1 = orientation(p1, q1, p2)
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 104, in orientation
+    rx, ry = r
+TypeError: cannot unpack non-iterable NoneType object
+Exception ignored in: 'gurobipy.callbackstub'
+Traceback (most recent call last):
+  File "src/gurobipy/callback.pxi", line 209, in gurobipy.CallbackClass.callback
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1280, in callback
+    addDynamicConstraints(model, xValues, xlValues)
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1255, in addDynamicConstraints
+    if len(common_labels) > 0 and do_lines_intersect2(pu, pv, pw, pz):
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 128, in do_lines_intersect2
+    o1 = orientation(p1, q1, p2)
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 104, in orientation
+    rx, ry = r
+TypeError: cannot unpack non-iterable NoneType object
+Traceback (most recent call last):
+  File "src/gurobipy/callback.pxi", line 209, in gurobipy.CallbackClass.callback
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1280, in callback
+    addDynamicConstraints(model, xValues, xlValues)
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1255, in addDynamicConstraints
+    if len(common_labels) > 0 and do_lines_intersect2(pu, pv, pw, pz):
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 128, in do_lines_intersect2
+    o1 = orientation(p1, q1, p2)
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 104, in orientation
+    rx, ry = r
+TypeError: cannot unpack non-iterable NoneType object
+Exception ignored in: 'gurobipy.callbackstub'
+Traceback (most recent call last):
+  File "src/gurobipy/callback.pxi", line 209, in gurobipy.CallbackClass.callback
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1280, in callback
+    addDynamicConstraints(model, xValues, xlValues)
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1255, in addDynamicConstraints
+    if len(common_labels) > 0 and do_lines_intersect2(pu, pv, pw, pz):
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 128, in do_lines_intersect2
+    o1 = orientation(p1, q1, p2)
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 104, in orientation
+    rx, ry = r
+TypeError: cannot unpack non-iterable NoneType object
+Traceback (most recent call last):
+  File "src/gurobipy/callback.pxi", line 209, in gurobipy.CallbackClass.callback
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1272, in callback
+    addDynamicConstraints(model, xValues, xlValues)
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1255, in addDynamicConstraints
+    if len(common_labels) > 0 and do_lines_intersect2(pu, pv, pw, pz):
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 128, in do_lines_intersect2
+    o1 = orientation(p1, q1, p2)
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 104, in orientation
+    rx, ry = r
+TypeError: cannot unpack non-iterable NoneType object
+Exception ignored in: 'gurobipy.callbackstub'
+Traceback (most recent call last):
+  File "src/gurobipy/callback.pxi", line 209, in gurobipy.CallbackClass.callback
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1272, in callback
+    addDynamicConstraints(model, xValues, xlValues)
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1255, in addDynamicConstraints
+    if len(common_labels) > 0 and do_lines_intersect2(pu, pv, pw, pz):
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 128, in do_lines_intersect2
+    o1 = orientation(p1, q1, p2)
+  File "/home1/npiccolotto/ensemble-sets/code/util/geometry.py", line 104, in orientation
+    rx, ry = r
+TypeError: cannot unpack non-iterable NoneType object

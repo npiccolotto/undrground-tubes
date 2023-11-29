@@ -1,0 +1,165 @@
+Grid size is 0 x 0
+Set selection: None
+Automatically changed grid size to 32 x 32
+layout...
+layout took 318.8920021057129ms
+routing...
+Set parameter TokenServer to value "clustermaster.ac.tuwien.ac.at"
+Set parameter TimeLimit to value 3600
+Set parameter MIPGap to value 0
+Set parameter LazyConstraints to value 1
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+
+CPU model: Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 20 physical cores, 20 logical processors, using up to 20 threads
+
+Optimize a model with 1986330 rows, 822360 columns and 5595280 nonzeros
+Model fingerprint: 0x5c1d8b8b
+Variable types: 0 continuous, 822360 integer (822360 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [1e+03, 4e+04]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 6e+00]
+Presolve removed 1596096 rows and 621070 columns (presolve time = 5s) ...
+Presolve removed 1596096 rows and 621070 columns (presolve time = 10s) ...
+Presolve removed 1596096 rows and 621070 columns (presolve time = 15s) ...
+Presolve removed 1608629 rows and 629288 columns (presolve time = 20s) ...
+Presolve removed 1608639 rows and 629294 columns (presolve time = 25s) ...
+Presolve removed 1608639 rows and 629294 columns (presolve time = 30s) ...
+Presolve removed 1608641 rows and 629294 columns
+Presolve time: 32.65s
+Presolved: 377689 rows, 193066 columns, 1146038 nonzeros
+Variable types: 0 continuous, 193066 integer (193066 binary)
+
+Deterministic concurrent LP optimizer: primal simplex, dual simplex, and barrier
+Showing barrier log only...
+
+Root relaxation presolved: 377902 rows, 193066 columns, 1139586 nonzeros
+
+Root barrier log...
+
+Ordering time: 12.31s
+
+Barrier statistics:
+ AA' NZ     : 9.622e+06
+ Factor NZ  : 4.648e+07 (roughly 600 MB of memory)
+ Factor Ops : 1.946e+10 (less than 1 second per iteration)
+ Threads    : 18
+
+                  Objective                Residual
+Iter       Primal          Dual         Primal    Dual     Compl     Time
+   0   3.14638414e+08 -1.00044020e+08  5.13e+02 1.34e+04  1.21e+05    64s
+   1   2.60750099e+08 -2.70014884e+08  4.28e+02 2.65e+04  1.00e+05    64s
+   2   1.96258874e+08 -4.20410732e+08  3.50e+02 2.02e+04  8.26e+04    65s
+   3   7.79093641e+07 -1.29726664e+09  1.40e+02 8.26e-10  3.35e+04    65s
+   4   1.57239389e+07 -7.44964990e+08  2.27e+01 1.40e-09  5.75e+03    66s
+   5   8.41024168e+06 -4.64478840e+08  9.15e+00 1.00e-09  2.42e+03    66s
+   6   5.91092020e+06 -2.52853098e+08  4.64e+00 1.06e-09  1.14e+03    66s
+   7   4.01820307e+06 -1.43749269e+08  1.30e+00 1.17e-09  3.78e+02    67s
+   8   3.25200621e+06 -6.61346477e+07  2.35e-01 8.51e-10  1.12e+02    67s
+   9   3.07696229e+06 -5.02908075e+07  9.92e-02 5.88e-10  7.82e+01    68s
+  10   2.87730521e+06 -2.59259701e+07  5.03e-02 3.97e-10  4.03e+01    68s
+  11   2.53694652e+06 -1.23633494e+07  2.76e-02 2.42e-10  2.03e+01    68s
+  12   2.21011746e+06 -5.90713849e+06  1.87e-02 5.52e-10  1.09e+01    69s
+  13   2.10840683e+06 -5.12676969e+06  1.65e-02 5.40e-10  9.71e+00    69s
+  14   1.70957648e+06 -2.55452095e+06  1.09e-02 6.05e-10  5.69e+00    70s
+  15   1.47321470e+06 -1.39744035e+06  7.74e-03 7.00e-10  3.81e+00    70s
+  16   1.39922231e+06 -4.24808671e+05  6.83e-03 1.20e-09  2.42e+00    71s
+  17   1.27379169e+06 -7.52261156e+04  5.54e-03 3.87e-10  1.79e+00    71s
+  18   1.23032493e+06 -1.43287412e+04  5.12e-03 3.99e-10  1.65e+00    72s
+  19   1.13715442e+06  8.21089702e+04  4.24e-03 4.61e-10  1.40e+00    72s
+  20   1.10188701e+06  1.53447206e+05  3.95e-03 6.00e-10  1.26e+00    73s
+  21   1.01473431e+06  2.44046172e+05  3.37e-03 1.00e-10  1.02e+00    73s
+  22   9.50805277e+05  2.97622146e+05  2.98e-03 2.90e-10  8.66e-01    74s
+  23   8.47739438e+05  3.46262150e+05  2.39e-03 4.96e-10  6.65e-01    74s
+  24   7.62282041e+05  3.79453786e+05  1.88e-03 4.11e-10  5.07e-01    75s
+  25   7.00270766e+05  4.00142226e+05  1.50e-03 2.53e-10  3.98e-01    75s
+  26   6.21696406e+05  4.12379351e+05  1.04e-03 4.07e-10  2.77e-01    76s
+  27   5.64894126e+05  4.18681393e+05  7.20e-04 4.58e-10  1.94e-01    76s
+  28   5.23886380e+05  4.24368493e+05  4.86e-04 6.88e-10  1.32e-01    77s
+  29   4.87573649e+05  4.29143394e+05  2.82e-04 3.65e-10  7.74e-02    78s
+  30   4.75996187e+05  4.31940855e+05  2.19e-04 5.45e-10  5.84e-02    78s
+  31   4.67923112e+05  4.32549041e+05  1.75e-04 6.09e-10  4.69e-02    79s
+  32   4.66194701e+05  4.32709690e+05  1.66e-04 4.68e-10  4.44e-02    79s
+  33   4.60366430e+05  4.33175342e+05  1.35e-04 8.26e-10  3.60e-02    80s
+  34   4.52153244e+05  4.33756441e+05  9.07e-05 6.43e-10  2.44e-02    80s
+  35   4.38805402e+05  4.34530212e+05  1.88e-05 7.05e-10  5.66e-03    81s
+  36   4.37391797e+05  4.34897624e+05  1.19e-05 3.92e-10  3.30e-03    82s
+  37   4.35066287e+05  4.34952717e+05  5.35e-07 6.26e-10  1.50e-04    82s
+  38   4.34953973e+05  4.34953905e+05  4.17e-10 4.97e-10  8.97e-08    83s
+  39   4.34953912e+05  4.34953912e+05  1.80e-11 2.59e-10  1.40e-11    83s
+
+Barrier solved model in 39 iterations and 83.19 seconds (35.58 work units)
+Optimal objective 4.34953912e+05
+
+
+Root crossover log...
+
+  271176 DPushes remaining with DInf 0.0000000e+00                84s
+     832 DPushes remaining with DInf 0.0000000e+00                85s
+       0 DPushes remaining with DInf 0.0000000e+00                86s
+
+     662 PPushes remaining with PInf 0.0000000e+00                86s
+       0 PPushes remaining with PInf 0.0000000e+00                86s
+
+  Push phase complete: Pinf 0.0000000e+00, Dinf 1.0322765e-10     86s
+
+
+Root simplex log...
+
+Iteration    Objective       Primal Inf.    Dual Inf.      Time
+   94756    4.3495391e+05   0.000000e+00   0.000000e+00     87s
+   94756    4.3495391e+05   0.000000e+00   0.000000e+00     87s
+Concurrent spin time: 4.50s
+
+Solved with barrier
+
+Root relaxation: objective 4.349539e+05, 94756 iterations, 45.10 seconds (19.95 work units)
+Total elapsed time = 132.53s
+Total elapsed time = 148.90s
+Total elapsed time = 158.55s
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0 434953.912    0  422          - 434953.912      -     -  173s
+     0     0 434953.912    0  422          - 434953.912      -     -  199s
+     0     0 440914.745    0 2975          - 440914.745      -     -  491s
+     0     0 440914.745    0 2975          - 440914.745      -     -  495s
+     0     0 444163.986    0 4614          - 444163.986      -     -  746s
+     0     0 444193.589    0 4457          - 444193.589      -     -  786s
+     0     0 445090.207    0 4512          - 445090.207      -     - 1078s
+     0     0 445090.207    0 4512          - 445090.207      -     - 1083s
+     0     0 445090.207    0 4327          - 445090.207      -     - 1131s
+     0     0 445090.207    0 4720          - 445090.207      -     - 1247s
+     0     0 445090.207    0 4720          - 445090.207      -     - 1252s
+     0     0 445090.207    0 4658          - 445090.207      -     - 1270s
+     0     0 445090.207    0 3675          - 445090.207      -     - 1589s
+     0     0 445090.207    0 3698          - 445090.207      -     - 1673s
+     0     0 445090.207    0 3713          - 445090.207      -     - 1978s
+     0     0 445090.207    0 3778          - 445090.207      -     - 2068s
+     0     0 445090.207    0 3489          - 445090.207      -     - 2503s
+     0     0 445090.207    0 3936          - 445090.207      -     - 2590s
+     0     0 445090.207    0 3715          - 445090.207      -     - 2943s
+     0     0 445090.207    0 3619          - 445090.207      -     - 3071s
+
+Cutting planes:
+  Gomory: 6
+  Clique: 6
+  MIR: 1
+  Zero half: 137
+  RLT: 668
+  Lazy constraints: 492
+
+Explored 1 nodes (2002568 simplex iterations) in 3600.05 seconds (1696.05 work units)
+Thread count was 20 (of 20 available processors)
+
+Solution count 0
+
+Time limit reached
+Best objective -, best bound 4.450902070215e+05, gap -
+
+User-callback calls 208678, time in user-callback 65.23 sec
+routing took 3676936.8975162506ms
+ERROR
