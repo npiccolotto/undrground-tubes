@@ -1,0 +1,27 @@
+Traceback (most recent call last):
+  File "/home1/npiccolotto/ensemble-sets/code/render2.py", line 585, in <module>
+    vis()
+  File "/home1/npiccolotto/.pyenv/versions/3.10.13/lib/python3.10/site-packages/click/core.py", line 1128, in __call__
+    return self.main(*args, **kwargs)
+  File "/home1/npiccolotto/.pyenv/versions/3.10.13/lib/python3.10/site-packages/click/core.py", line 1053, in main
+    rv = self.invoke(ctx)
+  File "/home1/npiccolotto/.pyenv/versions/3.10.13/lib/python3.10/site-packages/click/core.py", line 1395, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+  File "/home1/npiccolotto/.pyenv/versions/3.10.13/lib/python3.10/site-packages/click/core.py", line 754, in invoke
+    return __callback(*args, **kwargs)
+  File "/home1/npiccolotto/ensemble-sets/code/render2.py", line 581, in vis
+    raise e
+  File "/home1/npiccolotto/ensemble-sets/code/render2.py", line 543, in vis
+    G = ctx.run(render)
+  File "/home1/npiccolotto/ensemble-sets/code/render2.py", line 309, in render
+    L = route(instance, G, element_set_partition)
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1357, in route
+    C = connect(instance, grid_graph, element_set_partition, layer=layer)
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1323, in connect
+    C = get_optimal_connectivity(
+  File "/home1/npiccolotto/ensemble-sets/code/util/route.py", line 1300, in get_optimal_connectivity
+    if flow[((i, j), ce)].x > 0:
+  File "src/gurobipy/var.pxi", line 125, in gurobipy.Var.__getattr__
+  File "src/gurobipy/var.pxi", line 153, in gurobipy.Var.getAttr
+  File "src/gurobipy/attrutil.pxi", line 100, in gurobipy.__getattr
+AttributeError: Unable to retrieve attribute 'x'. Did you mean: 'X'?

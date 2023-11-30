@@ -18,7 +18,7 @@ mem=32G
 hlr=18000 # 4 calls to gurobi, 1h for each plus one hour for the rest = 5h
 
 
-for i in $(seq 1 10); do
+for i in $(seq 1 5); do
   j=$((i-1));
   s=$((i*20));
   dataset="ds_dataset${j}_${s}";
