@@ -110,8 +110,9 @@ def gridify_square(P, level="auto", layer=0):
 
     cntr = Counter(Ph)
     collision_detected = any([v > 1 for v in cntr.values()])
+    #Phx = solve_hagrid_optimal_simple(curve_length, Ph, layer=layer)
     if collision_detected:
-        Ph = solve_hagrid_optimal(curve_length, Ph, layer=layer)
+        Ph = solve_hagrid_optimal_simple(curve_length, Ph, layer=layer)
 
     result = np.array([hilbert_decode(p, size) for p in Ph])
 
@@ -338,6 +339,50 @@ def layout_qsap(elements, D, m=10, n=10, weight=0.5, layer=0):
     # pos = [grid[res.col_ind[i]] for i, el in enumerate(elements)]
     return pos
 
+def solve_hagrid_optimal_simple(max_domain, pos, layer=0):
+    model = gp.Model("hagrid")
+
+    rle = list(range(len(pos)))
+
+    # discretized position
+    p = model.addVars(
+        rle,
+        vtype=GRB.INTEGER,
+        lb=0,
+        ub=max_domain - 1,
+        name="p",
+    )
+    model._p = p
+
+    obj = []
+    for i, x in enumerate(pos):
+        diff = model.addVar(vtype=GRB.INTEGER, lb = -max_domain, ub = +max_domain)
+        target = model.addVar(vtype=GRB.INTEGER, lb = 0, ub = max_domain)
+        model.addConstr(diff == p[i] - x)
+        model.addConstr(target == gp.abs_(diff))
+        obj.append(target)
+        
+    for i, x1 in enumerate(pos):
+        for j, x2 in enumerate(pos):
+            if j <= i:
+                continue
+            
+            diff = model.addVar(vtype=GRB.INTEGER, lb = -max_domain, ub = +max_domain)
+            target = model.addVar(vtype=GRB.INTEGER, lb = 0, ub = max_domain)
+            
+            model.addConstr(diff == p[i] - p[j])
+            model.addConstr(target == gp.abs_(diff))
+            model.addConstr(target >= 1)
+        
+    model.setObjective(gp.quicksum(obj), sense=GRB.MINIMIZE)  
+    model.optimize()
+
+    # checking if a solution was found
+
+    if model.Status == GRB.OPTIMAL:
+        return [int(model.getVarByName(f"p[{i}]").X) for i in rle]
+    
+    return [int(model.getVarByName(f"p[{i}]").X) for i in rle]
 
 def solve_hagrid_optimal(max_domain, pos, layer=0):
     model = gp.Model("hagrid")
