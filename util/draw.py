@@ -160,6 +160,8 @@ def geometrize(instance, L, element_set_partition, layer=0):
                         py - h / 2,
                         width=w,
                         height=h,
+                        data_node=True,
+                        data_id=M.nodes[i]['label'],
                         path=M.nodes[i]["glyph"],
                     )
                     if config_vars["draw.glyphtitle"].get():
