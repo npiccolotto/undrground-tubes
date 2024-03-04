@@ -32,5 +32,5 @@ weight="$4"
 jobname="essurvey-$dataset-$strategy-$weight";
 
 cd $base
-python render2.py --strategy $strategy --write-dir $TMPDIR --overlap-remover dgrid --connecter auto --router auto --read-dir $base/designspace-test --dataset $dataset --weight $weight --connect-objective joint --serialize-graph 0 --compute-metrics 0
+python render2.py --strategy $strategy --write-dir $TMPDIR --overlap-remover dgrid --connecter auto --router auto --read-dir $base/eval/dataset --dataset $dataset --weight $weight --connect-objective joint --serialize-graph 0 --compute-metrics 0 -w 24 -h 24
 cp -r $TMPDIR $1
