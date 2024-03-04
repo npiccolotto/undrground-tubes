@@ -25,7 +25,7 @@ for i in $(seq 1 24); do
     for weight in "0" "0.5" "1"; do
       jobname="essurvey-$dataset-$strategy-$weight";
       echo "submitting $jobname";
-      qsub -N $jobname -l bc4 -l mem_free=$mem -l h_vmem=$mem -l h_rt=$hlr -e $base/logs/ -o $base/logs/ -r y run.sh $base/$jobname $dataset $strategy $weight
+      qsub -N $jobname -l bc4 -l mem_free=$mem -l h_vmem=$mem -l h_rt=$hlr -e $base/logs/ -o $base/logs/ -r y run_surveygen.sh $base/$jobname $dataset $strategy $weight
     done
   done
 done
