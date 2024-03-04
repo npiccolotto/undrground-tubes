@@ -29,8 +29,8 @@ dataset="$2"
 strategy="$3"
 weight="$4"
 
-jobname="esvis-$dataset-$weight-$support_type-$layouter-$overlapper-$connecter-$router";
+jobname="essurvey-$dataset-$strategy-$weight";
 
 cd $base
-python render2.py --strategy $strategy --write-dir $TMPDIR --overlap-remover dgrid --connecter auto --router auto --read-dir $base/designspace-test --dataset $dataset --weight $weight --connect-objective joint -serialize-graph 0 --compute-metrics 0
+python render2.py --strategy $strategy --write-dir $TMPDIR --overlap-remover dgrid --connecter auto --router auto --read-dir $base/designspace-test --dataset $dataset --weight $weight --connect-objective joint --serialize-graph 0 --compute-metrics 0
 cp -r $TMPDIR $1
