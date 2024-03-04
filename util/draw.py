@@ -64,13 +64,21 @@ def draw_embedding(X, filename, **kwargs):
         f.write(draw_svg(geometries, w + 2 * mx, h + 2 * my))
 
 
-def draw_svg(geometries, width, height):
-    d = svg.Drawing(width, height, origin=(0, 0))
+def draw_svg(geometries, width, height, autoscale=True):
+    d = svg.Drawing(width, height, origin=(0, 0), preserveAspectRatio="xMidYMid meet")
 
     for e in geometries:
         d.append(e)
 
-    return d.as_svg()
+    return (
+        # remove width/height attributes so the svg auto-sizes itself in a browser
+        # https://css-tricks.com/scale-svg/
+        d.as_svg()
+        .replace(f' width="{width}" ', " ")
+        .replace(f' height="{height}" ', " ")
+        if autoscale
+        else d.as_svg()
+    )
 
 
 def draw_support(instance, M, layer=0):
@@ -161,7 +169,7 @@ def geometrize(instance, L, element_set_partition, layer=0):
                         width=w,
                         height=h,
                         data_node=True,
-                        data_id=M.nodes[i]['label'],
+                        data_id=M.nodes[i]["label"],
                         path=M.nodes[i]["glyph"],
                     )
                     if config_vars["draw.glyphtitle"].get():
@@ -254,8 +262,8 @@ def geometrize(instance, L, element_set_partition, layer=0):
             uparent = M.nodes[u]["belongs_to"]
 
             try:
-                _,uu = get_outgoing_edge_to_other_center_from_port(M, u)
-                _,vv = get_outgoing_edge_to_other_center_from_port(M, v)
+                _, uu = get_outgoing_edge_to_other_center_from_port(M, u)
+                _, vv = get_outgoing_edge_to_other_center_from_port(M, v)
             except:
                 # ?? sometimes there are too many edges idk
                 continue
@@ -264,7 +272,7 @@ def geometrize(instance, L, element_set_partition, layer=0):
                 set_id not in M.edges[(uu, u)]["sets"]
                 or set_id not in M.edges[(v, vv)]["sets"]
             ):
-                print('whyy')
+                print("whyy")
                 continue
             uupos, upos = M.edges[(uu, u)]["edge_pos"][set_id][(uu, u)]
             vpos, vvpos = M.edges[(v, vv)]["edge_pos"][set_id][(v, vv)]
