@@ -1,6 +1,15 @@
-setwd('/Users/npiccolotto/Projects/cvast/bssvis/sbss-app-gh/server/app/data')
 library(ggplot2)
 library(ggmap)
+library(SpatialBSS)
+library(sp)
+library(compositions)
+library(spMaps)
+library(interp)
+library(raster)
+
+# set this to the directory of this file
+cwd <- '/Users/npiccolotto/Projects/cvast/bssvis/ensemble-set-rendering/data/sbss/'
+setwd(cwd)
 
 util_get_bbox_polygon <- function(bbox, margin = 1.05, proj4string=WGS84) {
   dataset.extent <-
@@ -28,7 +37,7 @@ util_get_bbox_polygon <- function(bbox, margin = 1.05, proj4string=WGS84) {
   return(dataset.bbox)
 }
 
-moss <- read.csv('kola.csv')
+moss <- read.csv('./kola.csv')
 moss
 
 WGS84 <- sp::CRS('+proj=longlat +datum=WGS84 +no_defs')
@@ -60,7 +69,7 @@ for (j in seq(2,i-1)) {
   components <- cbind(components, results[[j]]$s)
 }
 colnames(components) <- paste('SBSS', 1:120)
-write.csv(components,file = paste(img_path, 'data', 'sbss', 'components.csv', sep='/'), row.names = F)
+write.csv(components,file = paste(cwd, 'components.csv', sep='/'), row.names = F)
 colnames(components) <- 1:120
 
 loadings <- results[[1]]$w %*% t(ilrBase)
@@ -71,7 +80,7 @@ for (j in seq(2,i-1)){
 elements <- colnames(moss[,3:ncol(moss)])
 colnames(loadings) <- elements
 rownames(loadings) <- 1:120
-write.csv(loadings,file = paste(img_path, 'data', 'sbss', 'loadings.csv', sep='/'), row.names = paste('SBSS', 1:120))
+write.csv(loadings,file = paste(cwd, 'loadings.csv', sep='/'), row.names = paste('SBSS', 1:120))
 
 
 sp::spDists(as.matrix(coords))
@@ -182,9 +191,8 @@ comps <- sp::SpatialPointsDataFrame(coords=coords, data=as.data.frame(components
 
 
 
-path_rel <- 'data/sbss/img'
-img_path <-  '/Users/npiccolotto/Projects/cvast/bssvis/ensemble-set-rendering/'
-setwd(paste0(img_path, path_rel))
+path_rel <- './img'
+setwd(paste0(cwd, path_rel))
 for (j in 1:120) {
   comp.interp <- interp::interp(comps, y=NULL, z=paste(j),output='grid', nx=40, ny=40)
   comp.df <- as.data.frame(cbind(comp.interp@coords, comp.interp@data))
@@ -273,5 +281,5 @@ as_json <- list(
 )
 
 
-jsonlite::write_json(as_json, paste(img_path, 'moss.json', sep='/'), simplifyVector = F)
+jsonlite::write_json(as_json, paste(cwd, 'moss.json', sep='/'), simplifyVector = F)
 
