@@ -22,14 +22,16 @@ for i in $(seq 1 5); do
   j=$((i-1));
   s=$((i*20));
   dataset="ds_dataset${j}_${s}";
-  for overlapper in "dgrid" "hagrid"; do
-    for connecter in "opt" "heuristic"; do
-      for router in "opt" "heuristic"; do
-        for support_type in "steiner-tree" "path"; do
-          for weight in "0" "0.5" "1"; do
-            jobname="esvis-$dataset-$weight-$support_type-$layouter-$overlapper-$connecter-$router";
-            echo "submitting $jobname";
-            qsub -N $jobname -l bc4 -l mem_free=$mem -l h_vmem=$mem -l h_rt=$hlr -e $base/logs/ -o $base/logs/ -r y run.sh $base/$jobname $support_type $overlapper $connecter $router $dataset $weight
+  for run in $(seq 1 5); do
+    for overlapper in "dgrid" "hagrid"; do
+      for connecter in "opt" "heuristic"; do
+        for router in "opt" "heuristic"; do
+          for support_type in "steiner-tree" "path"; do
+            for weight in "0" "0.5" "1"; do
+              jobname="esvis-$dataset-$weight-$support_type-$layouter-$overlapper-$connecter-$router-$run";
+              echo "submitting $jobname";
+              qsub -N $jobname -l bc4 -l mem_free=$mem -l h_vmem=$mem -l h_rt=$hlr -e $base/logs/ -o $base/logs/ -r y run.sh $base/$jobname $support_type $overlapper $connecter $router $dataset $weight
+            done
           done
         done
       done
