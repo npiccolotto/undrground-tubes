@@ -1,0 +1,158 @@
+Grid size is 18 x 18
+Set selection: None
+layout...
+--- Add dummy points executed in 0.6748232841491699 seconds ---
+--- Grid assignment executed in 0.0017271041870117188 seconds ---
+layout took 719.9306488037109ms
+routing...
+Set parameter TokenServer to value "clustermaster.ac.tuwien.ac.at"
+Set parameter TimeLimit to value 10800
+Set parameter MIPGap to value 0
+Set parameter LazyConstraints to value 1
+Gurobi Optimizer version 11.0.1 build v11.0.1rc0 (linux64 - "Ubuntu 18.04.6 LTS")
+
+CPU model: Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 20 physical cores, 20 logical processors, using up to 20 threads
+
+Optimize a model with 269894 rows, 115521 columns and 762233 nonzeros
+Model fingerprint: 0x7ec447ed
+Variable types: 0 continuous, 115521 integer (115521 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [1e+03, 2e+04]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 6e+00]
+Presolve removed 234078 rows and 96122 columns
+Presolve time: 0.23s
+Presolved: 35816 rows, 19399 columns, 107364 nonzeros
+Variable types: 0 continuous, 19399 integer (19399 binary)
+Root relaxation presolved: 35852 rows, 19399 columns, 107508 nonzeros
+
+Deterministic concurrent LP optimizer: primal and dual simplex
+Showing primal log only...
+
+Concurrent spin time: 0.00s
+
+Solved with dual simplex
+
+Root relaxation: objective 4.735539e+04, 16696 iterations, 1.41 seconds (1.01 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0 47355.3910    0 1166          - 47355.3910      -     -    4s
+     0     0 74983.0201    0  981          - 74983.0201      -     -    8s
+     0     0 84892.6450    0  888          - 84892.6450      -     -   12s
+     0     0 87912.5984    0  457          - 87912.5984      -     -   18s
+     0     0 88638.5098    0  736          - 88638.5098      -     -   21s
+     0     0 88818.0966    0  983          - 88818.0966      -     -   24s
+     0     0 88818.0966    0  994          - 88818.0966      -     -   24s
+     0     0 89495.1974    0  594          - 89495.1974      -     -   28s
+     0     0 89946.1671    0  630          - 89946.1671      -     -   30s
+     0     0 90132.4981    0  909          - 90132.4981      -     -   31s
+     0     0 90132.4981    0  907          - 90132.4981      -     -   32s
+     0     0 90499.7050    0  751          - 90499.7050      -     -   34s
+     0     0 90499.7050    0  759          - 90499.7050      -     -   35s
+     0     0 90839.9070    0  861          - 90839.9070      -     -   37s
+     0     0 90839.9070    0  854          - 90839.9070      -     -   38s
+     0     0 90868.8909    0  576          - 90868.8909      -     -   40s
+     0     0 90868.8909    0  572          - 90868.8909      -     -   41s
+     0     0 91368.2559    0  488          - 91368.2559      -     -   43s
+     0     0 91368.2559    0  451          - 91368.2559      -     -   45s
+     0     0 91526.9553    0  343          - 91526.9553      -     -   49s
+H    0     0                    97124.352786 91526.9553  5.76%     -   49s
+     0     0 91565.6895    0  402 97124.3528 91565.6895  5.72%     -   51s
+H    0     0                    95010.702304 91565.6895  3.63%     -   51s
+     0     0 91565.6895    0  479 95010.7023 91565.6895  3.63%     -   52s
+     0     0 91570.4205    0  345 95010.7023 91570.4205  3.62%     -   57s
+     0     0 91576.8837    0  345 95010.7023 91576.8837  3.61%     -   62s
+     0     0 91576.8837    0  345 95010.7023 91576.8837  3.61%     -   65s
+H    0     0                    93641.219006 91576.8837  2.20%     -   67s
+     0     0 91736.8448    0   60 93641.2190 91736.8448  2.03%     -   73s
+     0     0 92419.3560    0  196 93641.2190 92419.3560  1.30%     -   74s
+H    0     0                    93227.005443 92419.3560  0.87%     -   74s
+     0     0 92419.3560    0  195 93227.0054 92419.3560  0.87%     -   74s
+     0     0 92675.8644    0  231 93227.0054 92675.8644  0.59%     -   75s
+     0     0 92675.8644    0   49 93227.0054 92675.8644  0.59%     -   75s
+     0     0 92675.8644    0  213 93227.0054 92675.8644  0.59%     -   75s
+     0     0 92675.8644    0  214 93227.0054 92675.8644  0.59%     -   75s
+     0     0 92814.4458    0    - 93227.0054 92814.4458  0.44%     -   76s
+     0     0 92883.2057    0  304 93227.0054 92883.2057  0.37%     -   76s
+
+Cutting planes:
+  Gomory: 9
+  Clique: 4
+  Zero half: 25
+  RLT: 5
+  Lazy constraints: 4
+
+Explored 1 nodes (148902 simplex iterations) in 76.57 seconds (46.27 work units)
+Thread count was 20 (of 20 available processors)
+
+Solution count 5: 93227 93641.2 95010.7 ... 97195.4
+
+Optimal solution found (tolerance 0.00e+00)
+Best objective 9.322700544350e+04, best bound 9.322700544350e+04, gap 0.0000%
+
+User-callback calls 7873, time in user-callback 9.37 sec
+Set parameter TimeLimit to value 10800
+Set parameter MIPGap to value 0
+Gurobi Optimizer version 11.0.1 build v11.0.1rc0 (linux64 - "Ubuntu 18.04.6 LTS")
+
+CPU model: Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 20 physical cores, 20 logical processors, using up to 20 threads
+
+Optimize a model with 2419704 rows, 1413498 columns and 9460504 nonzeros
+Model fingerprint: 0xb61a27e5
+Variable types: 0 continuous, 1413498 integer (1413498 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [1e+00, 3e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+Presolve removed 1664969 rows and 418578 columns (presolve time = 5s) ...
+Presolve removed 2130944 rows and 647416 columns
+Presolve time: 6.57s
+Presolved: 288760 rows, 766082 columns, 3286828 nonzeros
+Variable types: 0 continuous, 766082 integer (766082 binary)
+Deterministic concurrent LP optimizer: primal simplex, dual simplex, and barrier
+Showing barrier log only...
+
+Root barrier log...
+
+Ordering time: 1.79s
+
+Barrier performed 0 iterations in 26.15 seconds (21.03 work units)
+Barrier solve interrupted - model solved by another algorithm
+
+Concurrent spin time: 1.22s (can be avoided by choosing Method=3)
+
+Solved with dual simplex
+
+Root simplex log...
+
+Iteration    Objective       Primal Inf.    Dual Inf.      Time
+    1810    4.3352386e+02   0.000000e+00   0.000000e+00     26s
+
+Root relaxation: objective 4.335239e+02, 1810 iterations, 6.50 seconds (2.55 work units)
+Total elapsed time = 26.49s (DegenMoves)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+H    0     0                     433.5238636  264.00000  39.1%     -   26s
+     0     0          -    0       433.52386  433.52386  0.00%     -   26s
+
+Explored 1 nodes (2496 simplex iterations) in 27.14 seconds (21.42 work units)
+Thread count was 20 (of 20 available processors)
+
+Solution count 1: 433.524 
+
+Optimal solution found (tolerance 0.00e+00)
+Best objective 4.335238636074e+02, best bound 4.335238636074e+02, gap 0.0000%
+routing took 179058.7854385376ms
+bundle lines...
+bundle lines took 30.396223068237305ms
+draw+write svg...
+draw+write svg took 268.01109313964844ms
+SUCCESS

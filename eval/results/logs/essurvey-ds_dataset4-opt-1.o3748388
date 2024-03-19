@@ -1,0 +1,120 @@
+Grid size is 18 x 18
+Set selection: None
+layout...
+--- Add dummy points executed in 0.6873297691345215 seconds ---
+--- Grid assignment executed in 0.0017931461334228516 seconds ---
+layout took 742.0854568481445ms
+routing...
+Set parameter TokenServer to value "clustermaster.ac.tuwien.ac.at"
+Set parameter TimeLimit to value 10800
+Set parameter MIPGap to value 0
+Set parameter LazyConstraints to value 1
+Gurobi Optimizer version 11.0.1 build v11.0.1rc0 (linux64 - "Ubuntu 18.04.6 LTS")
+
+CPU model: Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 20 physical cores, 20 logical processors, using up to 20 threads
+
+Optimize a model with 274284 rows, 117285 columns and 774414 nonzeros
+Model fingerprint: 0xddb10aae
+Variable types: 0 continuous, 117285 integer (117285 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [1e+03, 2e+04]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 6e+00]
+Presolve removed 225951 rows and 91965 columns
+Presolve time: 1.39s
+Presolved: 48333 rows, 25320 columns, 147254 nonzeros
+Variable types: 0 continuous, 25320 integer (25320 binary)
+
+Deterministic concurrent LP optimizer: primal and dual simplex (primal and dual model)
+Showing primal log only...
+
+Root relaxation presolved: 48333 rows, 25320 columns, 147254 nonzeros
+
+
+Root simplex log...
+
+Iteration    Objective       Primal Inf.    Dual Inf.      Time
+   15669    1.2290665e+05   0.000000e+00   7.542058e+07      5s
+Concurrent spin time: 0.61s (can be avoided by choosing Method=3)
+
+Solved with dual simplex
+
+Root relaxation: objective 1.087403e+05, 23423 iterations, 4.43 seconds (3.23 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+*    0     0               0    108740.33180 108740.332  0.00%     -    6s
+
+Explored 1 nodes (23423 simplex iterations) in 6.39 seconds (5.04 work units)
+Thread count was 20 (of 20 available processors)
+
+Solution count 1: 108740 
+
+Optimal solution found (tolerance 0.00e+00)
+Best objective 1.087403317973e+05, best bound 1.087403317973e+05, gap 0.0000%
+
+User-callback calls 3228, time in user-callback 0.17 sec
+Set parameter TimeLimit to value 10800
+Set parameter MIPGap to value 0
+Gurobi Optimizer version 11.0.1 build v11.0.1rc0 (linux64 - "Ubuntu 18.04.6 LTS")
+
+CPU model: Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 20 physical cores, 20 logical processors, using up to 20 threads
+
+Optimize a model with 2419704 rows, 1413498 columns and 9483440 nonzeros
+Model fingerprint: 0x5045c667
+Variable types: 0 continuous, 1413498 integer (1413498 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [1e+00, 3e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+Presolve removed 1664964 rows and 418476 columns (presolve time = 5s) ...
+Presolve removed 2134344 rows and 649290 columns
+Presolve time: 6.48s
+Presolved: 285360 rows, 764208 columns, 3287644 nonzeros
+Variable types: 0 continuous, 764208 integer (764208 binary)
+Deterministic concurrent LP optimizer: primal simplex, dual simplex, and barrier
+Showing barrier log only...
+
+Root barrier log...
+
+Ordering time: 2.49s
+
+Barrier performed 0 iterations in 26.88 seconds (21.72 work units)
+Barrier solve interrupted - model solved by another algorithm
+
+Concurrent spin time: 1.68s (can be avoided by choosing Method=3)
+
+Solved with dual simplex
+
+Root simplex log...
+
+Iteration    Objective       Primal Inf.    Dual Inf.      Time
+    2309    4.5850179e+02   0.000000e+00   0.000000e+00     27s
+
+Root relaxation: objective 4.585018e+02, 2309 iterations, 7.56 seconds (2.88 work units)
+Total elapsed time = 27.18s (DegenMoves)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+H    0     0                     458.5017857  264.00000  42.4%     -   27s
+     0     0          -    0       458.50179  458.50179  0.00%     -   27s
+
+Explored 1 nodes (3280 simplex iterations) in 27.91 seconds (22.16 work units)
+Thread count was 20 (of 20 available processors)
+
+Solution count 1: 458.502 
+
+Optimal solution found (tolerance 0.00e+00)
+Best objective 4.585017856687e+02, best bound 4.585017856687e+02, gap 0.0000%
+routing took 105106.94575309753ms
+bundle lines...
+bundle lines took 35.67385673522949ms
+draw+write svg...
+draw+write svg took 269.6528434753418ms
+SUCCESS

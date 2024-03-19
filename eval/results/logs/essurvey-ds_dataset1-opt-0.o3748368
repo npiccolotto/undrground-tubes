@@ -1,0 +1,137 @@
+Grid size is 18 x 18
+Set selection: None
+layout...
+--- Add dummy points executed in 0.6831374168395996 seconds ---
+--- Grid assignment executed in 0.0019228458404541016 seconds ---
+layout took 753.3230781555176ms
+routing...
+Set parameter TokenServer to value "clustermaster.ac.tuwien.ac.at"
+Set parameter TimeLimit to value 10800
+Set parameter MIPGap to value 0
+Set parameter LazyConstraints to value 1
+Gurobi Optimizer version 11.0.1 build v11.0.1rc0 (linux64 - "Ubuntu 18.04.6 LTS")
+
+CPU model: Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 20 physical cores, 20 logical processors, using up to 20 threads
+
+Optimize a model with 269894 rows, 115521 columns and 762233 nonzeros
+Model fingerprint: 0xd0b6facd
+Variable types: 0 continuous, 115521 integer (115521 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [1e+03, 2e+04]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 6e+00]
+Presolve removed 234078 rows and 96122 columns
+Presolve time: 0.26s
+Presolved: 35816 rows, 19399 columns, 107364 nonzeros
+Variable types: 0 continuous, 19399 integer (19399 binary)
+Root relaxation presolved: 35878 rows, 19399 columns, 107612 nonzeros
+
+Deterministic concurrent LP optimizer: primal and dual simplex
+Showing primal log only...
+
+Concurrent spin time: 0.00s
+
+Solved with dual simplex
+
+Root relaxation: objective 9.203063e+04, 16966 iterations, 1.44 seconds (1.07 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0 92030.6323    0 1169          - 92030.6323      -     -    3s
+     0     0 126048.114    0  915          - 126048.114      -     -    7s
+     0     0 144881.067    0  833          - 144881.067      -     -   10s
+     0     0 156763.985    0  654          - 156763.985      -     -   12s
+     0     0 161598.417    0  537          - 161598.417      -     -   15s
+     0     0 164753.526    0  754          - 164753.526      -     -   17s
+     0     0 166227.338    0  437          - 166227.338      -     -   19s
+     0     0 167210.756    0  305          - 167210.756      -     -   21s
+H    0     0                    202317.76136 167210.756  17.4%     -   21s
+H    0     0                    181478.20069 167210.756  7.86%     -   22s
+     0     0 167430.298    0  220 181478.201 167430.298  7.74%     -   23s
+     0     0 167675.225    0  575 181478.201 167675.225  7.61%     -   24s
+     0     0 167675.225    0  575 181478.201 167675.225  7.61%     -   25s
+     0     0 168217.314    0  334 181478.201 168217.314  7.31%     -   26s
+H    0     0                    180674.50104 168217.314  6.89%     -   27s
+     0     0 168640.273    0  293 180674.501 168640.273  6.66%     -   28s
+     0     0 169141.104    0  377 180674.501 169141.104  6.38%     -   30s
+H    0     0                    178575.48153 169141.104  5.28%     -   30s
+     0     0 169234.157    0  183 178575.482 169234.157  5.23%     -   31s
+     0     0 169344.485    0  209 178575.482 169344.485  5.17%     -   32s
+     0     0 169426.213    0  373 178575.482 169426.213  5.12%     -   35s
+     0     0 169575.109    0  246 178575.482 169575.109  5.04%     -   37s
+H    0     0                    171582.05424 169575.109  1.17%     -   39s
+     0     0     cutoff    0      171582.054 171582.054  0.00%     -   41s
+
+Explored 1 nodes (126714 simplex iterations) in 41.24 seconds (23.72 work units)
+Thread count was 20 (of 20 available processors)
+
+Solution count 5: 171582 178575 180675 ... 202318
+
+Optimal solution found (tolerance 0.00e+00)
+Best objective 1.715820542377e+05, best bound 1.715820542377e+05, gap 0.0000%
+
+User-callback calls 5515, time in user-callback 6.39 sec
+Set parameter TimeLimit to value 10800
+Set parameter MIPGap to value 0
+Gurobi Optimizer version 11.0.1 build v11.0.1rc0 (linux64 - "Ubuntu 18.04.6 LTS")
+
+CPU model: Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 20 physical cores, 20 logical processors, using up to 20 threads
+
+Optimize a model with 2474550 rows, 1445262 columns and 9647888 nonzeros
+Model fingerprint: 0x77eabda6
+Variable types: 0 continuous, 1445262 integer (1445262 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [1e+00, 3e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+Presolve removed 1704196 rows and 430902 columns (presolve time = 5s) ...
+Presolve removed 2208395 rows and 717134 columns
+Presolve time: 6.55s
+Presolved: 266155 rows, 728128 columns, 3067602 nonzeros
+Variable types: 0 continuous, 728128 integer (728128 binary)
+Deterministic concurrent LP optimizer: primal simplex, dual simplex, and barrier
+Showing barrier log only...
+
+Root barrier log...
+
+Ordering time: 2.30s
+
+Barrier performed 0 iterations in 23.86 seconds (19.80 work units)
+Barrier solve interrupted - model solved by another algorithm
+
+Concurrent spin time: 1.38s (can be avoided by choosing Method=3)
+
+Solved with dual simplex
+
+Root simplex log...
+
+Iteration    Objective       Primal Inf.    Dual Inf.      Time
+    4289    6.0632895e+02   0.000000e+00   0.000000e+00     24s
+
+Root relaxation: objective 6.063290e+02, 4289 iterations, 5.78 seconds (1.99 work units)
+Total elapsed time = 23.98s (DegenMoves)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+H    0     0                     606.3289501  270.00000  55.5%     -   24s
+     0     0          -    0       606.32895  606.32895  0.00%     -   24s
+
+Explored 1 nodes (5948 simplex iterations) in 24.85 seconds (20.10 work units)
+Thread count was 20 (of 20 available processors)
+
+Solution count 1: 606.329 
+
+Optimal solution found (tolerance 0.00e+00)
+Best objective 6.063289501350e+02, best bound 6.063289501350e+02, gap 0.0000%
+routing took 143472.1963405609ms
+bundle lines...
+bundle lines took 42.9997444152832ms
+draw+write svg...
+draw+write svg took 299.2711067199707ms
+SUCCESS
