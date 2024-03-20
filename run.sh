@@ -27,13 +27,11 @@ export GUROBI_HOME="/home1/share/gurobi/gurobi/linux64"
 
 support_type="$2"
 overlapper="$3"
-connecter="$4"
-router="$5"
-dataset="$6"
-weight="$7"
+pipeline="$4"
+dataset="$5"
+weight="$6"
 
-jobname="esvis-$dataset-$weight-$support_type-$layouter-$overlapper-$connecter-$router";
 
 cd $base
-python render2.py --write-dir $TMPDIR --support-type $support_type --overlap-remover $overlapper --connecter $connecter --router $router --read-dir $base/designspace-test --dataset $dataset --weight $weight --connect-objective joint
+python render2.py --write-dir $TMPDIR --support-type $support_type --overlap-remover $overlapper --strategy $pipeline --read-dir $base/designspace-test --dataset $dataset --weight $weight --connect-objective joint --layouter mds
 cp -r $TMPDIR $1
