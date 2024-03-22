@@ -29,11 +29,10 @@ for i in $(seq 1 10); do
           for run in $(seq 1 5); do
             jobname="esvis-$dataset-$weight-$support_type-$overlapper-$pipeline-$run";
             echo "submitting $jobname";
-            qsub -N $jobname -l bc4 -l mem_free=$mem -l h_vmem=$mem -l h_rt=$hlr -e $base/logs/ -o $base/logs/ -r y run.sh $base/$jobname $support_type $overlapper $pipeline $dataset $weight
+            qsub -N $jobname -l bc5 -l mem_free=$mem -l h_vmem=$mem -l h_rt=$hlr -e $base/logs/ -o $base/logs/ -r y run.sh $base/$jobname $support_type $overlapper $pipeline $dataset $weight
           done
         done
       done
     done
   done
 done
-

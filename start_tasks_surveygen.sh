@@ -12,11 +12,10 @@ base='/home1/npiccolotto/ensemble-sets/results'
 # set soft memory (not used)
 #sm=7.8G
 
-mem=32G
+mem=64G
 
 # set hard limit run time (seconds)
-hlr=18000 # 4 calls to gurobi, 1h for each plus one hour for the rest = 5h
-
+hlr=25200
 
 for i in $(seq 1 4); do
   dataset="ds_dataset${i}";
@@ -28,4 +27,3 @@ for i in $(seq 1 4); do
     done
   done
 done
-
