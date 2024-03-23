@@ -511,7 +511,7 @@ def compute_total_length(G, what="edges"):
     return result
 
 
-def compute_metrics(G, instance):
+def compute_metrics(G):
     result = []
     layers = figure_out_num_layers(G)
     for layer in range(layers + 1):
@@ -520,10 +520,10 @@ def compute_metrics(G, instance):
         result.append(
             {
                 "total_node_moves": compute_node_moves(G, layer, layer - 1),
-                "total_lines": compute_total_length(G_, what="lines"),
+                #"total_lines": compute_total_length(G_, what="lines"),
                 "total_edges": compute_total_length(G_, what="edges"),
-                "total_line_crossings": compute_crossings_inside(G_, what="lines")
-                + compute_crossings_outside(G_, what="lines", size=figure_out_size(G)),
+                #"total_line_crossings": compute_crossings_inside(G_, what="lines")
+                #+ compute_crossings_outside(G_, what="lines", size=figure_out_size(G)),
                 "total_edge_crossings": compute_crossings_inside(G_, what="edges")
                 + compute_crossings_outside(G_, what="edges", size=figure_out_size(G)),
             }

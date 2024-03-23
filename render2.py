@@ -550,7 +550,7 @@ def vis(
             os.path.join(config_vars["general.writedir"].get(), "call.json"), "w"
         ) as f:
             if config_vars["general.computemetrics"].get():
-                metrics = calc_metrics(G, inst)
+                metrics = calc_metrics(G)
             json.dump(
                 {
                     "success": True,
