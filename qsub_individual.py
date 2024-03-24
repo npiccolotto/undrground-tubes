@@ -29,7 +29,7 @@ def to_qsub(d):
     num_glyphs = (d['dataset_id'] + 1) * 20
     jobname = f"esvis-ds_dataset{d['dataset_id']}_{num_glyphs}-{d['weight']}-{d['support']}-{d['gridifier']}-{d['pipeline']}-{d['run']}"
     mem = '32G'
-    dataset = f"ds_dataset{d['dataset_id']}"
+    dataset = f"ds_dataset{d['dataset_id']}_{num_glyphs}"
     base = '/home1/npiccolotto/ensemble-sets/results'
     hlr = 18000
     return f"qsub -N {jobname} -l bc5 -l mem_free={mem} -l h_vmem={mem} -l h_rt={hlr} -e {base}/logs/ -o {base}/logs/ -r y run.sh {base}/{jobname} {d['support']} {d['gridifier']} {d['pipeline']} {dataset} {weight}"
