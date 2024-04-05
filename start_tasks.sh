@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# docs: https://www.ac.tuwien.ac.at/students/compute-cluster/
+
 # set the base directory
 base='/home1/npiccolotto/ensemble-sets/results'
 
