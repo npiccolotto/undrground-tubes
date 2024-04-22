@@ -14,6 +14,7 @@ dataset <- read.csv2("/home/markus/PycharmProjects/ensemble-set-rendering/eval/s
 dataset[dataset$metric == "t",]
 
 dataset_t <- subset(dataset, dataset$metric == "t")
+dataset_a <- subset(dataset, dataset$metric == "a")
 #dataset_t[dataset_t$task == "1",]
 
 plot_dist <- function(df, c=value, binwidth=3000) {
@@ -81,6 +82,11 @@ dataset_task2 <- subset(dataset_t, dataset_t$task == "2")
 dataset_task3 <- subset(dataset_t, dataset_t$task == "3")
 dataset_task4 <- subset(dataset_t, dataset_t$task == "4")
 
+dataset_a_task1 <- subset(dataset_a, dataset_a$task == "1")
+dataset_a_task2 <- subset(dataset_a, dataset_a$task == "2")
+dataset_a_task3 <- subset(dataset_a, dataset_a$task == "3")
+dataset_a_task4 <- subset(dataset_a, dataset_a$task == "4")
+
 qq_data <- dataset
 
 
@@ -101,7 +107,7 @@ plot_dist(dataset_task1)
 summary(dataset_task1$value)
 
 out <- which(dataset_task1$value >= quantile(dataset_task1$value, 0.99))
-
+out
 plot_dist(dataset_task1[-out,])
 qqnorm(dataset_task1[-out,'value'])
 qqline(dataset_task1[-out,'value'])
@@ -142,6 +148,13 @@ t.test(dataset_task1[dataset_task1$alpha=='0','value_t'],
 
 ## α = 1 is faster than the alternatives for T2.
 boxplot(dataset_task2$value ~ dataset_task2$alpha)
+
+boxplot(dataset_a_task1$value ~ dataset_a_task1$alpha)
+describeBy(dataset_a_task1$value, group=dataset_a_task1$alpha)
+describeBy(dataset_a_task2$value, group=dataset_a_task2$alpha)
+describeBy(dataset_a_task3$value, group=dataset_a_task3$alpha)
+describeBy(dataset_a_task4$value, group=dataset_a_task4$alpha)
+
 qq_data <- subset(dataset_task2$value, dataset_task2$alpha == "1")
 qq_data <- dataset_task2$value
 qqnorm(qq_data)
@@ -193,3 +206,9 @@ qqnorm(qq_data)
 qqline(qq_data)
 
 shapiro.test(qq_data)
+
+
+
+anova(lm(value ~ pipeline*task, data = dataset_t))
+
+describeBy(dataset_task4$value, group=dataset_task4$pipeline)
