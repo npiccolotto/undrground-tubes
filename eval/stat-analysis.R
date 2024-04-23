@@ -5,33 +5,30 @@ library(car)
 library(psych)
 library(plyr)
 library(moments)
+library(rstatix)
 
 pwr.anova.test(k=7, f=0.25, sig.level = 0.05, power=0.8)
 pwr.t.test(d=0.75, sig.level = 0.05, power=0.8)
 
+prepareDataset <- function(filename) {
+  ## read survey data to dataset
+  read_dataset <- read.csv2(filename, colClasses = c("numeric","numeric","factor","factor","factor","factor"), sep=",", dec = ".")
 
-## read survey data to dataset
-read_dataset <- read.csv2("/home/markus/PycharmProjects/ensemble-set-rendering/eval/survey_long.csv", colClasses = c("numeric","numeric","factor","factor","factor","factor"), sep=",", dec = ".")
+  # split time and accuracy in separate datasets
+  dataset_t <- subset(read_dataset, read_dataset$metric == "t")
+  dataset_a <- subset(read_dataset, read_dataset$metric == "a")
 
-# split time and accuracy in separate datasets
-dataset_t <- subset(read_dataset, read_dataset$metric == "t")
-dataset_a <- subset(read_dataset, read_dataset$metric == "a")
+  # join time and accuracy
+  dat <- join(dataset_t, dataset_a, by=c('participant', 'task', 'alpha', 'pipeline'))
+  # remove metric column
+  dat <- dat[,c(-6,-8)]
 
-# join time and accuracy
-dat <- join(dataset_t, dataset_a, by=c('participant', 'task', 'alpha', 'pipeline'))
-# remove metric column
-dat <- dat[,c(-6,-8)]
-
-# rename metric column
-colnames(dat)[2] <- "time"
-colnames(dat)[6] <- "f1.error"
-# set dataset
-dataset <- dat
-
-dataset_task1 <- subset(dataset, dataset$task == "1")
-dataset_task2 <- subset(dataset, dataset$task == "2")
-dataset_task3 <- subset(dataset, dataset$task == "3")
-dataset_task4 <- subset(dataset, dataset$task == "4")
+  # rename metric column
+  colnames(dat)[2] <- "time"
+  colnames(dat)[6] <- "f1.error"
+  # set dataset
+  return (dat)
+}
 
 plot_dist <- function(df, column="time", binwidth=3000) {
   # Histogram overlaid with kernel density curve
@@ -42,11 +39,19 @@ plot_dist <- function(df, column="time", binwidth=3000) {
     geom_density(alpha=.2, fill="#FF6666")  # Overlay with transparent density plot
 }
 
+dataset <- prepareDataset("/home/markus/PycharmProjects/ensemble-set-rendering/eval/survey_long.csv")
+
+dataset_task1 <- subset(dataset, dataset$task == "1")
+dataset_task2 <- subset(dataset, dataset$task == "2")
+dataset_task3 <- subset(dataset, dataset$task == "3")
+dataset_task4 <- subset(dataset, dataset$task == "4")
+
 ##### Task 1
 describeBy(dataset$time, group=dataset$task)
 describeBy(dataset$f1.error, group=dataset$task)
 
-## α = 0 is more accurate and faster than the alternatives for T1.
+############################################################
+## H1: α = 0 is more accurate and faster than the alternatives for T1.
 boxplot(dataset_task1$time ~ dataset_task1$alpha)
 qqnorm(dataset_task1$time)
 qqline(dataset_task1$time)
@@ -60,11 +65,16 @@ qqnorm(dataset_task1$f1.error)
 qqline(dataset_task1$f1.error)
 shapiro.test(dataset_task1$f1.error)
 
+b <- boxcox(lm(time~1, data=dataset_task1))
+lambda <- b$x[which.max(b$y)]
+lambda
+
 dataset_task1$time_adj <- sqrt(dataset_task1[,'time'])
 plot_dist(dataset_task1, "time_adj", binwidth = 10)
 
 dataset_task1$f1_adj <- 1/(max(dataset_task1[,'f1.error']+1)-dataset_task1[,'f1.error'])
 plot_dist(dataset_task1, "f1_adj", binwidth = 0.01)
+boxplot(dataset_task1$f1_adj ~ dataset_task1$alpha)
 
 par(mfrow=c(2,1))
 qqnorm(dataset_task1$time)
@@ -73,25 +83,56 @@ qqnorm(dataset_task1$time_adj)
 qqline(dataset_task1$time_adj)
 shapiro.test(dataset_task1$time_adj)
 
-leveneTest(lm(time_adj ~ alpha, data = dataset_task1))
+leveneTest(lm(time_adj ~ alpha*pipeline, data = dataset_task1))
 describeBy(dataset_task1$time_adj, group=dataset_task1$alpha)
 
 boxplot(dataset_task1$time_adj ~ dataset_task1$alpha)
 anova(lm(time_adj ~ alpha*pipeline, data = dataset_task1))
 
-0.05*0.05
+### pairwise t-test
+dataset_task1 %>%
+  pairwise_t_test(time_adj~alpha, pool.sd = TRUE,
+  p.adjust.method = "bonferroni") %>%
+  as.data.frame()
 
-t.test(dataset_task1[dataset_task1$alpha=='0','time_adj'],
-       dataset_task1[dataset_task1$alpha=='1','time_adj'],
-        var.equal = T, alternative = "less")
-t.test(dataset_task1[dataset_task1$alpha=='0','time_adj'],
-       dataset_task1[dataset_task1$alpha=='5','time_adj'],
-        var.equal = T, alternative = "less")
+dataset_task1%>%
+  cohens_d(time_adj~alpha)%>%
+  as.data.frame()
 
 ##wilcox.test(value_t~alpha, data = dataset_task1[dataset_task1$alpha,])
+describeBy(dataset_task1$f1.error, group=dataset_task1$alpha)
+
+# test statistic for f1 score difference
+# followed by https://bjoernwalther.com/kruskal-wallis-test-in-r-rechnen/
+k_test <- kruskal.test(dataset_task1$f1.error~dataset_task1$alpha)
+print(k_test)
+#kruskal.test(dataset_task1$f1_adj~dataset_task1$alpha)
+
+# post hoc analysis of f1 score
+#pairwise.wilcox.test(dataset_task1$f1.error,dataset_task1$alpha, p.adjust="bonferroni")
+# bzw. für den Dunn's Test:
+d <- dunn_test(f1.error~alpha, data=dataset_task1, p.adjust.method = "bonferroni")
+print(d)
+
+kruskal.effect <- function (chi, k, n) {
+  eta_sqd <- (chi-k+1)/(n - k)
+  return (sqrt(eta_sqd/(1-eta_sqd)))
+}
+
+### calculate effect of the Kruskal Walis Test
+f_value <- kruskal.effect(unname(k_test$statistic), nlevels(dataset_task1$alpha), nrow(dataset_task1))
+print(f_value)
+## F_value
+#    Ab 0,1 ist es ein schwacher Effekt,
+#    ab 0,25 ein mittlerer und
+#    ab 0,4 ein starker Effekt.
+
+### effect of dunn's test
+d$r <- d$statistic/sqrt(d$n1+d$n2)
+d
 
 ######################################################
-## α = 1 is faster than the alternatives for T2.
+## H2: α = 1 is faster than the alternatives for T2.
 par(mfrow=c(1,1))
 boxplot(dataset_task2$time ~ dataset_task2$alpha)
 qqnorm(dataset_task2$time)
@@ -100,13 +141,14 @@ plot_dist(dataset_task2)
 describeBy(dataset_task2$time, group=dataset_task2$alpha)
 shapiro.test(dataset_task2$time)
 
+#https://www.datanovia.com/en/lessons/transform-data-to-normal-distribution-in-r/
 b <- boxcox(lm(time~1, data=dataset_task2))
 lambda <- b$x[which.max(b$y)]
 lambda
 
-dataset_task2$time_adj <- log10(dataset_task2[,'time'])
-plot_dist(dataset_task2, "time_adj", binwidth = 0.1)
-shapiro.test(dataset_task2$time_adj)
+#dataset_task2$time_adj <- log10(dataset_task2[,'time'])
+#plot_dist(dataset_task2, "time_adj", binwidth = 0.1)
+#shapiro.test(dataset_task2$time_adj)
 
 dataset_task2$time_adj <- 1/sqrt(dataset_task2$time/10000)
 plot_dist(dataset_task2, "time_adj", binwidth = 0.1)
@@ -121,12 +163,55 @@ describeBy(dataset_task2$time_adj, group=dataset_task2$alpha)
 boxplot(dataset_task2$time_adj ~ dataset_task2$alpha)
 anova(lm(time_adj ~ alpha*pipeline, data = dataset_task2))
 
+### pairwise t-test
+dataset_task2 %>%
+  pairwise_t_test(time_adj~alpha, pool.sd = TRUE,
+  p.adjust.method = "bonferroni") %>%
+  as.data.frame()
+
+dataset_task2%>%
+  cohens_d(time_adj~alpha)%>%
+  as.data.frame()
+
+
+## separate t-tests
+alpha_adj <- 0.05*0.05*0.05
+
 t.test(dataset_task2[dataset_task2$alpha=='0','time_adj'],
        dataset_task2[dataset_task2$alpha=='1','time_adj'],
         var.equal = T)
 t.test(dataset_task2[dataset_task2$alpha=='1','time_adj'],
        dataset_task2[dataset_task2$alpha=='5','time_adj'],
         var.equal = T)
+t.test(dataset_task2[dataset_task2$alpha=='0','time_adj'],
+       dataset_task2[dataset_task2$alpha=='5','time_adj'],
+        var.equal = T)
+
+##wilcox.test(value_t~alpha, data = dataset_task1[dataset_task1$alpha,])
+describeBy(dataset_task2$f1.error, group=dataset_task2$alpha)
+
+boxplot(dataset_task2$f1.error ~ dataset_task2$alpha)
+
+# test statistic for f1 score difference
+# followed by https://bjoernwalther.com/kruskal-wallis-test-in-r-rechnen/
+k_test <- kruskal.test(dataset_task2$f1.error~dataset_task2$alpha)
+print(k_test)
+#kruskal.test(dataset_task1$f1_adj~dataset_task1$alpha)
+
+# post hoc analysis of f1 score
+#pairwise.wilcox.test(dataset_task1$f1.error,dataset_task1$alpha, p.adjust="bonferroni")
+# bzw. für den Dunn's Test:
+d <- dunn_test(f1.error~alpha, data=dataset_task2, p.adjust.method = "bonferroni")
+print(d)
+
+## F_value
+#    Ab 0,1 ist es ein schwacher Effekt,
+#    ab 0,25 ein mittlerer und
+#    ab 0,4 ein starker Effekt.
+
+### effect of dunn's test
+d$r <- d$statistic/sqrt(d$n1+d$n2)
+d
 
 #####################################################################
 ## H3: α = 1 is more accurate and faster than the alternatives for T3.
@@ -148,7 +233,7 @@ shapiro.test(dataset_task3$time_adj)
 qqnorm(dataset_task3$time_adj)
 qqline(dataset_task3$time_adj)
 
-leveneTest(lm(time_adj ~ alpha, data = dataset_task3))
+leveneTest(lm(time_adj ~ alpha*pipeline, data = dataset_task3))
 describeBy(dataset_task3$time_adj, group=dataset_task3$alpha)
 
 boxplot(dataset_task3$time_adj ~ dataset_task3$alpha)
@@ -173,8 +258,52 @@ t.test(dataset_task3[dataset_task3$alpha=='0','time_adj'],
        dataset_task3[dataset_task3$alpha=='5','time_adj'],
         var.equal = T)
 
+### posthoc analysis for interaction effect
+dataset_task3 %>%
+  group_by(alpha) %>%
+  anova_test(time_adj ~ pipeline, effect.size = "pes")%>%
+  as.data.frame()
+
+# bei signifikanter Interaktion (alpha*pipeline)
+dataset_task3 %>%
+  group_by(pipeline) %>%
+  anova_test(time_adj ~ alpha, effect.size = "pes")%>%
+  as.data.frame()
+
+
+# Post-hoc-Analyse der ANOVAs aus A.
+install.packages("emmeans")
+ library(emmeans)
+ data %>%
+ group_by(Geschlecht) %>%
+ emmeans_test(Einkommen ~ Erfahrung, p.adjust.method = "bonferroni") %>%
+ as.data.frame()
+
+##wilcox.test(value_t~alpha, data = dataset_task1[dataset_task1$alpha,])
+describeBy(dataset_task3$f1.error, group=dataset_task3$alpha)
 
 boxplot(dataset_task3$f1.error ~ dataset_task3$alpha)
+
+# test statistic for f1 score difference
+# followed by https://bjoernwalther.com/kruskal-wallis-test-in-r-rechnen/
+k_test <- kruskal.test(dataset_task3$f1.error~dataset_task3$alpha)
+print(k_test)
+#kruskal.test(dataset_task1$f1_adj~dataset_task1$alpha)
+
+# post hoc analysis of f1 score
+#pairwise.wilcox.test(dataset_task1$f1.error,dataset_task1$alpha, p.adjust="bonferroni")
+# bzw. für den Dunn's Test:
+d <- dunn_test(f1.error~alpha, data=dataset_task3, p.adjust.method = "bonferroni")
+print(d)
+
+## F_value
+#    Ab 0,1 ist es ein schwacher Effekt,
+#    ab 0,25 ein mittlerer und
+#    ab 0,4 ein starker Effekt.
+
+### effect of dunn's test
+d$r <- d$statistic/sqrt(d$n1+d$n2)
+d
 
 ##########################################################
 ## H4: α = 0 is more accurate and faster than the alternatives for T4
@@ -196,11 +325,21 @@ shapiro.test(dataset_task4$time_adj)
 qqnorm(dataset_task4$time_adj)
 qqline(dataset_task4$time_adj)
 
-leveneTest(lm(time_adj ~ alpha, data = dataset_task4))
+leveneTest(lm(time_adj ~ alpha*pipeline, data = dataset_task4))
 describeBy(dataset_task4$time_adj, group=dataset_task4$alpha)
 
 boxplot(dataset_task4$time_adj ~ dataset_task4$alpha)
 anova(lm(time_adj ~ alpha*pipeline, data = dataset_task4))
+
+### pairwise t-test
+dataset_task4 %>%
+  pairwise_t_test(time_adj~alpha, pool.sd = TRUE,
+  p.adjust.method = "bonferroni") %>%
+  as.data.frame()
+
+dataset_task4%>%
+  cohens_d(time_adj~alpha)%>%
+  as.data.frame()
 
 0.05*0.05
 
@@ -212,14 +351,57 @@ t.test(dataset_task4[dataset_task4$alpha=='0','time_adj'],
        dataset_task4[dataset_task4$alpha=='5','time_adj'],
         var.equal = T)
 
+##wilcox.test(value_t~alpha, data = dataset_task1[dataset_task1$alpha,])
+describeBy(dataset_task4$f1.error, group=dataset_task4$alpha)
+
+boxplot(dataset_task4$f1.error ~ dataset_task4$alpha)
+
+# test statistic for f1 score difference
+# followed by https://bjoernwalther.com/kruskal-wallis-test-in-r-rechnen/
+k_test <- kruskal.test(dataset_task4$f1.error~dataset_task4$alpha)
+print(k_test)
+#kruskal.test(dataset_task1$f1_adj~dataset_task1$alpha)
+
+# post hoc analysis of f1 score
+#pairwise.wilcox.test(dataset_task1$f1.error,dataset_task1$alpha, p.adjust="bonferroni")
+# bzw. für den Dunn's Test:
+d <- dunn_test(f1.error~alpha, data=dataset_task4, p.adjust.method = "bonferroni")
+print(d)
+
+## F_value
+#    Ab 0,1 ist es ein schwacher Effekt,
+#    ab 0,25 ein mittlerer und
+#    ab 0,4 ein starker Effekt.
+
+### effect of dunn's test
+d$r <- d$statistic/sqrt(d$n1+d$n2)
+d
+
 ##########################################################
 ## H5: α = 0.5 is neither the slowest nor least accurate for any task
 
 
 ##########################################################
 ## H6: Optimal UT drawings lead to faster answers for all tasks.
+par(mfrow=c(2,1))
+boxplot(dataset_task1$time ~ dataset_task1$pipeline+dataset_task1$alpha)
+boxplot(dataset_task1$time_adj ~ dataset_task1$pipeline+dataset_task1$alpha)
+
+boxplot(dataset_task2$time ~ dataset_task2$pipeline+dataset_task2$alpha)
+boxplot(dataset_task2$time_adj ~ dataset_task2$pipeline+dataset_task2$alpha)
+boxplot(dataset_task3$time ~ dataset_task3$pipeline+dataset_task3$alpha)
+boxplot(dataset_task3$time_adj ~ dataset_task3$pipeline+dataset_task3$alpha)
+boxplot(dataset_task4$time ~ dataset_task4$pipeline+dataset_task4$alpha)
+boxplot(dataset_task4$time_adj ~ dataset_task4$pipeline+dataset_task4$alpha)
 
 
+anova(lm(time~pipeline, data = dataset_task1))
+
+
+
+############################################
+############################################
+############################################
 ############################################
 
 qq_data <- subset(dataset_task2$value, dataset_task2$alpha == "1")
