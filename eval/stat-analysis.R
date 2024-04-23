@@ -6,6 +6,8 @@ library(psych)
 library(plyr)
 library(moments)
 library(rstatix)
+library(emmeans)
+library(ggpubr)
 
 pwr.anova.test(k=7, f=0.25, sig.level = 0.05, power=0.8)
 pwr.t.test(d=0.75, sig.level = 0.05, power=0.8)
@@ -32,11 +34,17 @@ prepareDataset <- function(filename) {
 
 plot_dist <- function(df, column="time", binwidth=3000) {
   # Histogram overlaid with kernel density curve
-  ggplot(df, aes_string(x=column)) +
-    geom_histogram(aes(y=..density..),      # Histogram with density instead of count on y-axis
+  ggplot(df, aes(x=.data[[column]])) +
+    geom_histogram(aes(y=after_stat(density)),      # Histogram with density instead of count on y-axis
                    binwidth=binwidth,
                    colour="black", fill="white") +
     geom_density(alpha=.2, fill="#FF6666")  # Overlay with transparent density plot
+
+ # ggplot(df, aes_string(x=column)) +
+ #   geom_histogram(aes(y=..density..),      # Histogram with density instead of count on y-axis
+  #                 binwidth=binwidth,
+   #                colour="black", fill="white") +
+   # geom_density(alpha=.2, fill="#FF6666")  # Overlay with transparent density plot
 }
 
 dataset <- prepareDataset("/home/markus/PycharmProjects/ensemble-set-rendering/eval/survey_long.csv")
@@ -86,8 +94,15 @@ shapiro.test(dataset_task1$time_adj)
 leveneTest(lm(time_adj ~ alpha*pipeline, data = dataset_task1))
 describeBy(dataset_task1$time_adj, group=dataset_task1$alpha)
 
+### check for normal distribution and homogenity of variances
+par(mfrow=c(1,1))
+nv <- lm(time_adj ~ alpha*pipeline, data = dataset_task1)
+ggqqplot(residuals(nv))
+plot(nv,1)
+
 boxplot(dataset_task1$time_adj ~ dataset_task1$alpha)
 anova(lm(time_adj ~ alpha*pipeline, data = dataset_task1))
+anova_test(time_adj ~ alpha*pipeline, data = dataset_task1, effect.size="pes")
 
 ### pairwise t-test
 dataset_task1 %>%
@@ -160,8 +175,15 @@ qqline(dataset_task2$time_adj)
 leveneTest(lm(time_adj ~ alpha, data = dataset_task2))
 describeBy(dataset_task2$time_adj, group=dataset_task2$alpha)
 
+### check for normal distribution and homogenity of variances
+par(mfrow=c(1,1))
+nv <- lm(time_adj ~ alpha*pipeline, data = dataset_task2)
+ggqqplot(residuals(nv))
+plot(nv,1)
+
 boxplot(dataset_task2$time_adj ~ dataset_task2$alpha)
 anova(lm(time_adj ~ alpha*pipeline, data = dataset_task2))
+anova_test(time_adj ~ alpha*pipeline, data = dataset_task2, effect.size="pes")
 
 ### pairwise t-test
 dataset_task2 %>%
@@ -236,8 +258,15 @@ qqline(dataset_task3$time_adj)
 leveneTest(lm(time_adj ~ alpha*pipeline, data = dataset_task3))
 describeBy(dataset_task3$time_adj, group=dataset_task3$alpha)
 
+### check for normal distribution and homogenity of variances
+par(mfrow=c(1,1))
+nv <- lm(time_adj ~ alpha*pipeline, data = dataset_task3)
+ggqqplot(residuals(nv))
+plot(nv,1)
+
 boxplot(dataset_task3$time_adj ~ dataset_task3$alpha)
 anova(lm(time_adj ~ alpha*pipeline, data = dataset_task3))
+anova_test(time_adj ~ alpha*pipeline, data = dataset_task3, effect.size="pes")
 
 anova(lm(time_adj ~ alpha, data = dataset_task3[dataset_task3$pipeline=="o",]))
 anova(lm(time_adj ~ alpha, data = dataset_task3[dataset_task3$pipeline=="h",]))
@@ -259,6 +288,7 @@ t.test(dataset_task3[dataset_task3$alpha=='0','time_adj'],
         var.equal = T)
 
 ### posthoc analysis for interaction effect
+# from https://bjoernwalther.com/zweifaktorielle-anova-in-r-rechnen-und-interpretieren/
 dataset_task3 %>%
   group_by(alpha) %>%
   anova_test(time_adj ~ pipeline, effect.size = "pes")%>%
@@ -272,12 +302,66 @@ dataset_task3 %>%
 
 
 # Post-hoc-Analyse der ANOVAs aus A.
-install.packages("emmeans")
- library(emmeans)
- data %>%
- group_by(Geschlecht) %>%
- emmeans_test(Einkommen ~ Erfahrung, p.adjust.method = "bonferroni") %>%
+
+ dataset_task3 %>%
+ group_by(alpha) %>%
+ emmeans_test(time_adj ~ pipeline, p.adjust.method = "bonferroni") %>%
  as.data.frame()
+
+#### prepare plots for post hoc
+
+# Resultate speichern
+ph <- dataset_task3 %>%
+ group_by(alpha) %>%
+ emmeans_test(time_adj ~ pipeline, p.adjust.method = "bonferroni") %>%
+  add_xy_position(x = "alpha")
+
+# Resultate in einen Boxplot übergeben
+ggboxplot(dataset_task3, x = "alpha", y = "time_adj", color = "pipeline") +
+  stat_pvalue_manual(ph) +
+  labs(subtitle = get_test_label
+       (anova_test(data = dataset_task3, time_adj~alpha*pipeline,
+                   effect.size = "pes"), detailed = TRUE))
+
+
+#### Analyse the alpha differences for each pipeline separately
+### check for normal distribution and homogenity of variances
+par(mfrow=c(1,1))
+nv <- lm(time ~ alpha, data = dataset_task3[dataset_task3$pipeline == "o",])
+ggqqplot(residuals(nv))
+plot(nv,1)
+
+par(mfrow=c(1,1))
+nv <- lm(time ~ alpha, data = dataset_task3[dataset_task3$pipeline == "h",])
+ggqqplot(residuals(nv))
+plot(nv,1)
+
+plot_dist(dataset_task3[dataset_task3$pipeline == "h",], "time_adj", binwidth = 0.05)
+plot_dist(dataset_task3[dataset_task3$pipeline == "o",], "time_adj", binwidth = 0.05)
+
+
+anova_test(time_adj ~ alpha, data = dataset_task3[dataset_task3$pipeline == "h",], effect.size="pes")
+anova_test(time_adj ~ alpha, data = dataset_task3[dataset_task3$pipeline == "o",], effect.size="pes")
+
+### pairwise t-test
+dataset_task3[dataset_task3$pipeline == "h",] %>%
+  pairwise_t_test(time_adj~alpha, pool.sd = TRUE,
+  p.adjust.method = "bonferroni") %>%
+  as.data.frame()
+
+dataset_task3[dataset_task3$pipeline == "h",]%>%
+  cohens_d(time_adj~alpha)%>%
+  as.data.frame()
+
+dataset_task3[dataset_task3$pipeline == "o",] %>%
+  pairwise_t_test(time_adj~alpha, pool.sd = TRUE,
+  p.adjust.method = "bonferroni") %>%
+  as.data.frame()
+
+dataset_task3[dataset_task3$pipeline == "o",]%>%
+  cohens_d(time_adj~alpha)%>%
+  as.data.frame()
+
 
 ##wilcox.test(value_t~alpha, data = dataset_task1[dataset_task1$alpha,])
 describeBy(dataset_task3$f1.error, group=dataset_task3$alpha)
@@ -328,8 +412,15 @@ qqline(dataset_task4$time_adj)
 leveneTest(lm(time_adj ~ alpha*pipeline, data = dataset_task4))
 describeBy(dataset_task4$time_adj, group=dataset_task4$alpha)
 
+### check for normal distribution and homogenity of variances
+par(mfrow=c(1,1))
+nv <- lm(time_adj ~ alpha*pipeline, data = dataset_task4)
+ggqqplot(residuals(nv))
+plot(nv,1)
+
 boxplot(dataset_task4$time_adj ~ dataset_task4$alpha)
 anova(lm(time_adj ~ alpha*pipeline, data = dataset_task4))
+anova_test(time_adj ~ alpha*pipeline, data = dataset_task4, effect.size="pes")
 
 ### pairwise t-test
 dataset_task4 %>%
@@ -380,24 +471,112 @@ d
 ##########################################################
 ## H5: α = 0.5 is neither the slowest nor least accurate for any task
 
+### T1 - Time -> α = 0.5 is significant slower than α = 0 but equal to α = 1
+### T1 - F1 error -> α = 0.5 has significant lower F1 score than α = 0 but equal to α = 1
+
+### T2 - Time -> α = 0.5 is significant slower than α = 0 but equal to α = 1
+### T2 - F1 error -> no difference in f1 error for any alpha combination
+
+### T3 - Time -> α = 0.5 is between α = 1 and α = 0 in pipeline = h, slower than α = 1 and equal to α = 0 in pipeline = o
+### T3 - F1 error -> α = 0.5 is more accurate than α = 0, but equal to α = 1
+
+### T4 - time -> No difference
+### T4 - F1 error -> No difference
 
 ##########################################################
 ## H6: Optimal UT drawings lead to faster answers for all tasks.
-par(mfrow=c(2,1))
-boxplot(dataset_task1$time ~ dataset_task1$pipeline+dataset_task1$alpha)
-boxplot(dataset_task1$time_adj ~ dataset_task1$pipeline+dataset_task1$alpha)
 
-boxplot(dataset_task2$time ~ dataset_task2$pipeline+dataset_task2$alpha)
-boxplot(dataset_task2$time_adj ~ dataset_task2$pipeline+dataset_task2$alpha)
-boxplot(dataset_task3$time ~ dataset_task3$pipeline+dataset_task3$alpha)
-boxplot(dataset_task3$time_adj ~ dataset_task3$pipeline+dataset_task3$alpha)
-boxplot(dataset_task4$time ~ dataset_task4$pipeline+dataset_task4$alpha)
-boxplot(dataset_task4$time_adj ~ dataset_task4$pipeline+dataset_task4$alpha)
+#### pairwise t-tests Task 1
+dataset_task1 %>%
+  group_by(alpha) %>%
+  pairwise_t_test(time_adj~pipeline, pool.sd = TRUE,
+  p.adjust.method = "bonferroni") %>%
+  as.data.frame()
 
+dataset_task1%>%
+  cohens_d(time_adj~alpha)%>%
+  as.data.frame()
 
-anova(lm(time~pipeline, data = dataset_task1))
+ph <- dataset_task1 %>%
+ group_by(alpha) %>%
+ emmeans_test(time_adj ~ pipeline, p.adjust.method = "bonferroni") %>%
+  add_xy_position(x = "alpha")
 
+# Resultate in einen Boxplot übergeben
+ggboxplot(dataset_task1, x = "alpha", y = "time_adj", color = "pipeline") +
+  stat_pvalue_manual(ph) +
+  labs(subtitle = get_test_label
+       (anova_test(data = dataset_task1, time_adj~alpha*pipeline,
+                   effect.size = "pes"), detailed = TRUE))
 
+#### pairwise t-tests Task 2
+dataset_task2 %>%
+  group_by(alpha) %>%
+  pairwise_t_test(time_adj~pipeline, pool.sd = TRUE,
+  p.adjust.method = "bonferroni") %>%
+  as.data.frame()
+
+dataset_task2%>%
+  cohens_d(time_adj~alpha)%>%
+  as.data.frame()
+
+ph <- dataset_task2 %>%
+ group_by(alpha) %>%
+ emmeans_test(time_adj ~ pipeline, p.adjust.method = "bonferroni") %>%
+  add_xy_position(x = "alpha")
+
+# Resultate in einen Boxplot übergeben
+ggboxplot(dataset_task2, x = "alpha", y = "time_adj", color = "pipeline") +
+  stat_pvalue_manual(ph) +
+  labs(subtitle = get_test_label
+       (anova_test(data = dataset_task2, time_adj~alpha*pipeline,
+                   effect.size = "pes"), detailed = TRUE))
+
+#### pairwise t-tests Task 3
+dataset_task3 %>%
+  group_by(alpha) %>%
+  pairwise_t_test(time_adj~pipeline, pool.sd = TRUE,
+  p.adjust.method = "bonferroni") %>%
+  as.data.frame()
+
+dataset_task3%>%
+  cohens_d(time_adj~alpha)%>%
+  as.data.frame()
+
+ph <- dataset_task3 %>%
+ group_by(alpha) %>%
+ emmeans_test(time_adj ~ pipeline, p.adjust.method = "bonferroni") %>%
+  add_xy_position(x = "alpha")
+
+# Resultate in einen Boxplot übergeben
+ggboxplot(dataset_task3, x = "alpha", y = "time_adj", color = "pipeline") +
+  stat_pvalue_manual(ph) +
+  labs(subtitle = get_test_label
+       (anova_test(data = dataset_task3, time_adj~alpha*pipeline,
+                   effect.size = "pes"), detailed = TRUE))
+
+#### pairwise t-tests Task 4
+dataset_task4 %>%
+  group_by(alpha) %>%
+  pairwise_t_test(time_adj~pipeline, pool.sd = TRUE,
+  p.adjust.method = "bonferroni") %>%
+  as.data.frame()
+
+dataset_task4%>%
+  cohens_d(time_adj~alpha)%>%
+  as.data.frame()
+
+ph <- dataset_task4 %>%
+ group_by(alpha) %>%
+ emmeans_test(time_adj ~ pipeline, p.adjust.method = "bonferroni") %>%
+  add_xy_position(x = "alpha")
+
+# Resultate in einen Boxplot übergeben
+ggboxplot(dataset_task4, x = "alpha", y = "time_adj", color = "pipeline") +
+  stat_pvalue_manual(ph) +
+  labs(subtitle = get_test_label
+       (anova_test(data = dataset_task4, time_adj~alpha*pipeline,
+                   effect.size = "pes"), detailed = TRUE))
 
 ############################################
 ############################################
@@ -526,3 +705,4 @@ qqline(dataset_task1[-out,'value'])
 
 skewness(dataset_task1[-out,'value'])
 kurtosis(dataset_task1[-out,'value'])
+
