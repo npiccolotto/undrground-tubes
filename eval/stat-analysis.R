@@ -308,6 +308,13 @@ dataset_task3 %>%
  emmeans_test(time_adj ~ pipeline, p.adjust.method = "bonferroni") %>%
  as.data.frame()
 
+# Post-hoc-Analyse der ANOVAs aus B.
+
+ dataset_task3 %>%
+ group_by(pipeline) %>%
+ emmeans_test(time_adj ~ alpha, p.adjust.method = "bonferroni") %>%
+ as.data.frame()
+
 #### prepare plots for post hoc
 
 # Resultate speichern
