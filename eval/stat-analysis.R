@@ -1,4 +1,5 @@
 library(pwr)
+library(pwr2)
 library(MASS)
 library(ggplot2)
 library(car)
@@ -9,17 +10,8 @@ library(rstatix)
 library(emmeans)
 library(ggpubr)
 
-setwd('/Users/npiccolotto/Projects/cvast/bssvis/ensemble-set-rendering/eval/')
+setwd('/home/markus/PycharmProjects/ensemble-set-rendering/eval/')
 
-pwr.anova.test(
-  k = 7,
-  f = 0.25,
-  sig.level = 0.05,
-  power = 0.8
-)
-pwr.t.test(d = 0.75,
-           sig.level = 0.05,
-           power = 0.8)
 
 prepareDataset <- function(filename) {
   ## read survey data to dataset
@@ -30,11 +22,11 @@ prepareDataset <- function(filename) {
       sep = ",",
       dec = "."
     )
-  
+
   # split time and accuracy in separate datasets
   dataset_t <- subset(read_dataset, read_dataset$metric == "t")
   dataset_a <- subset(read_dataset, read_dataset$metric == "a")
-  
+
   # join time and accuracy
   dat <-
     join(dataset_t,
@@ -42,7 +34,7 @@ prepareDataset <- function(filename) {
          by = c('participant', 'task', 'alpha', 'pipeline'))
   # remove metric column
   dat <- dat[, c(-6, -8)]
-  
+
   # rename metric column
   colnames(dat)[2] <- "time"
   colnames(dat)[6] <- "f1.error"
@@ -63,7 +55,7 @@ plot_dist <- function(df,
       fill = "white"
     ) +
     geom_density(alpha = .2, fill = "#FF6666")  # Overlay with transparent density plot
-  
+
   # ggplot(df, aes_string(x=column)) +
   #   geom_histogram(aes(y=..density..),      # Histogram with density instead of count on y-axis
   #                 binwidth=binwidth,
@@ -71,6 +63,64 @@ plot_dist <- function(df,
   # geom_density(alpha=.2, fill="#FF6666")  # Overlay with transparent density plot
 }
 
+
+### Pre Study Analysis
+pilot <-
+    prepareDataset("pilot_long.csv")
+
+pilot_task1 <- subset(pilot, pilot$task == "1")
+pilot_task2 <- subset(pilot, pilot$task == "2")
+pilot_task3 <- subset(pilot, pilot$task == "3")
+pilot_task4 <- subset(pilot, pilot$task == "4")
+
+describeBy(pilot_task1$time, group = pilot_task1$alpha)
+
+pilot_task1 %>%
+  cohens_d(time ~ alpha) %>%
+  as.data.frame()
+
+describeBy(pilot_task2$time, group = pilot_task2$alpha)
+
+pilot_task2 %>%
+  cohens_d(time ~ alpha) %>%
+  as.data.frame()
+
+describeBy(pilot_task3$time, group = pilot_task3$alpha)
+
+pilot_task3 %>%
+  cohens_d(time ~ alpha) %>%
+  as.data.frame()
+
+describeBy(pilot_task4$time, group = pilot_task4$alpha)
+
+pilot_task4 %>%
+  cohens_d(time ~ alpha) %>%
+  as.data.frame()
+
+
+## Power Analysis
+ss.2way(
+  a=3,
+  b=2,
+  alpha=0.05,
+  f.A = 0.4,
+  f.B = 0.2,
+  beta=0.2,
+  B = 100
+)
+
+pwr.2way(
+  a=3,
+  b=2,
+  alpha=.05,
+  size.A=49,
+  size.B=49,
+  f.A=.4,
+  f.B=.2
+)
+
+
+## Main Study Analysis
 dataset <- prepareDataset("survey_long.csv")
 
 dataset_task1 <- subset(dataset, dataset$task == "1")
