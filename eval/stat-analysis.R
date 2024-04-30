@@ -99,6 +99,9 @@ pilot_task4 %>%
 
 
 ## Power Analysis
+### Details to Power Analysis:
+### https://www.thomascurran.co.uk/courses/pb230/mt3/
+### https://aaroncaldwell.us/SuperpowerBook/introduction-to-power-analysis.html#effect-size
 ss.2way(
   a=3,
   b=2,
