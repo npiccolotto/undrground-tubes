@@ -1,6 +1,10 @@
 # UnDRground Tubes
 
-This is the repository of **UnDRground Tubes**, a visualization technique combining ideas from set visualization and multidimensional projections. The technique is covered in two papers:
+This is the repository of **UnDRground Tubes**, a visualization technique combining ideas from set visualization and multidimensional projections.
+
+![Teaser](teaser.png)
+
+The technique is covered in two papers:
 
 1. Nikolaus Piccolotto, Markus Wallinger, Silvia Miksch, and Markus Bögl: _UnDRground Tubes: Exploring Spatial Data With Multidimensional Projections and Set Visualization_. To appear in IEEE Transactions on Visualization and Computer Graphics. [preprint](https://osf.io/zgphx)
 2. Nikolaus Piccolotto, Markus Wallinger, Silvia Miksch, and Markus Bögl: _On Combined Visual Cluster and Set Analysis_. To appear in IEEE VIS 2024 Short Paper Proceedings. [preprint](https://osf.io/zx9s6)
